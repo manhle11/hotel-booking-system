@@ -10,7 +10,6 @@ on:
       - 'hotel-booking/**'
       - 'docs/knowledge-base/**'
       - '.github/workflows/**'
-      - 'deploy/vps/**'
   push:
     branches:
       - develop

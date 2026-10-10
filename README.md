@@ -10,9 +10,22 @@ administration.
 
 The project is currently under active development.
 
-The repository already contains the initial frontend and backend
-structure. Core hotel business modules will be implemented
-incrementally through Jira tasks.
+The repository currently has no production deployment workflow or VPS-specific
+configuration. Deployment will be designed again when the project reaches its
+final stage; the checked-in containers are for local development and verification.
+
+The current two-member team maintains and extends a codebase inherited from an
+earlier five-member project. The inherited code is not presented as a rewrite by
+the current team. See [Project provenance](docs/provenance.md) for ownership and
+legacy-document details.
+
+## Current team
+
+- Lê Trần Hữu Mạnh — Backend and AI.
+- Hoàng Thị Ánh Nguyệt — Frontend.
+
+Historical author names remain in legacy artifacts for attribution; they do not
+describe current project ownership.
 
 ## Technology stack
 
@@ -70,6 +83,12 @@ docker compose up -d
 docker compose ps
 ```
 
+Never commit `.env`, `client/.env.local`,
+`hotel-booking/src/main/resources/application-local.yml`, credentials, tokens or
+real customer data. The tracked environment and HTTP files contain only empty
+secret fields or explicit local/example values. See
+[Security review](docs/security-review.md) for the repository baseline.
+
 The packaged application is available at:
 
 - Frontend: `http://localhost:5173`
@@ -77,7 +96,7 @@ The packaged application is available at:
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - pgAdmin: `http://localhost:5050`
 
-The frontend image serves the Vite production bundle through Nginx. Nginx proxies
+The frontend image serves the compiled Vite bundle through local Nginx. Nginx proxies
 `/api` and `/actuator` to the backend container, including unbuffered SSE responses
 for the AI assistant.
 
@@ -87,5 +106,5 @@ Stop the stack without deleting persisted database data:
 docker compose down
 ```
 
-Do not use `docker compose down --volumes` unless the PostgreSQL and Redis data may
-be permanently discarded.
+Do not use `docker compose down --volumes` unless the PostgreSQL, Redis, MinIO and
+pgAdmin data may be permanently discarded.

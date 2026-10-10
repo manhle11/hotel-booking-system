@@ -104,39 +104,19 @@ Các type commit thông dụng là `feat`, `fix`, `refactor`, `test`, `docs`, `c
 
 ## 5. Cách chạy project (Monorepo & Docker)
 
-Dự án hiện đang vận hành trong môi trường Monorepo và sử dụng tính năng Spring Boot Docker Compose support. File cấu hình Docker docker-compose.yml (stack hanbay-hotel) và file .env được đặt ở thư mục gốc.
+Full local stack được định nghĩa trong `docker-compose.yml` ở thư mục gốc.
+Chuẩn bị `.env` từ template, điền các giá trị bắt buộc rồi chạy:
 
-Nhờ tính năng này, Spring Boot sẽ tự động đọc cấu hình docker-compose.yml, khởi tạo PostgreSQL và chạy Flyway migration mỗi khi ứng dụng khởi động. Team không cần phải khởi chạy Docker Compose thủ công trước.
+```bash
+cp .env.example .env
+docker compose build backend frontend
+docker compose up -d
+docker compose ps
+```
 
-### Thiết lập Run/Debug Configuration (Quản lý nhiều Profiles)
-
-Để khởi động ứng dụng và dễ dàng chuyển đổi giữa các môi trường (ví dụ: dev, local, test), team thực hiện thiết lập trực tiếp trên IDE:
-
-1. Trên thanh công cụ (Toolbar) ở góc trên bên phải `IntelliJ`, click vào dropdown chọn cấu hình chạy và chọn `Edit Configurations....`
-2. Nhấn nút `+ (Add New Configuration)` góc trên bên trái và chọn Spring Boot.
-3. Cấu hình các thông số cơ bản:
-   - Name: Đặt tên cấu hình theo profile (ví dụ: HotelBooking - DEV).
-   - Main class: Chỉ định class com.hanbay.hotel.HanbayHotelApplication.
-   - Active profiles: Điền tên profile bạn muốn kích hoạt (ví dụ: dev).
-4. Nhấn Apply và OK.
-5. Bây giờ, bạn chỉ cần chọn cấu hình này và nhấn nút Run (Shift + F10) hoặc Debug (Shift + F9). IDE và Spring Boot sẽ tự động lo toàn bộ vòng đời của các Docker container đi kèm.
-
-Mặc định API sẽ chạy tại http://localhost:8080 và health check tại http://localhost:8080/actuator/health.
-
-### Chạy với cơ sở dữ liệu có sẵn (Sử dụng Environment Variables)
-
-Nếu bạn không muốn sử dụng các container mặc định từ Docker Compose mà muốn trỏ ứng dụng tới một database có sẵn bên ngoài thông qua biến môi trường:
-
-1. Mở lại `Edit Configurations...` và chọn cấu hình Spring Boot của bạn.
-2. Tìm đến trường `Environment variables` (nếu không hiển thị sẵn, hãy click vào `Modify options` > tích chọn `Environment variables`).
-3. Click vào icon thư mục ở cuối ô nhập liệu và thêm các biến môi trường sau để ghi đè cấu hình mặc định:
-   - DB_URL = jdbc:postgresql://localhost:5432/hanbay_hotel
-   - DB_USERNAME = postgres
-   - DB_PASSWORD = postgres
-4. Nhấn `OK` để lưu lại. Khi chạy cấu hình này, Spring Boot sẽ ưu tiên sử dụng thông tin kết nối từ biến môi trường.
-
-Lưu ý bảo mật:
-Tuyệt đối không commit file `.env`, mật khẩu thật, hoặc file cấu hình IDE (`.idea/runConfigurations/`) có chứa credentials tĩnh lên repository của dự án.
+Không commit `.env`, mật khẩu thật hoặc file IDE có chứa credential.
+Hướng dẫn local, build và test đầy đủ nằm trong
+`docs/10-deployment-guide.md`.
 
 ## 6. Cách chạy test
 

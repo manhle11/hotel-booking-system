@@ -198,7 +198,8 @@ BR-06 Giá phòng được tính theo từng đêm.
 - PostgreSQL Database.
 - Docker Deployment.
 - Thời gian phát triển: 11 tuần.
-- Nhóm phát triển: 5 thành viên.
+- Bối cảnh kế thừa: SRS ban đầu được xây dựng cho nhóm 5 thành viên.
+- Nhóm duy trì hiện tại: 2 thành viên; xem `docs/provenance.md` để biết ownership và nguồn gốc.
 
 ---
 

@@ -46,18 +46,3 @@ API danh sách yêu cầu hoàn trả thêm `bankName`, `accountHolderName`, `ac
 từ thông tin khách đã cung cấp. UI hiển thị trong danh sách và hộp xác nhận, giữ số 0
 đầu tài khoản. Yêu cầu cũ hoặc hoàn tiền tự động chưa có người nhận sẽ cảnh báo cần
 liên hệ xác minh. Chỉ xác nhận đã hoàn sau khi chuyển tiền thực sự và có mã giao dịch.
-
-## Xác minh production 2026-09-08
-
-Release `finance-20260908`, database đã sao lưu tại
-`/opt/hotelapp/backups/20260908T074818Z/database.dump` trước migration.
-Backend `verify`: 607 test qua. Frontend: 230 test qua trong lượt chạy toàn bộ;
-test mới về ngân hàng hoàn tiền qua khi chạy lại sau khi bổ sung mock ResizeObserver
-(231 test được xác minh tổng cộng). Lint, formatting và build qua.
-
-Đã kiểm tra qua HTTPS: nhập chi phí khi đủ trạng thái; từ chối revision cũ;
-lưu hai phiên bản điều chỉnh; báo thiếu chi phí; đối chiếu số dư với Dashboard.
-Trình duyệt thật: đăng nhập Manager, Dashboard mới, cột tài khoản hoàn tiền và
-form nhập chi phí lưu đúng số tiền. Đã xóa tài khoản, dữ liệu kiểm thử và thu hồi token.
-MinIO Console nội bộ trả HTTP 200; DNS `minio.phuocanh.me` trỏ `163.61.183.153`.
-Việc cấp TLS và bật virtual host ngoài cùng cần chạy script bằng sudo trên VPS.

@@ -4,7 +4,7 @@ Smart Hotel Reservation & Property Management System (PMS).
 
 Hệ thống số hóa toàn bộ quy trình vận hành khách sạn: tìm phòng, đặt phòng trực tuyến, thanh toán, check-in/check-out, housekeeping, dynamic pricing và trợ lý AI.
 
-> Tài liệu chi tiết về nghiệp vụ, kiến trúc, database, API... xem tại thư mục [`/docs`](./docs).
+> Tài liệu chi tiết về nghiệp vụ, kiến trúc, database, API... xem tại thư mục [`/docs`](../docs).
 
 ---
 
@@ -62,7 +62,7 @@ com.hanbay.hotel
 
 Mỗi module gồm: `controller`, `service`, `repository`, `entity`, `dto`, `mapper`, `exception`.
 
-Chi tiết quy ước đặt tên, REST convention, response format, exception handling: xem [`docs/12-coding-convention.md`](./docs/12-coding-convention.md).
+Chi tiết quy ước đặt tên, REST convention, response format, exception handling: xem [`docs/12-coding-convention.md`](../docs/12-coding-convention.md).
 
 ---
 
@@ -70,10 +70,13 @@ Chi tiết quy ước đặt tên, REST convention, response format, exception h
 
 ### 4.1. Chạy bằng Docker Compose (khuyến nghị)
 
-Dự án sử dụng Spring Boot Docker Compose support — Spring Boot tự động khởi tạo PostgreSQL và chạy Flyway migration khi ứng dụng khởi động, không cần chạy `docker compose up` thủ công.
+Từ thư mục gốc của repository, tạo cấu hình local và khởi động
+full stack:
 
 ```bash
-./mvnw spring-boot:run
+cp .env.example .env
+docker compose build backend frontend
+docker compose up -d
 ```
 
 Kiểm tra container:
@@ -88,23 +91,19 @@ Dừng service:
 docker compose down
 ```
 
-### 4.2. Chạy local trỏ tới database có sẵn
+### 4.2. Chạy backend và hạ tầng local, không chạy frontend container
 
-Thiết lập biến môi trường (qua IDE Run Configuration hoặc export trực tiếp):
-
-```env
-DB_URL=jdbc:postgresql://localhost:5432/hanbay_hotel
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-```
-
-Sau đó chạy:
+Từ thư mục gốc:
 
 ```bash
-./mvnw spring-boot:run
+docker compose up -d postgres redis minio backend
 ```
 
-Ứng dụng mặc định chạy tại `http://localhost:8080`, health check tại `http://localhost:8080/actuator/health`.
+Cách này phù hợp khi chạy frontend bằng Vite. Backend mặc định chạy tại
+`http://localhost:8080`, health check tại
+`http://localhost:8080/actuator/health`.
+
+Xem [`docs/10-deployment-guide.md`](../docs/10-deployment-guide.md) để biết đầy đủ lệnh local, build và test.
 
 ---
 
@@ -140,7 +139,7 @@ Base URL của API:
 /api/v1
 ```
 
-Chi tiết đặc tả API: [`docs/06-api-specification.md`](./docs/06-api-specification.md)
+Chi tiết đặc tả API: [`docs/06-api-specification.md`](../docs/06-api-specification.md)
 
 ---
 
@@ -171,7 +170,7 @@ Chạy đầy đủ pipeline giống CI trước khi tạo PR:
 ./mvnw --batch-mode clean verify
 ```
 
-Chiến lược test chi tiết (Unit / Integration / API / Coverage target): xem [`docs/11-testing-strategy.md`](./docs/11-testing-strategy.md).
+Chiến lược test chi tiết (Unit / Integration / API / Coverage target): xem [`docs/11-testing-strategy.md`](../docs/11-testing-strategy.md).
 
 ---
 
@@ -184,13 +183,13 @@ Chiến lược test chi tiết (Unit / Integration / API / Coverage target): xe
 - **Dynamic Pricing**: tính giá theo từng đêm dựa trên lịch giá (cuối tuần, ngày lễ).
 - **AI Assistant**: hỗ trợ gợi ý hạng phòng và trả lời chính sách khách sạn (không tự tạo booking, không xử lý thanh toán).
 
-Chi tiết: [`docs/08-concurrency-design.md`](./docs/08-concurrency-design.md), [`docs/09-ai-integration.md`](./docs/09-ai-integration.md).
+Chi tiết: [`docs/08-concurrency-design.md`](../docs/08-concurrency-design.md), [`docs/09-ai-integration.md`](../docs/09-ai-integration.md).
 
 ---
 
 ## 9. Đóng góp
 
-Vui lòng đọc [`CONTRIBUTING.md`](./CONTRIBUTING.md) trước khi tạo Pull Request — bao gồm quy ước branch, commit, Flyway migration và checklist review.
+Vui lòng đọc [`CONTRIBUTING.md`](../CONTRIBUTING.md) trước khi tạo Pull Request — bao gồm quy ước branch, commit, Flyway migration và checklist review.
 
 ---
 
@@ -207,7 +206,7 @@ Vui lòng đọc [`CONTRIBUTING.md`](./CONTRIBUTING.md) trước khi tạo Pull 
 | `07-business-workflows.md` | Luồng nghiệp vụ |
 | `08-concurrency-design.md` | Thiết kế concurrency |
 | `09-ai-integration.md` | Tích hợp AI |
-| `10-deployment-guide.md` | Hướng dẫn triển khai |
+| `10-deployment-guide.md` | Hướng dẫn phát triển local |
 | `11-testing-strategy.md` | Chiến lược test |
 | `12-coding-convention.md` | Quy ước code |
 | `13-git-workflow.md` | Quy trình Git |

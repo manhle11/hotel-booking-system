@@ -1,5 +1,9 @@
 # Kịch bản Sprint 2 Report — Trần Phước Anh
 
+> **LEGACY — tài liệu nhóm tiền nhiệm.** Tài liệu này được giữ lại để
+> bảo toàn nguồn gốc, tác giả và bối cảnh Sprint 2. Tên và vai trò bên dưới
+> không phản ánh nhóm duy trì hiện tại; xem `docs/provenance.md`.
+
 > Vai trò trong buổi báo cáo: Team Leader và người phụ trách U023, U026, U031
 >
 > Sprint: 17/08/2026–31/08/2026

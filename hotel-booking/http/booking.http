@@ -16,9 +16,9 @@ Content-Type: application/json
   "children": 0,
   "guestInfo": {
     "fullName": "Nguyen Van A",
-    "email": "guest@gmail.com",
-    "phone": "0901234567",
-    "identityNumber": "012345678901"
+    "email": "guest@example.com",
+    "phone": "0900000000",
+    "identityNumber": "000000000000"
   },
   "addOns": []
 }
@@ -59,8 +59,8 @@ Content-Type: application/json
   "children": 0,
   "guestInfo": {
     "fullName": "Nguyen Van A",
-    "email": "guest@gmail.com",
-    "identityNumber": "012345678901"
+    "email": "guest@example.com",
+    "identityNumber": "000000000000"
   },
   "addOns": []
 }
@@ -77,8 +77,8 @@ Content-Type: application/json
   "children": 99,
   "guestInfo": {
     "fullName": "Nguyen Van A",
-    "email": "guest@gmail.com",
-    "identityNumber": "012345678901"
+    "email": "guest@example.com",
+    "identityNumber": "000000000000"
   },
   "addOns": []
 }

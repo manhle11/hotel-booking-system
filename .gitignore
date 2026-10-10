@@ -1,8 +1,10 @@
 .env
+.env.local
+.env.*.local
 .idea/
 .DS_Store
 **/.DS_Store
 
-/deploy/vps/.env
+**/http-client.private.env.json
 
 __pycache__/

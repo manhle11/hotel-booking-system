@@ -22,6 +22,6 @@ public class OpenApiConfig {
                         .title("API ĐẶT PHÒNG KHÁCH SẠN")
                         .description("REST API cho hệ thống đặt phòng khách sạn")
                         .version("v1.0.0")
-                        .contact(new Contact().name("Group 5").email("anhtp117@gmail.com")));
+                        .contact(new Contact().name("HANBAY Hotel maintainers")));
     }
 }

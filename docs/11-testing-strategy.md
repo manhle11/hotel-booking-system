@@ -1032,7 +1032,7 @@ INSERT INTO user_roles (user_id, role_id)
 SELECT u.id, r.id
 FROM users u
 JOIN roles r ON r.code = 'RECEPTIONIST'
-WHERE lower(u.email) = 'reception@gmail.com'
+WHERE lower(u.email) = 'reception.demo@example.com'
 ON CONFLICT DO NOTHING;
 ```
 
@@ -1076,7 +1076,7 @@ WHERE b.booking_code = 'BK20260824000601';
 ## Kiểm thử thủ công frontend-backend
 
 1. Chạy backend ở port `8080` và frontend Vite ở `http://localhost:5173`.
-2. Đăng nhập bằng tài khoản `reception@gmail.com` đã có role `RECEPTIONIST`.
+2. Đăng nhập bằng tài khoản fixture `reception.demo@example.com` đã có role `RECEPTIONIST`.
 3. Mở `/front-desk/departures/today` và xác nhận booking demo xuất hiện trong danh sách.
 4. Bấm **Trả phòng**, kiểm tra modal hiển thị đúng mã booking, tên khách, tổng tiền,
    đã thanh toán, còn phải thu, phí phát sinh, tổng sau kiểm tra và còn phải thu sau điều chỉnh.

@@ -12,7 +12,6 @@ on:
     paths:
       - 'client/**'
       - '.github/workflows/**'
-      - 'deploy/vps/**'
 
 permissions:
   contents: read

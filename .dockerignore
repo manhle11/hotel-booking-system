@@ -15,4 +15,3 @@ docs/knowledge-base/target
 **/.env.*
 !**/.env.example
 !client/.env.production
-deploy

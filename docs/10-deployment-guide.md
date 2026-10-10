@@ -1,141 +1,122 @@
-# 10. Deployment Guide
+# 10. Local Development Guide
 
-# HANBAY HOTEL
-## Deployment Guide
+Tài liệu này chỉ mô tả cách build, kiểm thử và chạy HANBAY HOTEL
+trên máy phát triển. Repository hiện không chứa quy trình triển khai
+production; quy trình đó sẽ được thiết kế lại khi dự án sẵn sàng.
 
----
+## 1. Yêu cầu
 
-# 1. Prerequisites
+- Java 17.
+- Node.js 22 và npm.
+- Docker Engine và Docker Compose.
+- Git.
 
-Required tools:
-
-- Java 21
-- Node.js 20+
-- Docker
-- Docker Compose
-- PostgreSQL
-- Git
-
----
-
-# 2. Repository Structure
+## 2. Cấu trúc liên quan đến local
 
 ```text
-hanbay-hotel/
-├── hotel-booking/
-├── client/
-├── docs/
-├── docker/
-├── docker-compose.yml
+hotel-booking-system/
+├── hotel-booking/          # Spring Boot backend
+├── client/                 # React frontend
+├── docs/                   # Tài liệu và knowledge base
+├── .env.example            # Mẫu biến môi trường local
+├── docker-compose.yml      # Full local stack
 └── README.md
 ```
 
----
+Hai `Dockerfile` và `client/nginx.conf` được dùng bởi full local stack,
+không phải cấu hình VPS.
 
-# 3. Environment Variables
+## 3. Chuẩn bị biến môi trường
 
-hotel-booking `.env`:
-
-```env
-SERVER_PORT=8080
-DB_HOST=postgres
-DB_PORT=5432
-DB_NAME=hanbay_hotel
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-
-JWT_SECRET=<generate-a-unique-random-secret-of-at-least-32-characters>
-JWT_EXPIRATION=3600000
-
-AI_API_KEY=change_me
-PAYMENT_MODE=MOCK
-```
-
-Frontend `.env`:
-
-```env
-VITE_API_BASE_URL=http://localhost:8080/api/v1
-```
-
----
-
-# 4. Run with Docker Compose
+Từ thư mục gốc:
 
 ```bash
+cp .env.example .env
+```
+
+Điền các trường bắt buộc còn trống trong `.env`, đặc biệt là mật
+khẩu PostgreSQL/pgAdmin, JWT secret và mật khẩu admin local. Chỉ thêm
+API key của nhà cung cấp khi cần kiểm thử tính năng tương ứng.
+
+Không commit `.env`, `client/.env.local` hoặc
+`hotel-booking/src/main/resources/application-local.yml`.
+
+## 4. Chạy full local stack
+
+```bash
+docker compose build backend frontend
 docker compose up -d
-```
-
-Check services:
-
-```bash
 docker compose ps
 ```
 
-Stop services:
+Các endpoint local:
+
+- Frontend: `http://localhost:5173`.
+- Backend health: `http://localhost:8080/actuator/health`.
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`.
+- pgAdmin: `http://localhost:5050`.
+- MinIO API/Console: `http://localhost:9000` / `http://localhost:9001`.
+
+Flyway tự chạy khi backend khởi động. Migration nằm trong
+`hotel-booking/src/main/resources/db/migration`.
+
+Dừng stack mà không xóa dữ liệu local:
 
 ```bash
 docker compose down
 ```
 
----
+Chỉ dùng `docker compose down --volumes` khi chấp nhận xóa toàn bộ dữ
+liệu PostgreSQL, Redis, MinIO và pgAdmin trên máy local.
 
-# 5. Backend Local Run
+## 5. Phát triển frontend với Vite
 
-```bash
-cd hotel-booking
-./mvnw spring-boot:run
-```
-
----
-
-# 6. Frontend Local Run
+Có thể chạy backend và hạ tầng bằng container, sau đó thay frontend
+container bằng Vite:
 
 ```bash
+docker compose up -d postgres redis minio backend
 cd client
-npm install
+npm ci
 npm run dev
 ```
 
----
+`client/.env.development` cấu hình base URL cho môi trường phát triển.
 
-# 7. Database Migration
+## 6. Build và kiểm thử backend
 
-Flyway runs automatically when backend starts.
-
-Migration path:
-
-```text
-hotel-booking/src/main/resources/db/migration```
-
----
-
-# 8. Swagger
-
-```text
-http://localhost:8080/swagger-ui/index.html
+```bash
+cd hotel-booking
+./mvnw --batch-mode clean verify
 ```
 
----
+Kiểm tra format riêng:
 
-# 9. Production Deployment
-
-Recommended:
-
-```text
-Nginx
-Frontend static files
-Backend Spring Boot container
-PostgreSQL container or managed DB
+```bash
+./mvnw spotless:check
 ```
 
----
+Backend CI chạy cùng Maven verify với PostgreSQL 17 dành riêng cho test.
 
-# 10. Deployment Checklist
+## 7. Build và kiểm thử frontend
 
-- Environment variables configured
-- Database migrations completed
-- Backend health check passed
-- Frontend connected to API
-- Swagger accessible
-- Payment mode tested
-- AI key configured
+```bash
+cd client
+npm ci
+npm run format:check
+npm run lint
+npm run test:run
+npm run build
+```
+
+## 8. Cấu hình dịch vụ
+
+- PostgreSQL, Redis, MinIO và pgAdmin trong `docker-compose.yml` chỉ phục vụ
+  môi trường local.
+- Email và AI dùng biến môi trường; có thể để trống credential
+  nếu không kiểm thử tích hợp tương ứng.
+- Webhook SePay dùng local/example key. Không được dùng credential thật
+  trong file `.http` hoặc file được Git theo dõi.
+- `application-prod.yml` hiện được backend container trong local Compose
+  sử dụng. Không xóa hoặc đổi tên file này nếu chưa thay profile của
+  local stack.
