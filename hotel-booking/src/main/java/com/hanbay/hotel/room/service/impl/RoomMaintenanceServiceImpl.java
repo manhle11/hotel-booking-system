@@ -1,0 +1,48 @@
+package com.hanbay.hotel.room.service.impl;
+
+import com.hanbay.hotel.common.exception.RequestValidationException;
+import com.hanbay.hotel.maintenance.domain.MaintenanceRequestStatus;
+import com.hanbay.hotel.maintenance.repository.MaintenanceRequestRepository;
+import com.hanbay.hotel.room.domain.Room;
+import com.hanbay.hotel.room.domain.RoomMaintenanceAction;
+import com.hanbay.hotel.room.dto.response.RoomMaintenanceResponse;
+import com.hanbay.hotel.room.exception.RoomNotFoundException;
+import com.hanbay.hotel.room.exception.RoomStateConflictException;
+import com.hanbay.hotel.room.repository.RoomRepository;
+import com.hanbay.hotel.room.service.RoomMaintenanceService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class RoomMaintenanceServiceImpl implements RoomMaintenanceService {
+
+    private final RoomRepository roomRepository;
+    private final MaintenanceRequestRepository maintenanceRequestRepository;
+
+    @Override
+    @Transactional
+    public RoomMaintenanceResponse changeMaintenanceStatus(String roomNumber, RoomMaintenanceAction action) {
+        if (action == null || action == RoomMaintenanceAction.UNKNOWN) {
+            throw new RequestValidationException("action", "Hành động bảo trì không hợp lệ");
+        }
+        String normalizedRoomNumber = roomNumber == null ? "" : roomNumber.trim();
+        if (normalizedRoomNumber.isEmpty() || normalizedRoomNumber.length() > 30) {
+            throw new RequestValidationException("roomNumber", "Số phòng phải có từ 1 đến 30 ký tự");
+        }
+        Room room = roomRepository
+                .findByRoomNumberForUpdate(normalizedRoomNumber)
+                .orElseThrow(() -> new RoomNotFoundException("Không tìm thấy phòng " + normalizedRoomNumber));
+
+        if (maintenanceRequestRepository.existsByRoomIdAndStatusNot(room.getId(), MaintenanceRequestStatus.COMPLETED)) {
+            throw RoomStateConflictException.activeMaintenanceRequest();
+        }
+        if (action == RoomMaintenanceAction.START_MAINTENANCE) {
+            room.startMaintenance();
+        } else {
+            room.endMaintenance();
+        }
+        return new RoomMaintenanceResponse(room.getId(), room.getRoomNumber(), room.getStatus());
+    }
+}

@@ -81,7 +81,7 @@ springdoc:
     path: /swagger-ui
   api-docs:
     path: /v3/api-docs
-  packages-to-scan: com.tpanh.hotel
+  packages-to-scan: com.hanbay.hotel
 
 api:
   prefix: /api/v1
