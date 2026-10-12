@@ -1,0 +1,105 @@
+name: Phase 5 work item
+description: Audit, fix, test, secure, refactor, integrate or improve an existing capability
+title: "[P5] "
+labels:
+  - phase:5
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Chỉ tạo công việc mới trên nền chức năng đã tồn tại. Không dùng mẫu này để ghi nhận lại việc triển khai cũ như một tính năng mới.
+
+  - type: dropdown
+    id: epic
+    attributes:
+      label: Epic
+      options:
+        - Authentication
+        - User Profile
+        - Room/Pricing
+        - Booking
+        - Payment
+        - Operations
+        - Reporting
+        - AI
+        - Quality
+        - Demo
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-state
+    attributes:
+      label: Hiện trạng
+      description: Nêu code/test đã có, khoảng trống và đường dẫn làm bằng chứng.
+      placeholder: Chức năng đã tồn tại tại... Hiện còn thiếu...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-change
+    attributes:
+      label: Thay đổi dự kiến
+      description: Mô tả phạm vi sửa lỗi, bổ sung test, bảo mật, refactor, tích hợp hoặc cải tiến.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Dùng checklist Markdown và tiêu chí có thể kiểm chứng.
+      placeholder: |
+        - [ ] Tiêu chí 1
+        - [ ] Tiêu chí 2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Người phụ trách
+      options:
+        - Lê Trần Hữu Mạnh — Backend/AI
+        - Hoàng Thị Ánh Nguyệt — Frontend
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Backend/frontend dependency
+      description: Ghi issue/API contract phụ thuộc; ghi “Không có” nếu độc lập.
+    validations:
+      required: true
+
+  - type: textarea
+    id: test-evidence
+    attributes:
+      label: Test evidence
+      description: Ghi lệnh test, kết quả, ảnh/video hoặc CI run; không ghi test bị skip là pass.
+      placeholder: |
+        Before: ...
+        Required: ...
+        After: Chưa có — cập nhật trong PR.
+    validations:
+      required: true
+
+  - type: input
+    id: pull-request
+    attributes:
+      label: Pull Request
+      description: Dán URL PR hoặc ghi “Chưa có”; PR phải chứa Closes #issue.
+      placeholder: Chưa có
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Checklist
+      options:
+        - label: Tôi đã kiểm tra đây không phải issue triển khai lại chức năng đã có.
+          required: true
+        - label: Issue không chứa secret, token, dữ liệu khách thật hoặc hạ tầng riêng.
+          required: true

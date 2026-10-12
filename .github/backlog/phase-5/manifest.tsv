@@ -1,0 +1,21 @@
+# id	file	assignee_role	workflow	labels
+P5-01	P5-01-auth-backend.md	backend	Ready	phase:5,epic:authentication,area:backend,type:security,priority:P0
+P5-02	P5-02-auth-frontend.md	frontend	Ready	phase:5,epic:authentication,area:frontend,type:security,priority:P0
+P5-03	P5-03-user-backend.md	backend	Ready	phase:5,epic:user-profile,area:backend,type:test,priority:P1
+P5-04	P5-04-user-frontend.md	frontend	Backlog	phase:5,epic:user-profile,area:frontend,type:enhancement,priority:P1
+P5-05	P5-05-room-pricing-backend.md	backend	Ready	phase:5,epic:room-pricing,area:backend,type:concurrency,priority:P0
+P5-06	P5-06-room-pricing-frontend.md	frontend	Backlog	phase:5,epic:room-pricing,area:frontend,type:enhancement,priority:P1
+P5-07	P5-07-booking-backend.md	backend	Ready	phase:5,epic:booking,area:backend,type:concurrency,priority:P0
+P5-08	P5-08-booking-frontend.md	frontend	Backlog	phase:5,epic:booking,area:frontend,type:enhancement,priority:P0
+P5-09	P5-09-payment-backend.md	backend	Backlog	phase:5,epic:payment,area:backend,type:security,priority:P0
+P5-10	P5-10-payment-frontend.md	frontend	Backlog	phase:5,epic:payment,area:frontend,type:enhancement,priority:P1
+P5-11	P5-11-operations-backend.md	backend	Backlog	phase:5,epic:operations,area:backend,type:integration,priority:P0
+P5-12	P5-12-operations-frontend.md	frontend	Backlog	phase:5,epic:operations,area:frontend,type:integration,priority:P1
+P5-13	P5-13-reporting-backend.md	backend	Ready	phase:5,epic:reporting,area:backend,type:performance,priority:P1
+P5-14	P5-14-reporting-frontend.md	frontend	Backlog	phase:5,epic:reporting,area:frontend,type:enhancement,priority:P1
+P5-15	P5-15-ai-backend.md	backend	Ready	phase:5,epic:ai,area:backend,type:security,priority:P0
+P5-16	P5-16-ai-frontend.md	frontend	Backlog	phase:5,epic:ai,area:frontend,type:test,priority:P1
+P5-17	P5-17-quality-backend.md	backend	Ready	phase:5,epic:quality,area:backend,type:test,priority:P1
+P5-18	P5-18-quality-frontend.md	frontend	Ready	phase:5,epic:quality,area:frontend,type:test,priority:P0
+P5-19	P5-19-demo-backend.md	backend	Ready	phase:5,epic:demo,area:backend,type:refactor,priority:P1
+P5-20	P5-20-demo-frontend.md	frontend	Backlog	phase:5,epic:demo,area:frontend,type:enhancement,priority:P1
