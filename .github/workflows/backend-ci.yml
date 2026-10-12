@@ -4,25 +4,17 @@ on:
   workflow_call:
   pull_request:
     branches:
-      - develop
       - main
-    paths:
-      - 'hotel-booking/**'
-      - 'docs/knowledge-base/**'
-      - '.github/workflows/**'
   push:
     branches:
-      - develop
-    paths:
-      - 'hotel-booking/**'
-      - 'docs/knowledge-base/**'
-      - '.github/workflows/**'
+      - main
 
 permissions:
   contents: read
 
 jobs:
   verify:
+    name: Backend CI
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

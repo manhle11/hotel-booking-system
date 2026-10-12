@@ -1,6 +1,6 @@
 # Hướng dẫn đóng góp
 
-Tài liệu này mô tả quy trình đóng góp code cho HANBAY HOTEL. Mọi thay đổi nên gắn với một Jira issue và được đưa vào `develop` thông qua pull request (PR).
+Tài liệu này mô tả quy trình đóng góp code cho HANBAY HOTEL. Mọi thay đổi nên gắn với một Jira issue và được đưa vào `main` thông qua pull request (PR).
 
 ## 1. Yêu cầu môi trường
 
@@ -21,22 +21,22 @@ Trên Windows, thay `./mvnw` bằng `mvnw.cmd` trong các lệnh bên dưới.
 
 ## 2. Cách tạo branch và Bắt đầu Task (Jira Sync)
 
-Luôn tạo branch mới từ phiên bản mới nhất của `develop`:
+Luôn tạo branch mới từ phiên bản mới nhất của `main`:
 
 ```bash
-git switch develop
-git pull --rebase origin develop
-git switch -c feature/HAN-123-add-room-search
+git switch main
+git pull --rebase origin main
+git switch -c feat/HAN-123-add-room-search
 ```
 
 Kích hoạt Jira Smart Commits: Ngay sau khi tạo branch, bạn cần tạo một commit rỗng đầu tiên và đẩy lên Remote để Jira tự động nhận diện nhánh và cập nhật trạng thái thẻ:
 
 ```bash
 git commit --allow-empty -m "HAN-123: Initialize task"
-git push -u origin feature/HAN-123-add-room-search
+git push -u origin feat/HAN-123-add-room-search
 ```
 
-Không commit trực tiếp vào `develop` hoặc `main`. Mỗi branch chỉ nên xử lý một issue hoặc một thay đổi có phạm vi rõ ràng.
+Không commit trực tiếp vào `main`. Mỗi branch chỉ nên xử lý một issue hoặc một thay đổi có phạm vi rõ ràng.
 
 ## 3. Cách đặt tên branch
 
@@ -57,13 +57,13 @@ Các `type` được sử dụng:
 
 | Type | Khi sử dụng | Ví dụ |
 | --- | --- | --- |
-| `feature` | Thêm chức năng | `feature/HAN-123-add-room-search` |
+| `feat` | Thêm chức năng | `feat/HAN-123-add-room-search` |
 | `fix` | Sửa lỗi | `fix/HAN-245-prevent-double-booking` |
-| `refactor` | Cải tổ code, không đổi hành vi | `refactor/HAN-310-simplify-price-calculation` |
 | `test` | Thêm hoặc sửa test | `test/HAN-188-add-booking-service-tests` |
 | `docs` | Chỉ thay đổi tài liệu | `docs/HAN-401-update-api-guide` |
 | `chore` | Cấu hình, dependency hoặc công việc bảo trì | `chore/HAN-220-upgrade-postgresql-driver` |
-| `hotfix` | Sửa lỗi production khẩn cấp | `hotfix/HAN-999-fix-payment-timeout` |
+
+Không tạo `develop`, `feature/*`, `bugfix/*`, `refactor/*` hoặc `hotfix/*`. Chọn một trong năm prefix trên theo mục đích chính của thay đổi.
 
 ## 4. Cách viết commit và Quản lý lịch sử (Amend)
 
@@ -74,7 +74,7 @@ Khi cần lưu code, thực hiện:
 ```bash
 git add .
 git commit --amend --no-edit
-git push origin <tên-branch> --force
+git push origin <tên-branch> --force-with-lease
 ```
 
 Nếu bạn cần sửa đổi thông điệp commit (thường làm trước khi tạo PR), sử dụng Conventional Commits với Jira key:
@@ -181,7 +181,7 @@ V202607151115__add_status_to_bookings.sql
 
 Quy trình:
 
-1. Đồng bộ `develop` trước khi chọn version để tránh trùng migration.
+1. Đồng bộ `main` trước khi chọn version để tránh trùng migration.
 2. Tạo file SQL mới trong `src/main/resources/db/migration/`.
 3. Viết migration tương thích với PostgreSQL và đặt tên object rõ nghĩa.
 4. Chạy project hoặc integration test trên database sạch để kiểm tra toàn bộ chuỗi migration.
@@ -195,12 +195,12 @@ Trước khi tạo PR:
 
 ```bash
 git fetch origin
-git rebase origin/develop
+git rebase origin/main
 ./mvnw --batch-mode clean verify
-git push -u origin feature/HAN-123-add-room-search
+git push -u origin feat/HAN-123-add-room-search
 ```
 
-Sau đó tạo PR với base branch là `develop` và:
+Sau đó tạo PR với base branch là `main` và:
 
 - Tiêu đề theo định dạng `[HAN-123] Add room search`.
 - Điền đầy đủ `.github/pull_request_template.md`.
@@ -209,9 +209,9 @@ Sau đó tạo PR với base branch là `develop` và:
 - Đính kèm request/response mẫu hoặc ảnh nếu giúp reviewer xác minh thay đổi.
 - Chỉ định ít nhất một reviewer phù hợp.
 - Đảm bảo PR có phạm vi nhỏ, không trộn refactor không liên quan.
-- Chờ CI thành công và xử lý toàn bộ review comment trước khi merge.
+- Chờ cả `Backend CI` và `Frontend CI` thành công, có ít nhất một approval và xử lý toàn bộ review conversation trước khi merge.
 
-Nếu `develop` thay đổi trong lúc review, cập nhật branch và chạy lại test. Không force-push sau khi review nếu không thật sự cần thiết; nếu có, phải báo cho reviewer.
+Nếu `main` thay đổi trong lúc review, cập nhật branch và chạy lại test. Không force-push sau khi review nếu không thật sự cần thiết; nếu có, phải báo cho reviewer.
 
 ## 9. Definition of Done
 
@@ -226,7 +226,7 @@ Một task chỉ được xem là **Done** khi:
 7. CI chạy thành công.
 8. Có ít nhất một người review.
 9. Không còn comment review chưa xử lý.
-10. Merge vào `develop` thành công.
+10. Merge vào `main` thành công.
 
 ## 10. Code review checklist
 

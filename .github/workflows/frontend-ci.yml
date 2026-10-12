@@ -2,22 +2,19 @@ name: Frontend CI
 
 on:
   workflow_call:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
-      - develop
-    paths:
-      - 'client/**'
-      - '.github/workflows/**'
-  pull_request:
-    paths:
-      - 'client/**'
-      - '.github/workflows/**'
+      - main
 
 permissions:
   contents: read
 
 jobs:
   verify:
+    name: Frontend CI
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

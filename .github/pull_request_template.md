@@ -20,8 +20,12 @@
 
 ## Checklist
 
+- [ ] Pull request targets `main`
+- [ ] Branch name follows `feat/*`, `fix/*`, `test/*`, `docs/*` or `chore/*`
 - [ ] Project builds successfully
+- [ ] Backend CI and Frontend CI pass
 - [ ] No secrets committed
 - [ ] API documentation updated
 - [ ] Naming conventions followed
 - [ ] Self-review completed
+- [ ] All review conversations are resolved

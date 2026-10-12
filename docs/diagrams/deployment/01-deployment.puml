@@ -139,9 +139,9 @@ DB_PASSWORD=hotel
 end note
 
 note bottom of GitHubActions
-Frontend CI runs when files under client/ change.
+Frontend CI runs for every pull request targeting main and every push to main.
 
-Backend CI runs when files under hotel-booking/ change.
+Backend CI runs for every pull request targeting main and every push to main.
 
 The current workflows verify the source code.
 They do not deploy the application to production.

@@ -1,137 +1,136 @@
 # 13. Git Workflow
 
-# HANBAY HOTEL
-## Git Workflow Guide
+## 1. Branch strategy
 
----
-
-# 1. Branching Strategy
+The two-member team uses trunk-based development with `main` as the only
+long-lived branch. A separate `develop` branch is not used.
 
 ```text
-main
-  ↑
-develop
-  ↑
-feature/*| bugfix/* | docs/*
+feat/*  ─┐
+fix/*   ─┤
+test/*  ─┼─ Pull Request ─ review + CI ─> main
+docs/*  ─┤
+chore/* ─┘
 ```
 
-Branches:
+Allowed branch prefixes:
 
-```text
-main        production-ready code
-develop     integration branch
-feature/*   individual feature
-bugfix/*    bug fixing
-hotfix/*    urgent fix
-docs/*      documentation
-```
+| Prefix | Purpose | Example |
+| --- | --- | --- |
+| `feat` | New functionality | `feat/HAN-101-authentication` |
+| `fix` | Bug fix | `fix/HAN-120-payment-status` |
+| `test` | Test-only changes | `test/HAN-130-booking-security` |
+| `docs` | Documentation-only changes | `docs/HAN-140-api-contract` |
+| `chore` | Maintenance, build, CI or refactoring | `chore/HAN-150-update-ci` |
 
----
+Use lowercase kebab-case after the Jira key. Keep one branch focused on one
+issue. Do not create `develop`, `feature/*`, `bugfix/*`, `refactor/*` or
+`hotfix/*` branches.
 
-# 2. Branch Naming
+## 2. Start work
 
-```text
-feature/HAN-16-guest-registration
-bugfix/HAN-45-invalid-room-price
-hotfix/HAN-90-payment-crash
-docs/HAN-15-git-workflow
-```
-
----
-
-# 3. Commit Convention
-
-```text
-feat(HAN-23): add available room search API
-fix(HAN-24): correct room price calculation
-docs(HAN-15): add Git workflow guide
-refactor(HAN-17): simplify JWT authentication service
-test(HAN-25): add pending booking service tests
-chore(HAN-15): update Docker Compose configuration
-```
-```
-feat      thêm chức năng mới
-fix       sửa lỗi
-docs      cập nhật tài liệu
-refactor  chỉnh cấu trúc code, không đổi nghiệp vụ
-test      thêm hoặc sửa kiểm thử
-chore     cấu hình, dependency, build
-style     format code, không thay đổi logic
-perf      cải thiện hiệu năng
-ci        thay đổi CI/CD
-build     thay đổi hệ thống build
-```
-## Commit Message Rules
-
-Format:
-
-```text
-<type>(<jira-id>): <short-description>
-```
-
-
-
-
-# 4. Pull Request Flow
-
-```mermaid
-flowchart TD
-    A[Create feature branch] --> B[Commit code]
-    B --> C[Push branch]
-    C --> D[Create Pull Request]
-    D --> E[Code Review]
-    E --> F{Approved?}
-    F -->|Yes| G[Merge to develop]
-    F -->|No| H[Fix comments]
-    H --> D
-```
-
-
----
-
-# 5. Pull Request Checklist
-
-- Build successful
-- No conflict
-- Feature tested locally
-- API tested with Swagger/Postman
-- Related docs updated
-- Screenshots attached if frontend changed
-
----
-
-# 6. Merge Rule
-
-- Do not push directly to `main`.
-- Do not push directly to `develop` unless agreed.
-- Each PR should be reviewed by at least one member.
-- Squash merge is recommended.
-
----
-
-# 7. Release Flow
-
-```text
-develop
-  ↓
-release/v1.0
-  ↓
-main
-```
-
----
-
-# 8. Conflict Resolution
-
-Steps:
+Create every working branch from the latest `main`:
 
 ```bash
-git checkout develop
-git pull
-git checkout feature/your-branch
-git merge develop
-# resolve conflicts
-git add .
-git commit
-git push
+git switch main
+git pull --rebase origin main
+git switch -c feat/HAN-101-authentication
 ```
+
+Do not commit or push directly to `main`.
+
+## 3. Commit convention
+
+Use Conventional Commits and include the Jira key:
+
+```text
+<type>(<scope>): <jira-key> <short-description>
+```
+
+Examples:
+
+```text
+feat(auth): HAN-101 add JWT authentication
+fix(payment): HAN-120 correct payment status mapping
+test(booking): HAN-130 cover booking authorization
+docs(api): HAN-140 document booking contract
+chore(ci): HAN-150 update GitHub Actions triggers
+```
+
+## 4. Pull request flow
+
+```mermaid
+flowchart LR
+    A[Create branch from main] --> B[Implement and test]
+    B --> C[Open PR to main]
+    C --> D[Run both CI checks and review]
+    D --> E{Checks pass, approved, conversations resolved?}
+    E -->|Yes| F[Merge to main]
+    E -->|No| B
+```
+
+Before opening a PR:
+
+```bash
+git fetch origin
+git rebase origin/main
+git push -u origin feat/HAN-101-authentication
+```
+
+Every PR must:
+
+- target `main`;
+- use an allowed branch prefix;
+- receive at least one approval;
+- pass the required `Backend CI` and `Frontend CI` checks;
+- resolve all review conversations;
+- contain no unrelated changes or secrets.
+
+Squash merge is recommended for a concise `main` history.
+
+## 5. `main` branch protection
+
+Configure the `main` branch rule in GitHub with:
+
+- Require a pull request before merging.
+- Require 1 approving review.
+- Require status checks `Backend CI` and `Frontend CI` to pass.
+- Require branches to be up to date before merging.
+- Require conversation resolution before merging.
+- Include administrators so the rule cannot be casually bypassed.
+- Do not allow force pushes.
+- Do not allow deletions.
+
+The repository includes
+[`scripts/configure-main-protection.sh`](../scripts/configure-main-protection.sh)
+to apply this rule through the GitHub REST API. The caller needs a fine-grained
+token with repository Administration permission set to read and write:
+
+```bash
+GH_TOKEN=<token> ./scripts/configure-main-protection.sh
+```
+
+The token must only be provided through the environment and must never be
+committed.
+
+## 6. CI trigger policy
+
+Both workflows run for every pull request targeting `main` and for every push
+to `main`. They intentionally do not use path filters because both checks are
+required by branch protection; skipping a workflow would otherwise leave its
+required check pending.
+
+## 7. Resolve conflicts
+
+Rebase the working branch onto the latest `main`:
+
+```bash
+git fetch origin
+git rebase origin/main
+# resolve conflicts
+git add <resolved-files>
+git rebase --continue
+git push --force-with-lease
+```
+
+After review has started, tell the reviewer before rewriting branch history.

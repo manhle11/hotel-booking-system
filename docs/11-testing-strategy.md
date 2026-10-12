@@ -1190,7 +1190,7 @@ Cover nightly-snapshot calculation, the 20/80 split, refund destination validati
 
 ### Room maintenance regression
 
-- Flyway: migrate database mới và nâng cấp từ develop version `202609051400` lên `202609081200`.
+- Flyway: migrate database mới và nâng cấp từ baseline `202609051400` lên `202609081200`.
 - Mỗi phòng chỉ có một phiếu mở; phiếu hoàn tất cho phép tạo lần bảo trì mới.
 - API bảo trì trực tiếp không thể đưa phòng có phiếu mở về AVAILABLE.
 - Transaction lỗi rollback cả phiếu và trạng thái phòng.
@@ -1204,4 +1204,4 @@ Cover nightly-snapshot calculation, the 20/80 split, refund destination validati
 - PostgreSQL: rollback đồng thời chứng từ, số dư, booking và phòng khi transaction lỗi.
 - PostgreSQL: hai checkout đồng thời chỉ có một lần thu tiền.
 - UI: không tự điền tiền đã thu, cập nhật số dư khi modal đang mở, không cho thu vượt nợ.
-- PR không thêm hoặc sửa Flyway migration; dùng schema hiện tại của develop.
+- PR không thêm hoặc sửa Flyway migration; dùng schema hiện tại của `main`.
