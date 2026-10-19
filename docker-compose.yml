@@ -10,6 +10,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-local-minio}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-local-minio-password}
       SPRING_PROFILES_ACTIVE: prod
+      MANAGEMENT_HEALTH_MAIL_ENABLED: ${MANAGEMENT_HEALTH_MAIL_ENABLED:-false}
       TRUSTED_PROXY_REGEX: "172[.]30[.]67[.]10"
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
