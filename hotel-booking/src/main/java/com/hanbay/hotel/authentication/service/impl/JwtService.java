@@ -34,6 +34,9 @@ public class JwtService {
     }
 
     public String generateAccessToken(User user) {
+        if (user.getRoles().size() > 1) {
+            throw new IllegalArgumentException("Mỗi tài khoản chỉ được có một vai trò");
+        }
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(jwtProperties.accessTokenExpirationSeconds());
 
@@ -59,6 +62,7 @@ public class JwtService {
             Object rolesClaim = claims.get(ROLES_CLAIM);
             Object tokenVersionClaim = claims.get(TOKEN_VERSION_CLAIM);
             if (!(rolesClaim instanceof List<?> roles)
+                    || roles.size() > 1
                     || !(tokenVersionClaim instanceof Number tokenVersion)
                     || claims.getSubject() == null
                     || accessTokenRevocationService.isRevoked(claims.getSubject(), tokenVersion.longValue())) {

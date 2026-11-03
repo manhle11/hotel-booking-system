@@ -12,6 +12,8 @@ import {
   SolutionOutlined,
   ToolOutlined,
   UserOutlined,
+  TeamOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { HomeOutlined, LoginOutlined } from '@ant-design/icons';
 import { Avatar, Button, Dropdown, Layout, Menu, Space, Typography, type MenuProps } from 'antd';
@@ -21,6 +23,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/authentication/providers/auth-context';
 import { ROUTE_PATHS } from '../routes/routePaths';
 import { USER_ROLES } from '../types/common';
+import { hasRouteRole, ROUTE_ROLES } from '../routes/route-access';
 import './dashboard-layout.css';
 
 const { Content, Header, Sider } = Layout;
@@ -31,24 +34,24 @@ export function DashboardLayout() {
   const { logout, roles, session } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const canMonitorPayments = roles.some(
-    (role) => role === USER_ROLES.admin || role === USER_ROLES.manager,
-  );
+  const isAdmin = roles.includes(USER_ROLES.admin);
+  const canMonitorPayments = hasRouteRole(roles, ROUTE_ROLES.management);
   const canViewManagerDashboard = canMonitorPayments;
-  const canCreateBooking = roles.some(
-    (role) =>
-      role === USER_ROLES.receptionist || role === USER_ROLES.manager || role === USER_ROLES.admin,
-  );
-  const canViewTodayArrivals = roles.some(
-    (role) =>
-      role === USER_ROLES.receptionist || role === USER_ROLES.manager || role === USER_ROLES.admin,
-  );
-  const canViewTodayDepartures = roles.some(
-    (role) =>
-      role === USER_ROLES.admin || role === USER_ROLES.manager || role === USER_ROLES.receptionist,
-  );
+  const canCreateBooking = hasRouteRole(roles, ROUTE_ROLES.frontDesk);
+  const canViewTodayArrivals = canCreateBooking;
+  const canViewTodayDepartures = canCreateBooking;
 
   const menuItems: MenuProps['items'] = [
+    ...(isAdmin
+      ? [
+          { key: ROUTE_PATHS.adminAccounts, icon: <TeamOutlined />, label: 'Quản lý tài khoản' },
+          {
+            key: ROUTE_PATHS.adminRoles,
+            icon: <SafetyCertificateOutlined />,
+            label: 'Quản lý vai trò',
+          },
+        ]
+      : []),
     ...(canViewManagerDashboard
       ? [{ key: '/dashboard', icon: <DashboardOutlined />, label: 'Tổng quan' }]
       : []),
@@ -64,7 +67,7 @@ export function DashboardLayout() {
           },
         ]
       : []),
-    ...(roles.includes(USER_ROLES.receptionist)
+    ...(hasRouteRole(roles, ROUTE_ROLES.reception)
       ? [
           {
             key: '/front-desk/check-in',
@@ -82,7 +85,7 @@ export function DashboardLayout() {
           },
         ]
       : []),
-    ...(roles.includes(USER_ROLES.housekeeper)
+    ...(hasRouteRole(roles, ROUTE_ROLES.housekeeping)
       ? [{ key: '/housekeeping', icon: <HomeOutlined />, label: 'Phòng cần dọn' }]
       : []),
     ...(canMonitorPayments
@@ -147,6 +150,7 @@ export function DashboardLayout() {
   return (
     <Layout className="dashboard-shell">
       <Sider
+        width={isAdmin ? 248 : 200}
         breakpoint="lg"
         collapsedWidth={72}
         collapsible
@@ -179,7 +183,9 @@ export function DashboardLayout() {
             onClick={() => setCollapsed((value) => !value)}
           />
           <Space size="middle">
-            <Button type="text" aria-label="Thông báo" icon={<NotificationOutlined />} />
+            {!isAdmin && (
+              <Button type="text" aria-label="Thông báo" icon={<NotificationOutlined />} />
+            )}
             <Dropdown menu={{ items: userMenu }} trigger={['click']}>
               <Button type="text" className="dashboard-shell__account">
                 <Avatar size="small" icon={<UserOutlined />} />

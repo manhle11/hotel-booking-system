@@ -136,8 +136,8 @@ class AuthServiceTest {
     }
 
     @Test
-    void loginShouldReturnTokenAndAllRolesWhenCredentialsAreValid() {
-        User user = buildUser(UserStatus.ACTIVE, VALID_LOGIN_INPUT, "MANAGER", "HOUSEKEEPER");
+    void loginShouldReturnTokenAndSingleRoleWhenCredentialsAreValid() {
+        User user = buildUser(UserStatus.ACTIVE, VALID_LOGIN_INPUT, "MANAGER");
         LoginRequest request = new LoginRequest(user.getEmail(), VALID_LOGIN_INPUT);
 
         when(userService.findByIdentifier(user.getEmail())).thenReturn(Optional.of(user));
@@ -147,7 +147,7 @@ class AuthServiceTest {
         LoginResponse response = authService.login(request, CLIENT_IP);
 
         assertThat(response.accessToken()).isEqualTo("mock-jwt-token");
-        assertThat(response.user().roles()).containsExactly("HOUSEKEEPER", "MANAGER");
+        assertThat(response.user().roles()).containsExactly("MANAGER");
         verify(rateLimitService).clear(eq("login-account-ip"), anyString());
     }
 

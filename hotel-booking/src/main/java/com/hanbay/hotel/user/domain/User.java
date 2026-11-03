@@ -48,6 +48,7 @@ public class User extends BaseEntity {
     @JoinTable(
             name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id"))
+            inverseJoinColumns = @JoinColumn(name = "role_id"),
+            uniqueConstraints = @UniqueConstraint(name = "uq_user_roles_user_id", columnNames = "user_id"))
     private Set<Role> roles = new LinkedHashSet<>();
 }

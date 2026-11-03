@@ -123,6 +123,31 @@ export const router = createBrowserRouter([
         children: [
           {
             element: (
+              <RoleRoute allowedRoles={ROUTE_ROLES.admin}>
+                <Outlet />
+              </RoleRoute>
+            ),
+            children: [
+              {
+                path: ROUTE_PATHS.adminAccounts,
+                hydrateFallbackElement: routeHydrationFallback,
+                lazy: async () => {
+                  const { AccountManagementPage } = await import('@features/account-management');
+                  return { Component: AccountManagementPage };
+                },
+              },
+              {
+                path: ROUTE_PATHS.adminRoles,
+                hydrateFallbackElement: routeHydrationFallback,
+                lazy: async () => {
+                  const { RoleManagementPage } = await import('@features/account-management');
+                  return { Component: RoleManagementPage };
+                },
+              },
+            ],
+          },
+          {
+            element: (
               <RoleRoute allowedRoles={ROUTE_ROLES.maintenance}>
                 <Outlet />
               </RoleRoute>

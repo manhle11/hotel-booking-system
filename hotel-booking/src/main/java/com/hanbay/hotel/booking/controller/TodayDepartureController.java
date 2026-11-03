@@ -22,7 +22,7 @@ public class TodayDepartureController {
     private final TodayDepartureService todayDepartureService;
 
     @GetMapping("/today")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER')")
     @Operation(summary = "Xem danh sách khách dự kiến trả phòng hôm nay")
     public ApiResponse<PageResponse<TodayDepartureResponse>> getTodayDepartures(
             @RequestParam(defaultValue = "0") int page,

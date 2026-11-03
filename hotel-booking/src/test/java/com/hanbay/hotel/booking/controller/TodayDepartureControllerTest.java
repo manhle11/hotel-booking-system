@@ -53,7 +53,7 @@ class TodayDepartureControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"RECEPTIONIST", "MANAGER", "ADMIN"})
+    @ValueSource(strings = {"RECEPTIONIST", "MANAGER"})
     void authorizedStaffShouldAccessTodayDepartures(String role) throws Exception {
         authenticate("allowed-token", role);
         when(todayDepartureService.getTodayDepartures(0, 20)).thenReturn(emptyPage());

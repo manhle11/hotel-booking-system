@@ -40,6 +40,30 @@ function renderLayout(roles: UserRole[]) {
 }
 
 describe('DashboardLayout role menu', () => {
+  it.each([
+    [USER_ROLES.admin],
+    [USER_ROLES.admin, USER_ROLES.manager, USER_ROLES.receptionist, USER_ROLES.housekeeper],
+  ])('shows only account administration for admin roles %j', (...roles) => {
+    renderLayout(roles);
+    expect(screen.getByText('Quản lý tài khoản')).not.toBeNull();
+    expect(screen.getByText('Quản lý vai trò')).not.toBeNull();
+    for (const label of [
+      'Tổng quan',
+      'Tạo đặt phòng',
+      'Khách đến hôm nay',
+      'Nhận phòng',
+      'Khách trả phòng',
+      'Phòng cần dọn',
+      'Quản lý phòng',
+      'Quản lý loại phòng',
+      'Dịch vụ bổ sung',
+      'Quy tắc giá',
+      'Giám sát thanh toán',
+    ]) {
+      expect(screen.queryByText(label)).toBeNull();
+    }
+  });
+
   it('shows payment monitoring to an allowed manager', () => {
     renderLayout([USER_ROLES.manager]);
 
@@ -66,7 +90,7 @@ describe('DashboardLayout role menu', () => {
     }
   });
 
-  it.each([USER_ROLES.receptionist, USER_ROLES.manager, USER_ROLES.admin])(
+  it.each([USER_ROLES.receptionist, USER_ROLES.manager])(
     'shows today arrivals to an allowed %s',
     (role) => {
       renderLayout([role]);
@@ -82,7 +106,7 @@ describe('DashboardLayout role menu', () => {
     expect(screen.queryByText('Tạo đặt phòng')).toBeNull();
   });
 
-  it.each([USER_ROLES.receptionist, USER_ROLES.manager, USER_ROLES.admin])(
+  it.each([USER_ROLES.receptionist, USER_ROLES.manager])(
     'keeps booking creation for %s, including users with an additional housekeeper role',
     (role) => {
       const view = renderLayout([role]);
@@ -123,13 +147,13 @@ describe('DashboardLayout role menu', () => {
     expect(screen.queryByText('Khách trả phòng')).toBeNull();
   });
 
-  it('shows add-on management to manager and admin roles', () => {
+  it('shows add-on management to manager only', () => {
     const { unmount } = renderLayout([USER_ROLES.manager]);
     expect(screen.getByText('Dịch vụ bổ sung')).not.toBeNull();
     unmount();
 
     renderLayout([USER_ROLES.admin]);
-    expect(screen.getByText('Dịch vụ bổ sung')).not.toBeNull();
+    expect(screen.queryByText('Dịch vụ bổ sung')).toBeNull();
   });
 
   it('hides add-on management from operational staff', () => {
@@ -137,13 +161,13 @@ describe('DashboardLayout role menu', () => {
     expect(screen.queryByText('Dịch vụ bổ sung')).toBeNull();
   });
 
-  it('shows price-rule management only to manager and admin roles', () => {
+  it('shows price-rule management only to manager', () => {
     const managerView = renderLayout([USER_ROLES.manager]);
     expect(screen.getByText('Quy tắc giá')).not.toBeNull();
     managerView.unmount();
 
     const adminView = renderLayout([USER_ROLES.admin]);
-    expect(screen.getByText('Quy tắc giá')).not.toBeNull();
+    expect(screen.queryByText('Quy tắc giá')).toBeNull();
     adminView.unmount();
 
     for (const role of [USER_ROLES.receptionist, USER_ROLES.housekeeper]) {

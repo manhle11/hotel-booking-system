@@ -34,7 +34,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 @RestController
 @RequestMapping("${api.prefix}/management/price-rules")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+@PreAuthorize("hasRole('MANAGER')")
 @Tag(name = "Quan ly quy tac gia", description = "API quan ly quy tac gia dung trong dynamic pricing")
 public class PriceRuleManagementController {
 

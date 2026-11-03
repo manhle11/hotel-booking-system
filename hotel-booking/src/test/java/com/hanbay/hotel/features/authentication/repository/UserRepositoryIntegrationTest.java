@@ -1,6 +1,7 @@
 package com.hanbay.hotel.features.authentication.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.hanbay.hotel.authentication.domain.entity.Role;
 import com.hanbay.hotel.authentication.domain.enums.RoleCode;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
@@ -70,18 +72,11 @@ class UserRepositoryIntegrationTest {
     }
 
     @Test
-    void shouldFetchMultipleRolesAssignedThroughUserRoles() {
+    void databaseRejectsMultipleRolesAssignedThroughUserRoles() {
         Role managerRole = roleRepository.findByCode(RoleCode.MANAGER).orElseThrow();
         Role housekeeperRole = roleRepository.findByCode(RoleCode.HOUSEKEEPER).orElseThrow();
         User user = createUser("multi-role@example.com", "0900000013", managerRole, housekeeperRole);
-        userRepository.saveAndFlush(user);
-
-        User result =
-                userRepository.findByEmailIgnoreCase("multi-role@example.com").orElseThrow();
-
-        assertThat(result.getRoles())
-                .extracting(Role::getCode)
-                .containsExactlyInAnyOrder(RoleCode.MANAGER, RoleCode.HOUSEKEEPER);
+        assertThatThrownBy(() -> userRepository.saveAndFlush(user)).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private User createUser(String email, String phone, Role... roles) {

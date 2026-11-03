@@ -1,4 +1,6 @@
 export const ROUTE_PATHS = {
+  adminAccounts: '/admin/accounts',
+  adminRoles: '/admin/roles',
   arrivals: '/front-desk/arrivals/today',
   departures: '/front-desk/departures/today',
   payments: '/payment-monitoring/payments',

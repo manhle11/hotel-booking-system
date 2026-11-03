@@ -55,7 +55,7 @@ class AddOnManagementSecurityIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"RECEPTIONIST", "HOUSEKEEPER"})
+    @ValueSource(strings = {"ADMIN", "RECEPTIONIST", "HOUSEKEEPER"})
     void nonManagementStaffShouldReceiveForbidden(String role) throws Exception {
         authenticate("denied-token", role);
 
@@ -65,8 +65,8 @@ class AddOnManagementSecurityIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"MANAGER", "ADMIN"})
-    void managerAndAdminShouldAccessManagementApi(String role) throws Exception {
+    @ValueSource(strings = {"MANAGER"})
+    void managerShouldAccessManagementApi(String role) throws Exception {
         authenticate("allowed-token", role);
         when(addOnManagementService.findAll(
                         new com.hanbay.hotel.addon.service.model.AddOnSearchCriteria(0, 20, null, null, "name", "asc")))

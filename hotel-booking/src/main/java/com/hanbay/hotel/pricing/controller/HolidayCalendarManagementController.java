@@ -32,7 +32,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 @RestController
 @RequestMapping("${api.prefix}/management/holiday-calendar")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+@PreAuthorize("hasRole('MANAGER')")
 @Tag(name = "Quản lý lịch ngày lễ", description = "API cấu hình ngày lễ và sự kiện dùng trong dynamic pricing")
 public class HolidayCalendarManagementController {
 

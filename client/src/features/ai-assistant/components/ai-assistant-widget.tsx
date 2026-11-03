@@ -63,7 +63,7 @@ const initialMessage: AiChatMessage = {
 };
 
 export function AiAssistantWidget({ navigateTo }: { navigateTo: (location: string) => void }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, roles } = useAuth();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [lastSubmitted, setLastSubmitted] = useState('');
@@ -132,6 +132,8 @@ export function AiAssistantWidget({ navigateTo }: { navigateTo: (location: strin
       ? mutation.error.message
       : 'Trợ lý AI chưa thể trả lời. Vui lòng thử lại.'
     : null;
+
+  if (roles.includes('ADMIN')) return null;
 
   return (
     <>

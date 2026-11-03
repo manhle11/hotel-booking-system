@@ -66,7 +66,7 @@ class FrontDeskSecurityIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"RECEPTIONIST", "MANAGER", "ADMIN"})
+    @ValueSource(strings = {"RECEPTIONIST", "MANAGER"})
     void allowedStaffRolesCanViewTodayArrivals(String role) throws Exception {
         authenticate("allowed-token", role);
         when(frontDeskService.getTodayArrivals(0, 20))
@@ -78,7 +78,7 @@ class FrontDeskSecurityIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"HOUSEKEEPER", "GUEST"})
+    @ValueSource(strings = {"ADMIN", "HOUSEKEEPER", "GUEST"})
     void deniedRolesReceiveForbiddenWithoutCallingService(String role) throws Exception {
         authenticate("denied-token", role);
 

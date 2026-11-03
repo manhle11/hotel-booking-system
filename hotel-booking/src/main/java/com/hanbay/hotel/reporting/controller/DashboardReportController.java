@@ -24,7 +24,7 @@ public class DashboardReportController {
     private final DashboardReportService dashboardReportService;
 
     @GetMapping("/dashboard")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     @Operation(summary = "Lấy báo cáo tổng quan hoạt động khách sạn")
     public ApiResponse<DashboardReportResponse> getDashboardReport(
             @ParameterObject @ModelAttribute @Valid DashboardReportRequest request) {

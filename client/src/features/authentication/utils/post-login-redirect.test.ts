@@ -5,7 +5,7 @@ import { getDefaultPathForRoles, getPostLoginRedirect } from './post-login-redir
 
 describe('post-login redirect', () => {
   it.each<[UserRole[], string]>([
-    [[USER_ROLES.admin], '/dashboard'],
+    [[USER_ROLES.admin], '/admin/accounts'],
     [[USER_ROLES.manager], '/dashboard'],
     [[USER_ROLES.receptionist], '/front-desk/check-in'],
     [[USER_ROLES.housekeeper], '/housekeeping'],
@@ -59,7 +59,7 @@ it.each(['/account/profile/', '/ACCOUNT/PROFILE'])('preserves valid path %s', (p
 it.each(['/payment-monitoring/refunds/', '/PAYMENT-MONITORING/REFUNDS'])(
   'enforces refund roles for %s',
   (pathname) => {
-    expect(getPostLoginRedirect([USER_ROLES.admin], { pathname })).toBe('/dashboard');
+    expect(getPostLoginRedirect([USER_ROLES.admin], { pathname })).toBe('/admin/accounts');
     expect(getPostLoginRedirect([USER_ROLES.manager], { pathname })).toBe(pathname);
   },
 );

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("${api.prefix:/api/v1}/management/room-types")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+@PreAuthorize("hasRole('MANAGER')")
 public class RoomTypeManagementController {
     private final RoomTypeManagementService service;
 

@@ -16,7 +16,7 @@ public class ImageController {
     private final ImageStorageService storage;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     public ApiResponse<Map<String, String>> upload(@RequestParam MultipartFile file) {
         return ApiResponse.success(Map.of("url", storage.upload(file)));
     }

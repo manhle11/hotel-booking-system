@@ -56,7 +56,7 @@ class PriceRuleManagementSecurityIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"RECEPTIONIST", "HOUSEKEEPER"})
+    @ValueSource(strings = {"ADMIN", "RECEPTIONIST", "HOUSEKEEPER"})
     void nonManagementStaffShouldReceiveForbidden(String role) throws Exception {
         authenticate("denied-token", role);
 
@@ -66,8 +66,8 @@ class PriceRuleManagementSecurityIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"MANAGER", "ADMIN"})
-    void managerAndAdminShouldAccessManagementApi(String role) throws Exception {
+    @ValueSource(strings = {"MANAGER"})
+    void managerShouldAccessManagementApi(String role) throws Exception {
         authenticate("allowed-token", role);
         when(priceRuleManagementService.findAll(
                         new PriceRuleSearchCriteria(0, 20, null, null, null, null, "startDate", "desc")))

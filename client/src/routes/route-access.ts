@@ -3,15 +3,18 @@ import { USER_ROLES, type UserRole } from '../types/common';
 import { ROUTE_PATHS } from './routePaths';
 
 export const ROUTE_ROLES = {
-  management: [USER_ROLES.admin, USER_ROLES.manager],
+  admin: [USER_ROLES.admin],
+  management: [USER_ROLES.manager],
   reception: [USER_ROLES.receptionist],
   housekeeping: [USER_ROLES.housekeeper],
-  frontDesk: [USER_ROLES.admin, USER_ROLES.manager, USER_ROLES.receptionist],
+  frontDesk: [USER_ROLES.manager, USER_ROLES.receptionist],
   refunds: [USER_ROLES.manager],
   maintenance: [USER_ROLES.manager],
 } satisfies Record<string, UserRole[]>;
 
 const staffRoutes: Array<[string, UserRole[]]> = [
+  [ROUTE_PATHS.adminAccounts, ROUTE_ROLES.admin],
+  [ROUTE_PATHS.adminRoles, ROUTE_ROLES.admin],
   ['/management/rooms', ROUTE_ROLES.management],
   ['/management/room-types', ROUTE_ROLES.management],
   [ROUTE_PATHS.dashboard, ROUTE_ROLES.management],
@@ -36,7 +39,10 @@ export function canAccessPostLoginPath(pathname: string, roles: UserRole[]): boo
   if (matches(ROUTE_PATHS.guestBookings) || matches(`${ROUTE_PATHS.guestBookings}/:bookingCode`)) {
     return roles.length === 0;
   }
-  return staffRoutes.some(
-    ([path, allowed]) => matches(path) && allowed.some((role) => roles.includes(role)),
-  );
+  return staffRoutes.some(([path, allowed]) => matches(path) && hasRouteRole(roles, allowed));
+}
+
+export function hasRouteRole(roles: UserRole[], allowed: UserRole[]): boolean {
+  if (roles.includes(USER_ROLES.admin)) return allowed.includes(USER_ROLES.admin);
+  return allowed.some((role) => roles.includes(role));
 }
