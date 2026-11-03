@@ -10,8 +10,8 @@
 
 | Knowledge | Source | Authority | Eligible? | Reason |
 |---|---|---:|---:|---|
-| PENDING holds inventory 15 minutes | BR/SRS; BookingFactory; BookingRepository | High | Yes | Requirement and implementation agree |
-| Overlap-based availability | Architecture/workflow; BookingRepository | High | Yes | Core booking invariant |
+| Configurable pending hold, default 15min | BookingFactory; BookingRepository; Booking.confirm | High | Yes | Strict now < expiredAt; EXPIRED job may run later; edit does not extend |
+| Minimum nightly availability | RoomAvailabilityCalculator; BookingRepository | High | Yes | Peak nightly demand, overdue occupied stays, strict pending expiry; availableRooms differs from readyRooms |
 | Adult/child/max-guest capacity | Architecture; RoomType; booking DTO/service | High | Yes | Enforced by backend |
 | Automatic child age classification | Booking DTO accepts counts, not ages | Excluded | No | No age threshold enforced by current booking API |
 | Child under 6 is free | None | Excluded | No | Not defined |
@@ -21,10 +21,10 @@
 | Cash collected at checkout | CounterPaymentService; CheckOutServiceImpl | High | Yes | Records actual cash, receipt and transaction; zero final debt required for normal checkout |
 | POS integration | No provider contract | Excluded | No | Not implemented |
 | Cancellation 48h/24h/50% | API/workflow; cancellation properties/policy | High | Yes | Configured and enforced |
-| Check-in default time 14:00 | Cancellation config/policy | Medium | Yes | Used for cancellation; check-in endpoint validates date, not hour |
+| Check-in starts14:00; same-day cutoff 23:59:59 | HotelStayProperties/HotelStayPolicy; stay-policy API | High | Yes | Distinct clocks;19:55 same-day booking allowed; early arrival requires reason |
 | Early check-in fee | None | Excluded | No | Not defined |
-| Check-out time/late fee | None | Excluded | No | Not defined |
-| Check-in only CONFIRMED on check-in date | SRS/API; CheckInServiceImpl | High | Yes | Enforced |
+| Checkout12:00 / late note | HotelStayPolicy; CheckOutServiceImpl | High | Yes | Overdue strictly after12; manual charge, no automatic extra night |
+| CONFIRMED arrival window | HotelStayPolicy; CheckInServiceImpl | High | Yes | Booked day or yesterday before06:00, checkoutDate >= today; same room-type/AVAILABLE/no assigned conflict |
 | Check-in room must match type and be AVAILABLE | SRS/API; CheckInServiceImpl | High | Yes | Enforced |
 | Check-out requires zero outstanding balance | Architecture/API; CheckOutServiceImpl | High | Yes | Enforced |
 | Check-out makes room DIRTY | BR/SRS/workflow; CheckOutServiceImpl | High | Yes | Canonical transition |
@@ -47,3 +47,11 @@
 Knowledge base được xây dựng từ business requirements, SRS, workflows, API contract và
 business rules trong source code của HANBAY HOTEL. Không sử dụng tài liệu khách sạn bên ngoài
 hoặc output do AI tạo.
+
+## Đối chiếu thời gian03/11/2026
+
+Nguồn hiện tại là working tree main, không chỉ commit audit cũ.
+[Policy/biên chính xác](../23-stay-time-and-inventory.md) và
+[OpenAPI](../openapi/room/stay-policy-and-availability.yaml) mô tả thêm clock công khai,
+TIMESTAMPTZ giờ thực tế, today-only early checkout, tồn đoạn gia hạn và guard seed.
+Phí nhận sớm/trả muộn tự động vẫn không có contract; không suy diễn số tiền.

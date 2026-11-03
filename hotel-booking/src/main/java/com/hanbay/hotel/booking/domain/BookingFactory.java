@@ -8,14 +8,17 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class BookingFactory {
 
-    private static final int PAYMENT_EXPIRE_MINUTES = 15;
     private final Clock clock;
+
+    @Value("${payment.expiration-minutes:15}")
+    private int paymentExpireMinutes = 15;
 
     public Booking createPendingBooking(
             User bookedBy,
@@ -41,7 +44,7 @@ public class BookingFactory {
                 .adultCount(adults)
                 .childCount(children)
                 .status(BookingStatus.PENDING)
-                .expiredAt(now.plus(PAYMENT_EXPIRE_MINUTES, ChronoUnit.MINUTES))
+                .expiredAt(now.plus(paymentExpireMinutes, ChronoUnit.MINUTES))
                 .build();
 
         booking.recordCreated(bookedBy);

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: API tính giá lưu trú theo từng đêm
-  version: 1.0.0
+  version: 1.1.0
   description: Đặc tả API HAN-43 đã được đối chiếu với implementation và regression test.
 paths:
   /api/v1/pricing/stay-price-calculations:
@@ -19,8 +19,10 @@ paths:
         Endpoint public để khách chưa đăng nhập có thể xem giá chính xác trước khi
         tiếp tục tạo booking. Thao tác chỉ đọc dữ liệu và không giữ inventory.
 
-        NEED BUSINESS CONFIRMATION: Có nhiều quy tắc giá áp dụng cho cùng một đêm.
-        Contract này chưa định nghĩa cách xử lý độ ưu tiên, cộng dồn hoặc xung đột quy tắc.
+        Kiểm ngày theo /api/v1/stay-policy: không quá khứ, trả sau nhận; nhận hôm nay
+        trước cutoff 23:59:59.14:00 chỉ bắt đầu nhận, không ngừng đặt. Số đêm theo ngày, không giờ/24.
+        Theo engine hiện tại chọn một modifier HOLIDAY>WEEKEND>SEASONAL rồi promotion tốt nhất;
+        giá booking cũ là snapshot, không tự đổi khi quản trị sửa rule.
       requestBody:
         required: true
         content:

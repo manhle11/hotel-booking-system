@@ -24,7 +24,7 @@ group Transaction
     DB --> BookingService: Lock acquired
 
     BookingService -> Availability: checkAvailability(criteria)
-    Availability -> DB: Count active overlapping bookings
+    Availability -> DB: Count peak nightly active demand; include overdue stays
     DB --> Availability: Occupied quantity
     Availability --> BookingService: Availability result
 
@@ -37,7 +37,7 @@ group Transaction
         DB --> Pricing: Price rules
         Pricing --> BookingService: Final price snapshot
 
-        BookingService -> DB: Save PENDING booking\nexpiresAt = now + 15 minutes
+        BookingService -> DB: Save PENDING booking\nexpiredAt = now + configured hold (default 15min)
         DB --> BookingService: Booking created
 
         BookingService --> API: Booking result

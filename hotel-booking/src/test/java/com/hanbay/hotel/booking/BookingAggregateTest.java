@@ -82,9 +82,20 @@ class BookingAggregateTest {
     }
 
     @Test
-    void confirmationAtExactDeadlineIsAllowedAndClearsExpiration() {
+    void confirmationAtExactDeadlineIsRejectedWithoutChangingBooking() {
         Booking booking = booking(BookingStatus.PENDING, NOW);
 
+        assertThrows(
+                InvalidBookingStateException.class,
+                () -> booking.confirm(User.builder().build(), NOW));
+
+        assertEquals(BookingStatus.PENDING, booking.getStatus());
+        assertEquals(NOW, booking.getExpiredAt());
+    }
+
+    @Test
+    void confirmationBeforeDeadlineClearsExpiration() {
+        Booking booking = booking(BookingStatus.PENDING, NOW.plusSeconds(1));
         booking.confirm(User.builder().build(), NOW);
 
         assertEquals(BookingStatus.CONFIRMED, booking.getStatus());

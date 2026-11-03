@@ -210,3 +210,11 @@ HANBAY HOTEL hướng tới việc mô phỏng một hệ thống PMS thu nhỏ 
 - Housekeeping Workflow
 
 Mục tiêu của nhóm là xây dựng một hệ thống có kiến trúc rõ ràng, nghiệp vụ sát thực tế và có khả năng mở rộng trong tương lai.
+
+## Tài liệu lưu trú hiện tại
+
+Các thay đổi ngày/số đêm, tồn phòng, liên kết hạng và mốc nhận/trả được mô tả tại
+[thời gian và inventory](23-stay-time-and-inventory.md),
+[16 luồng FE phần vừa sửa](testing/stay-time-fe-checklist.md),
+[UAT toàn web](testing/web-uat-guide.md).14:00 bắt đầu nhận, cutoff đặt cùng ngày23:59:59 riêng;
+không coi đặt lúc 19:55 là lỗi khi còn đủ điều kiện.

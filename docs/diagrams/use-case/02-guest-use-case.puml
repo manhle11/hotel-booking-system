@@ -59,7 +59,8 @@ UC_Recommend ..> UC_SearchRooms : <<extend>>
 
 note bottom of UC_CreateBooking
 Booking is created with PENDING status
-and expires after 15 minutes if unpaid.
+and expires at its configured deadline (default 15min) if unpaid.
+ 14:00 starts check-in, not the same-day booking cutoff 23:59:59.
 end note
 
 @enduml

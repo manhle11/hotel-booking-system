@@ -108,3 +108,14 @@ docker compose down
 
 Do not use `docker compose down --volumes` unless the PostgreSQL, Redis, MinIO and
 pgAdmin data may be permanently discarded.
+
+## Stay time, inventory and manual verification
+
+Current rules and configuration: [Stay time and inventory](docs/23-stay-time-and-inventory.md).
+14:00 is the start of standard check-in, not the last time to book that day.
+A same-day booking at19:55 is allowed before the configured23:59:59 cutoff when inventory permits.
+The payment hold deadline is separate; availability uses the lowest remaining stock across nights.
+
+- [16 FE flows for the latest changes](docs/testing/stay-time-fe-checklist.md)
+- [Full UAT guide and workbook](docs/testing/web-uat-guide.md) —334 designed cases, initially not run.
+- [Public stay-policy/search API contract](docs/openapi/room/stay-policy-and-availability.yaml)

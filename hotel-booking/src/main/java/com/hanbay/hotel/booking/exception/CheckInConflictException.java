@@ -19,7 +19,8 @@ public class CheckInConflictException extends DomainException {
 
     public static CheckInConflictException checkInDateNotAllowed() {
         return new CheckInConflictException(
-                "CHECK_IN_DATE_NOT_ALLOWED", "Chỉ có thể check-in trong ngày nhận phòng của booking");
+                "CHECK_IN_DATE_NOT_ALLOWED",
+                "Đã ngoài thời gian nhận phòng; cần lễ tân điều chỉnh ngày hoặc xử lý khách đến muộn");
     }
 
     public static CheckInConflictException roomTypeMismatch() {

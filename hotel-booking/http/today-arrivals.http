@@ -42,3 +42,7 @@ Authorization: Bearer {{receptionistToken}}
 ### 10. Size bằng 0 - kỳ vọng 400 VALIDATION_FAILED
 GET {{baseUrl}}/front-desk/arrivals/today?page=0&size=0
 Authorization: Bearer {{receptionistToken}}
+
+# Bổ sung fixture03/11/2026: trước 06 còn CONFIRMED nhận hôm qua có checkOutDate>=today;
+# đúng/từ06 loại nhóm hôm qua. Trong ngày vẫn có CONFIRMED nhận hôm nay.
+# Giờ do backend Clock/policy; đổi ngày request không đổi server time. Xem stay-time-policy.http.

@@ -26,7 +26,7 @@ else Valid criteria
     Availability -> DB: Load active room types\nand room quantities
     DB --> Availability: Room type inventory
 
-    Availability -> DB: Count overlapping bookings\nfor requested date range
+    Availability -> DB: Count peak demand across requested nights\nincluding overdue occupied and unexpired holds
     DB --> Availability: Occupied quantities
 
     Availability -> Availability: Calculate available quantity
@@ -48,8 +48,9 @@ else Valid criteria
 end
 
 note over Availability, DB
-Availability is calculated using overlapping bookings,
-not only the current status of physical rooms.
+Take minimum stock across [arrival,departure) nights; not total overlaps.
+Exclude maintenance/OOS; readyRooms is AVAILABLE now, separate from availableRooms.
+14:00 starts arrival; same-day cutoff 23:59:59 is independent.
 end note
 
 @enduml

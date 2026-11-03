@@ -3,7 +3,7 @@ documentId: HANBAY-POLICY-FAQ
 title: Policy FAQ
 category: FAQ
 source: docs/knowledge-base/faq.md
-version: 1.1
+version: 1.3
 ---
 
 # HANBAY HOTEL — FAQ chính sách nội bộ
@@ -14,8 +14,7 @@ version: 1.1
 
 ### Q: Booking PENDING được giữ trong bao lâu?
 
-A: Booking `PENDING` giữ inventory tối đa 15 phút. Booking chưa được xác nhận khi hết hạn
-có thể chuyển sang `EXPIRED`.
+A: Mặc định15 phút, cấu hình được. Đúng expiredAt không còn giữ tồn/cho xác nhận; scheduler ghi EXPIRED sau đó. Sửa pending không tăng hạn.
 
 ### Q: Khi nào booking được CONFIRMED?
 
@@ -28,8 +27,7 @@ không tự phân loại từ tuổi/ngày sinh từng khách; không suy diễn
 
 ### Q: Availability được tính như thế nào?
 
-A: Availability được tính theo inventory room type và booking overlap trong khoảng ngày.
-Booking active và `PENDING` chưa hết hạn chiếm inventory.
+A: Tính từng đêm [nhận,trả), lấy tồn thấp nhất cả kỳ; trừ active, hold còn hạn và khách ở quá hạn; loại phòng bảo trì/ngừng phục vụ. Không trừ gộp mọi booking giao khoảng. availableRooms khác readyRooms hiện tại.
 
 ## Thanh toán và hủy
 
@@ -52,7 +50,7 @@ dưới 48 giờ được hoàn 50%; dưới 24 giờ không được hủy. M�
 
 ### Q: Tôi có thể check-in trước ngày check-in không?
 
-A: Không. Backend chỉ cho check-in khi ngày hiện tại trùng `checkInDate` của booking.
+A: Không nhận trước ngày đặt. Cho nhận trong ngày đặt hoặc booking hôm qua còn kỳ ở trước 06:00 hôm nay; đúng 06:00 không còn ngoại lệ. Trước14:00 trong ngày đặt cần lý do lễ tân.
 
 ### Q: Ai thực hiện check-in?
 
@@ -110,7 +108,7 @@ và không được gán phòng trước check-in.
 
 A: Không. Booking mới chưa thanh toán đủ còn `PENDING` và không được check-in. Booking đã
 xác nhận rồi gia hạn có thể còn nợ nhưng vẫn `CONFIRMED`/`CHECKED_IN`. Check-in kiểm tra
-`CONFIRMED`, đúng ngày, phòng và quyền; không kiểm tra lại công nợ bằng 0.
+CONFIRMED, cửa sổ ngày/giờ hợp lệ, phòng và quyền; không kiểm tra lại công nợ bằng0.
 
 ### Q: Tôi có thể đặt chưa trả tiền rồi ở xong thanh toán toàn bộ không?
 
@@ -124,5 +122,21 @@ toán phần còn thiếu tại checkout. Booking không quay về `PENDING`.
 
 ### Q: Có được check-in trước 14:00 cùng ngày không?
 
-A: Endpoint hiện kiểm tra ngày, chưa chặn giờ 14:00; 14:00 là mốc mặc định tính chính sách
-hủy. Chưa có quy định phí nhận sớm để suy diễn.
+A: Có thể nhận sớm trong ngày nếu lễ tân ghi lý do≤500 ký tự, phòng AVAILABLE đúng hạng và không xung đột. Không có công thức tự thu phí nhận sớm. Đúng/từ14:00 không cần lý do sớm.
+
+### Q: Đã19:55 ngày 03/11, sao vẫn đặt nhận03/11 được?
+
+A: Đúng policy:14:00 là bắt đầu nhận, chưa phải đóng đặt. Đặt cùng ngày được trước cutoff 23:59:59
+nếu còn tồn.03→05/11 là2 đêm; hạn thanh toán expiredAt riêng, không chờ đến cutoff mới trả tiền.
+
+### Q: Đúng 12:00 có bị coi trả muộn? Qua giờ có tự trả phòng không?
+
+A: Đúng 12:00 chưa muộn; sau 12:00 cần ghi chú xử lý. Không tự trả/nhả tồn/cộng đêm. Trả xong DIRTY.
+
+### Q: Có được thực hiện trả sớm với ngày hôm qua hoặc ngày mai không?
+
+A: Không. Execute chỉ ngày khách sạn hôm nay; quote chưa phải đã checkout.
+
+### Q: Tài liệu và cách thử phần thời gian mới ở đâu?
+
+A: [Quy tắc đầy đủ](../23-stay-time-and-inventory.md) và [16 luồng FE](../testing/stay-time-fe-checklist.md).

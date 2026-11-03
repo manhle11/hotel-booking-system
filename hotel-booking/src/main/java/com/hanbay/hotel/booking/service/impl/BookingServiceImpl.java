@@ -21,6 +21,7 @@ import com.hanbay.hotel.booking.exception.InvalidBookingDateException;
 import com.hanbay.hotel.booking.mapper.BookingMapper;
 import com.hanbay.hotel.booking.policy.BookingCancellationPolicy;
 import com.hanbay.hotel.booking.policy.CancellationDecision;
+import com.hanbay.hotel.booking.policy.HotelStayPolicy;
 import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.booking.service.BookingAccessTokenService;
 import com.hanbay.hotel.booking.service.BookingService;
@@ -70,6 +71,7 @@ public class BookingServiceImpl implements BookingService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final String CURRENCY = "VND";
 
+    private final HotelStayPolicy stayPolicy;
     private final BookingFactory bookingFactory;
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
@@ -471,7 +473,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private void validateStayDates(LocalDate checkIn, LocalDate checkOut) {
-        LocalDate today = LocalDate.now(clock);
+        LocalDate today = stayPolicy.today();
 
         if (checkIn.isBefore(today)) {
             throw new InvalidBookingDateException("Ngày nhận phòng không được ở quá khứ.");
@@ -479,6 +481,10 @@ public class BookingServiceImpl implements BookingService {
 
         if (!checkOut.isAfter(checkIn)) {
             throw new InvalidBookingDateException("Ngày trả phòng phải sau ngày nhận phòng.");
+        }
+        if (stayPolicy.bookingClosed(checkIn)) {
+            throw new InvalidBookingDateException(
+                    "Đã qua giờ nhận đặt phòng cho hôm nay. Vui lòng chọn ngày tiếp theo.");
         }
     }
 

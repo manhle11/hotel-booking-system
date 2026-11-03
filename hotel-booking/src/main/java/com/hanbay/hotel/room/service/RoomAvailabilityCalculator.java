@@ -1,6 +1,6 @@
 package com.hanbay.hotel.room.service;
 
-import com.hanbay.hotel.booking.domain.BookingStatus;
+import com.hanbay.hotel.booking.policy.HotelStayPolicy;
 import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.room.domain.RoomStatus;
 import com.hanbay.hotel.room.repository.RoomRepository;
@@ -20,14 +20,24 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class RoomAvailabilityCalculator {
 
-    private static final List<BookingStatus> OCCUPYING_STATUSES =
-            List.of(BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN);
     private static final List<RoomStatus> SELLABLE_ROOM_STATUSES =
             List.of(RoomStatus.AVAILABLE, RoomStatus.OCCUPIED, RoomStatus.DIRTY, RoomStatus.CLEANING);
 
     private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
     private final Clock clock;
+    private final HotelStayPolicy stayPolicy;
+
+    public Map<UUID, Long> countReadyRooms(Collection<UUID> roomTypeIds) {
+        if (roomTypeIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return roomRepository.countByRoomTypeIdsAndStatusIn(roomTypeIds, List.of(RoomStatus.AVAILABLE)).stream()
+                .collect(Collectors.toMap(
+                        RoomRepository.RoomTypeRoomCount::getRoomTypeId,
+                        RoomRepository.RoomTypeRoomCount::getRoomCount));
+    }
 
     public long countAvailableRooms(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut) {
         return countAvailableRooms(List.of(roomTypeId), checkIn, checkOut).getOrDefault(roomTypeId, 0L);
@@ -35,22 +45,16 @@ public class RoomAvailabilityCalculator {
 
     public long countAvailableRoomsExcludingBooking(
             UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, UUID excludedBookingId) {
-        long sellableRooms =
-                roomRepository.countByRoomTypeIdsAndStatusIn(List.of(roomTypeId), SELLABLE_ROOM_STATUSES).stream()
-                        .mapToLong(RoomRepository.RoomTypeRoomCount::getRoomCount)
-                        .sum();
-        long occupiedRooms = bookingRepository.countOverlappingActiveBookingsExcluding(
-                roomTypeId,
-                excludedBookingId,
-                checkIn,
-                checkOut,
-                Instant.now(clock),
-                OCCUPYING_STATUSES,
-                BookingStatus.PENDING);
-        return Math.max(0L, sellableRooms - occupiedRooms);
+        return countAvailableRooms(List.of(roomTypeId), checkIn, checkOut, excludedBookingId)
+                .getOrDefault(roomTypeId, 0L);
     }
 
     public Map<UUID, Long> countAvailableRooms(Collection<UUID> roomTypeIds, LocalDate checkIn, LocalDate checkOut) {
+        return countAvailableRooms(roomTypeIds, checkIn, checkOut, null);
+    }
+
+    private Map<UUID, Long> countAvailableRooms(
+            Collection<UUID> roomTypeIds, LocalDate checkIn, LocalDate checkOut, UUID excludedBookingId) {
         if (roomTypeIds.isEmpty()) {
             return Map.of();
         }
@@ -62,8 +66,13 @@ public class RoomAvailabilityCalculator {
                                 RoomRepository.RoomTypeRoomCount::getRoomCount));
 
         Map<UUID, Long> overlappingBookingCounts = bookingRepository
-                .countOverlappingActiveBookingsByRoomTypeIds(
-                        roomTypeIds, checkIn, checkOut, Instant.now(clock), OCCUPYING_STATUSES, BookingStatus.PENDING)
+                .countPeakActiveBookingsByRoomTypeIds(
+                        roomTypeIds,
+                        checkIn,
+                        checkOut,
+                        stayPolicy.overdueThrough(),
+                        Instant.now(clock),
+                        excludedBookingId)
                 .stream()
                 .collect(Collectors.toMap(
                         BookingRepository.RoomTypeBookingCount::getRoomTypeId,

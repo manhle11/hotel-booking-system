@@ -24,3 +24,10 @@ Accept: application/json
 ### Loại phòng không tồn tại hoặc ngừng kinh doanh - trả về 404
 GET {{baseUrl}}/room-types/99999999-9999-4999-8999-999999999999
 Accept: application/json
+
+### Public stay policy — hotelToday/serverNow là nguồn ngày giờ,14:00 không phải hạn đặt
+GET {{baseUrl}}/stay-policy
+Accept: application/json
+
+# Với các request search: availableRooms theo từng đêm; readyRooms chỉ AVAILABLE hiện tại.
+# Ngày mẫu2027 là fixture; đổi theo kỳ cần kiểm. Ngày nhận hôm nay bị đóng từ đúng cutoff 23:59:59.

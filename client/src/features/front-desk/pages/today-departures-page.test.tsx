@@ -2,6 +2,22 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import dayjs from 'dayjs';
+import '../../../utils/hotel-time';
+
+vi.mock('../../../hooks/use-stay-policy', async () => {
+  const actual = await vi.importActual<typeof import('../../../hooks/use-stay-policy')>(
+    '../../../hooks/use-stay-policy',
+  );
+  return {
+    ...actual,
+    useStayPolicy: () => ({
+      policy: actual.DEFAULT_STAY_POLICY,
+      now: dayjs(antdMocks.now).tz('Asia/Ho_Chi_Minh'),
+      today: dayjs('2026-08-19'),
+    }),
+  };
+});
 
 import {
   useCheckOutGuest,
@@ -15,6 +31,7 @@ import { TodayDeparturesPage } from './today-departures-page';
 const antdMocks = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
+  now: '2026-08-19T03:30:00Z',
 }));
 
 vi.mock('antd', async () => {
@@ -83,6 +100,7 @@ const queryResult = (overrides: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  antdMocks.now = '2026-08-19T03:30:00Z';
   vi.mocked(useCheckOutGuest).mockReturnValue({
     mutate,
     reset: resetMutation,
@@ -114,6 +132,25 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('TodayDeparturesPage', () => {
+  it('requires a receptionist note after the configured checkout time', async () => {
+    antdMocks.now = '2026-08-19T06:00:00Z';
+    vi.mocked(useTodayDepartures).mockReturnValue(
+      queryResult({ data: pageData({ content: [paidDeparture] }) }) as never,
+    );
+    render(<TodayDeparturesPage />);
+    expect(screen.getByText('Quá hạn trả phòng')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Trả phòng$/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Xác nhận trả phòng' }));
+    expect(await screen.findByText('Nhập ghi chú xác nhận xử lý trả phòng muộn.')).not.toBeNull();
+    expect(mutate).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Ghi chú'), {
+      target: { value: 'Đã kiểm tra lịch khách đến tiếp theo' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận trả phòng' }));
+    await waitFor(() => expect(mutate).toHaveBeenCalled());
+    expect(mutate.mock.calls[0][0].payload.note).toBe('Đã kiểm tra lịch khách đến tiếp theo');
+  });
+
   it('hiển thị dữ liệu trả phòng bằng tiếng Việt', () => {
     vi.mocked(useTodayDepartures).mockReturnValue(queryResult({ data: pageData() }) as never);
 
@@ -121,7 +158,7 @@ describe('TodayDeparturesPage', () => {
 
     expect(screen.getByText('HAN-20260819-001')).not.toBeNull();
     expect(screen.getByText('Nguyễn Văn A')).not.toBeNull();
-    expect(screen.getByText('Quá hạn trả phòng')).not.toBeNull();
+    expect(screen.getByText('Đang lưu trú')).not.toBeNull();
     expect(screen.getAllByText(/lượt đặt phòng/).length).toBeGreaterThan(0);
   });
 

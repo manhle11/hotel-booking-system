@@ -76,6 +76,10 @@ public class StayModificationServiceImpl implements StayModificationService {
                 .findByIdWithAssignedRoomForUpdate(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException("Không tìm thấy đặt phòng"));
         validateEarlyCheckout(booking, request.actualCheckOutDate());
+        if (!request.actualCheckOutDate().equals(LocalDate.now(clock))) {
+            throw StayModificationException.badRequest(
+                    "INVALID_EARLY_CHECKOUT_DATE", "Ngày trả phòng thực tế phải là ngày hiện tại của khách sạn.");
+        }
         Room assignedRoom = booking.getAssignedRoom();
         if (assignedRoom == null) {
             throw StayModificationException.conflict("ROOM_NOT_ASSIGNED", "Đặt phòng chưa được gán phòng vật lý");
@@ -149,7 +153,8 @@ public class StayModificationServiceImpl implements StayModificationService {
         booking.checkOut(
                 receptionist,
                 buildCheckoutNote(
-                        request.normalizedNote(), additionalChargeAmount, additionalChargeReason, collectedAmount));
+                        request.normalizedNote(), additionalChargeAmount, additionalChargeReason, collectedAmount),
+                clock.instant());
         return withRefundAmount(calculation, refundAmount, refundStatus, room);
     }
 
@@ -184,8 +189,9 @@ public class StayModificationServiceImpl implements StayModificationService {
                 throw StayModificationException.conflict(
                         "ROOM_NOT_AVAILABLE_FOR_EXTENSION", "Phòng hiện tại không trống cho toàn bộ thời gian gia hạn");
             }
-        } else if (availabilityCalculator.countAvailableRoomsExcludingBooking(
-                        booking.getRoomType().getId(), booking.getCheckInDate(), request.newCheckOutDate(), bookingId)
+        }
+        if (availabilityCalculator.countAvailableRoomsExcludingBooking(
+                        booking.getRoomType().getId(), oldDate, request.newCheckOutDate(), bookingId)
                 <= 0) {
             throw StayModificationException.conflict(
                     "ROOM_NOT_AVAILABLE_FOR_EXTENSION", "Hạng phòng không còn trống cho thời gian gia hạn");

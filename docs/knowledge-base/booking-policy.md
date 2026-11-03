@@ -3,7 +3,7 @@ documentId: HANBAY-BOOKING-POLICY
 title: Booking Policy
 category: BOOKING
 source: docs/knowledge-base/booking-policy.md
-version: 1.1
+version: 1.3
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -36,15 +36,14 @@ Knowledge base không suy diễn ngưỡng tuổi, miễn phí dịch vụ, ăn 
 
 ### 3.3 Availability
 
-Availability được tính theo room type và booking overlap, không chỉ theo trạng thái tức thời
-của một phòng vật lý. Hai khoảng trùng khi booking hiện có bắt đầu trước check-out yêu cầu và
-kết thúc sau check-in yêu cầu.
-
-Booking `CONFIRMED`, `CHECKED_IN` và booking `PENDING` chưa hết hạn chiếm inventory.
+Tính từng đêm [ngày nhận,ngày trả), lấy tồn thấp nhất cả kỳ. Nguồn phòng của đúng hạng
+loại MAINTENANCE/OUT_OF_SERVICE; trừ CONFIRMED, CHECKED_IN và PENDING có expiredAt > now.
+Booking đang ở đã quá hạn tiếp tục chặn tồn, không tự giải phóng theo ngày trả cũ.
+Không trừ gộp mọi booking chạm cả khoảng. `availableRooms` cho kỳ khác `readyRooms` hiện tại.
 
 ### 3.4 Booking PENDING
 
-Booking mới ở trạng thái `PENDING` và giữ inventory tối đa 15 phút. Sau hạn, scheduler có
+Booking mới ở trạng thái `PENDING` và giữ inventory theo cấu hình PAYMENT_EXPIRATION_MINUTES, mặc định 15 phút. Sau hạn, scheduler có
 thể chuyển booking chưa được xác nhận sang `EXPIRED`.
 
 ### 3.5 Xác nhận booking
@@ -74,7 +73,7 @@ Sửa booking không cộng thêm 15 phút; hạn giữ chỗ ban đầu đượ
 
 1. Guest chọn ngày, occupancy và room type còn capacity/inventory.
 2. Backend kiểm tra lại availability trong transaction và tạo booking `PENDING`.
-3. Booking giữ inventory trong tối đa 15 phút.
+3. Booking giữ inventory tới trước expiredAt (mặc định 15 phút).
 4. Thanh toán đủ khi booking còn hiệu lực chuyển booking sang `CONFIRMED`.
 5. Booking chưa xác nhận khi hết hạn chuyển sang `EXPIRED`.
 
@@ -99,3 +98,15 @@ khi hết hạn, booking có thể chuyển `EXPIRED` và không tiếp tục gi
 - `docs/07-business-workflows.md`
 - `BookingFactory.java`, `BookingRepository.java`, `Booking.java`
 - `BookingServiceImpl.java`, `RoomType.java`
+
+### Mốc đặt cùng ngày và giờ nhận phòng
+
+Theo Asia/Ho_Chi_Minh mặc định,14:00 là bắt đầu nhận phòng chuẩn, không phải hạn đặt.
+Vẫn được đặt nhận hôm nay lúc 19:55 nếu còn phòng, chưa tới cutoff 23:59:59 và đủ điều kiện.
+Đúng cutoff không nhận đặt mới hôm nay; không đặt ngày nhận quá khứ.
+03→05/11 tính2 đêm03 và04, trả12:00 ngày05; nhận tối không tự giảm tiền hoặc dời ngày.
+Hạn thanh toán riêng là expiredAt: đúng hạn không còn được xác nhận hoặc giữ tồn,
+không chờ scheduler đổi nhãn; sửa pending không kéo dài hạn.
+API `/api/v1/stay-policy` là nguồn cấu hình/ngày/giờ máy chủ.
+Nguồn: HotelStayPolicy, BookingFactory/BookingServiceImpl, RoomAvailabilityCalculator,
+BookingRepository và [tài liệu23](../23-stay-time-and-inventory.md).

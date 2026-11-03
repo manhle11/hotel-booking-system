@@ -1,16 +1,18 @@
-import { useMutation } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Form } from 'antd';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { MainFooter } from '@components/layout/MainFooter';
 import { MainHeader } from '@components/layout/MainHeader';
 import { searchAvailableRoomTypes } from '../api/available-room-search-api';
+import type { AvailableRoomTypeSearchParams } from '../types/available-room-search';
 import { AvailableRoomResults } from './available-room-results';
 import { RoomAvailabilityForm } from './room-availability-form';
 import { RoomSearchHero } from './room-search-hero';
 import { getInitialSearchValues, type SearchFormValues } from './room-search-utils';
 import './room-search-page.css';
+import { countStayNights } from '../../../utils/hotel-time';
 
 const PAGE_SIZE = 6;
 
@@ -19,47 +21,72 @@ interface AvailableRoomSearchVariables {
   page: number;
 }
 
+function getSearchParams({
+  values,
+  page,
+}: AvailableRoomSearchVariables): AvailableRoomTypeSearchParams {
+  const [checkIn, checkOut] = values.stayDates;
+  return {
+    checkIn: checkIn.format('YYYY-MM-DD'),
+    checkOut: checkOut.format('YYYY-MM-DD'),
+    adults: values.adults,
+    children: values.children,
+    page,
+    size: PAGE_SIZE,
+  };
+}
+
 export function RoomSearchPage() {
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [form] = Form.useForm<SearchFormValues>();
+  const [submittedSearch, setSubmittedSearch] = useState<AvailableRoomSearchVariables | null>(null);
 
   const initialValues = useMemo(() => getInitialSearchValues(searchParams), [searchParams]);
   const watchedValues = Form.useWatch([], form) as SearchFormValues | undefined;
   const currentValues = watchedValues ?? initialValues;
-  const [checkIn, checkOut] = currentValues.stayDates;
-  const nights = Math.max(checkOut.diff(checkIn, 'day'), 1);
+  const resultValues = submittedSearch?.values ?? currentValues;
+  const [checkIn, checkOut] = resultValues.stayDates;
+  const params = submittedSearch ? getSearchParams(submittedSearch) : null;
 
-  const searchMutation = useMutation({
-    mutationFn: ({ values, page }: AvailableRoomSearchVariables) => {
-      const [searchCheckIn, searchCheckOut] = values.stayDates;
-      return searchAvailableRoomTypes({
-        checkIn: searchCheckIn.format('YYYY-MM-DD'),
-        checkOut: searchCheckOut.format('YYYY-MM-DD'),
-        adults: values.adults,
-        children: values.children,
-        page,
-        size: PAGE_SIZE,
+  const roomsQuery = useQuery({
+    queryKey: ['available-room-types', params],
+    queryFn: () => searchAvailableRoomTypes(params!),
+    enabled: params !== null,
+    staleTime: 0,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: 'always',
+    refetchOnReconnect: 'always',
+  });
+  const nights = roomsQuery.data?.content[0]?.totalNights ?? countStayNights(checkIn, checkOut);
+
+  const handleSearch = async (values: SearchFormValues, page = 0) => {
+    const search = { values, page };
+    const searchParams = getSearchParams(search);
+    setSubmittedSearch(search);
+
+    try {
+      const rooms = await queryClient.fetchQuery({
+        queryKey: ['available-room-types', searchParams],
+        queryFn: () => searchAvailableRoomTypes(searchParams),
+        staleTime: 0,
       });
-    },
-    onSuccess: (rooms, variables) => {
-      if (variables.page !== 0) return;
+      if (page !== 0) return;
       if (rooms.totalElements) {
         void message.success('Đã cập nhật danh sách hạng phòng còn trống.');
       } else {
         void message.info('Không tìm thấy hạng phòng phù hợp với tiêu chí đã chọn.');
       }
-    },
-    onError: (error) => {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Không thể tìm phòng trống.';
       void message.error(errorMessage);
-    },
-  });
-  const resultValues = searchMutation.variables?.values ?? currentValues;
+    }
+  };
 
   const handleBookRoom = (roomTypeId: string) => {
-    const values = searchMutation.variables?.values ?? form.getFieldsValue();
+    const values = submittedSearch?.values ?? form.getFieldsValue();
     const [bookingCheckIn, bookingCheckOut] = values.stayDates;
     const params = new URLSearchParams({
       roomTypeId,
@@ -81,19 +108,19 @@ export function RoomSearchPage() {
         <RoomAvailabilityForm
           form={form}
           initialValues={initialValues}
-          searchLoading={searchMutation.isPending}
-          onSearch={(values) => searchMutation.mutate({ values, page: 0 })}
+          searchLoading={roomsQuery.isFetching}
+          onSearch={(values) => void handleSearch(values)}
         />
 
         <AvailableRoomResults
-          availableRooms={searchMutation.data ?? null}
+          availableRooms={roomsQuery.data ?? null}
           currentValues={resultValues}
-          loading={searchMutation.isPending}
+          loading={submittedSearch !== null && roomsQuery.isPending}
           nights={nights}
           onBookRoom={handleBookRoom}
           onPageChange={(page) => {
-            const values = searchMutation.variables?.values ?? form.getFieldsValue();
-            searchMutation.mutate({ values, page: page - 1 });
+            const values = submittedSearch?.values ?? form.getFieldsValue();
+            void handleSearch(values, page - 1);
           }}
         />
       </main>

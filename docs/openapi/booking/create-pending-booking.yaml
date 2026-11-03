@@ -1,6 +1,6 @@
 info:
   title: Booking API
-  version: 1.0.0
+  version: 1.1.0
   description: API tạo booking chờ thanh toán
 
 openapi: 3.0.3
@@ -15,20 +15,23 @@ paths:
 
       description: >
         API tạo mới một booking với trạng thái PENDING.
-        Sau khi tạo thành công, hệ thống sẽ giữ phòng trong 15 phút
+        Sau khi tạo thành công, hệ thống giữ phòng theo cấu hình (mặc định 15 phút)
         để khách thực hiện thanh toán.
 
         ### Business Rules
 
-        - Booking được giữ tối đa 15 phút.
+        - Hạn giữ expiredAt theo PAYMENT_EXPIRATION_MINUTES; sửa pending không kéo dài.
 
         - Booking PENDING vẫn được tính là đã giữ phòng.
 
-        - Sau 15 phút scheduler chuyển booking sang EXPIRED.
+        - Đúng expiredAt ngừng giữ/xác nhận, scheduler ghi EXPIRED ở lần chạy kế tiếp.
 
         - Hệ thống kiểm tra lại số lượng phòng trong transaction.
 
-        Payment chưa thuộc phạm vi API hiện tại và sẽ được bổ sung ở task sau.
+        Ngày ở là [nhận,trả), tối thiểu1 đêm, không nhận quá khứ.14:00 bắt đầu nhận,
+        không là hạn đặt; vẫn đặt hôm nay trước cutoff 23:59:59. Tồn lấy nhỏ nhất từng đêm,
+        tính cả hold còn hạn và khách đang ở quá hạn. Xem /api/v1/stay-policy.
+        Payment được tạo riêng qua /api/v1/payments/requests, không tự thành công khi tạo booking.
 
       operationId: createPendingBooking
 

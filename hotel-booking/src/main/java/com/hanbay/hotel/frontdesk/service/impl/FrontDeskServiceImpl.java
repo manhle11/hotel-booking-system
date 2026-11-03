@@ -3,6 +3,7 @@ package com.hanbay.hotel.frontdesk.service.impl;
 import com.hanbay.hotel.booking.domain.Booking;
 import com.hanbay.hotel.booking.domain.BookingGuest;
 import com.hanbay.hotel.booking.domain.BookingStatus;
+import com.hanbay.hotel.booking.policy.HotelStayPolicy;
 import com.hanbay.hotel.booking.repository.BookingGuestRepository;
 import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.common.response.PageResponse;
@@ -40,16 +41,24 @@ public class FrontDeskServiceImpl implements FrontDeskService {
     private final BookingRepository bookingRepository;
     private final BookingGuestRepository bookingGuestRepository;
     private final Clock clock;
+    private final HotelStayPolicy stayPolicy;
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<TodayArrivalResponse> getTodayArrivals(int page, int size) {
         PaginationValidator.validate(page, size, MAX_PAGE_SIZE);
 
-        LocalDate today = LocalDate.now(clock.withZone(HOTEL_ZONE));
+        LocalDate today = stayPolicy.today();
         PageRequest pageable = PageRequest.of(page, size, ARRIVAL_SORT);
-        Page<Booking> bookings =
-                bookingRepository.findAllByCheckInDateAndStatus(today, BookingStatus.CONFIRMED, pageable);
+        Page<Booking> bookings = bookingRepository.findArrivalsIncludingLate(
+                BookingStatus.CONFIRMED,
+                today,
+                today.minusDays(1),
+                stayPolicy
+                        .now()
+                        .toLocalTime()
+                        .isBefore(stayPolicy.getProperties().getLateArrivalCutoff()),
+                pageable);
         Map<UUID, BookingGuest> primaryGuests = findPrimaryGuests(bookings.getContent());
 
         return PageResponse.from(bookings.map(booking -> toResponse(booking, primaryGuests.get(booking.getId()))));

@@ -37,11 +37,17 @@ HANBAY HOTEL.”**
 
 ## Cập nhật và nạp lại
 
-Đối chiếu code `origin/main` tại `918185b9` ngày 09/09/2026. Bản đồng bộ này làm rõ công nợ
-sau xác nhận, thu tại checkout, tiền hoàn sau bù trừ và quyền/ngày check-in.
+Đối chiếu thêm working tree main ngày 03/11/2026 trên nền audit918185b9 ngày09/09/2026. Policy version 1.3 đồng bộ ngày/giờ, cutoff riêng, tồn từng đêm, overdue và thời điểm thực tế; không coi bản local chưa commit là đã triển khai production.
 
 Maven `generate-resources` sao chép `*-policy.md` vào `target/classes/knowledge-base`.
 Cần build lại artifact và khởi động backend với RAG bật để `PolicyKnowledgeIndex` so checksum,
 embedding lại corpus thay đổi và xóa chunk cũ. Chỉ sửa docs không cập nhật index của process
-đang chạy. Không cần xóa thủ công bảng vector. Kiểm tra câu P21–P30 sau triển khai; lượt sửa
+đang chạy. Không cần xóa thủ công bảng vector. Kiểm tra câu P21–P40 sau triển khai; lượt sửa
 repository không đồng nghĩa đã nạp lại corpus hoặc kiểm tra provider trên VPS.
+
+## Tài liệu phần lưu trú mới
+
+- [Nguồn quy tắc và biên giờ](../23-stay-time-and-inventory.md)
+- [16 luồng FE vừa thay đổi](../testing/stay-time-fe-checklist.md)
+-14:00 bắt đầu nhận, không đóng đặt; cutoff 23:59:59 và expiredAt là hai hạn riêng.
+Các tài liệu hỗ trợ không phải corpus runtime; quy tắc truy xuất được phải có trong các mục### của *-policy.md.

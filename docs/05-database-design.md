@@ -18,7 +18,7 @@ Flyway trong `hotel-booking/src/main/resources/db/migration` là nguồn sự th
 
 ## Booking
 
-- `bookings`: code, booked_by nullable, room type, ngày, adult/child count, status, total và expired_at.
+- `bookings`: code, booked_by nullable, room type, ngày DATE, adult/child count, status, total; `expired_at`, `checked_in_at`, `checked_out_at` dạng TIMESTAMPTZ sau migration V202611031800.
 - `booking_guests`: thông tin khách snapshot.
 - `booking_nights`: giá snapshot từng đêm.
 - `booking_night_price_rules`: các rule đã áp dụng cho từng đêm.
@@ -38,14 +38,14 @@ Booking status hiện có: `PENDING`, `CONFIRMED`, `CANCELLED`, `CHECKED_IN`, `C
 - `add_on_services.code` là mã nghiệp vụ duy nhất và không thay đổi sau khi tạo.
 - Dịch vụ không còn cung cấp được chuyển `active = false`, không xóa vật lý nếu đã được booking tham chiếu.
 - Thay đổi tên, mô tả, giá hoặc trạng thái catalog không làm thay đổi `unit_price` và `total_price` đã snapshot trong `booking_add_ons`.
-- PENDING chưa hết hạn và CONFIRMED/CHECKED_IN chiếm inventory khi overlap.
+- Tính từng đêm [nhận,trả); PENDING có expired_at > now và CONFIRMED/CHECKED_IN chiếm tồn; lấy nhu cầu đỉnh. CHECKED_IN quá hạn vẫn chặn tồn về sau theo policy, không tự kết thúc.
 - Housekeeping MVP dùng trực tiếp state machine của `rooms`: `DIRTY -> CLEANING -> AVAILABLE`.
   Không tạo bảng task/phân công vì chức năng đó không nằm trong yêu cầu hiện tại.
 
 ## Reporting
 
 Định nghĩa query và công thức cho Manager dashboard được mô tả tại
-[`18-manager-dashboard-metrics.md`](18-manager-dashboard-metrics.md). Reporting sử dụng
+[financial reporting and maintenance](financial-reporting-and-maintenance.md). Reporting sử dụng
 `payment_transactions` cho doanh thu, `booking_nights` cho occupied room nights và
 `bookings.created_at` cho thống kê booking.
 # Policy RAG vector storage
@@ -56,3 +56,11 @@ Dimension 1536 khớp production model `text-embedding-3-small`; thay model/dime
 `policy_knowledge_ingestion` lưu SHA-256 checksum, số chunk và thời điểm ingest để re-ingestion
 idempotent. Đây là demo policy corpus, không phải dữ liệu chính sách của khách sạn đang vận hành.
 Migration `V202609041200` adds a complete-or-null bank-transfer destination to the existing `payment_refunds` table. OTP, PIN, CVV and banking credentials are not collected.
+
+## Migration mốc lưu trú thực tế
+
+`V202611031800__record_actual_stay_times.sql` thêm checked_in_at/checked_out_at,
+chuyển expired_at từ timestamp legacy theo Asia/Ho_Chi_Minh sang TIMESTAMPTZ,
+thêm `idx_active_booking_nights` trên room_type_id/check_in_date/check_out_date cho active statuses.
+Không điền giờ giả cho booking cũ. DATE ở khác instant nhận/trả thực tế;
+[quy tắc hiện tại](23-stay-time-and-inventory.md) mô tả biên giờ và tồn.

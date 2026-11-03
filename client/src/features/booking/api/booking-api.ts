@@ -38,10 +38,11 @@ export async function getAvailablePhysicalRooms(
 export async function checkInGuest(
   bookingCode: string,
   roomId: string,
+  earlyArrivalReason?: string,
 ): Promise<CheckInGuestResponse> {
   const response = await apiClient.post<ApiResponse<CheckInGuestResponse>>(
     `/bookings/${encodeURIComponent(bookingCode)}/check-in`,
-    { roomId },
+    { roomId, ...(earlyArrivalReason ? { earlyArrivalReason } : {}) },
   );
   return response.data.data;
 }

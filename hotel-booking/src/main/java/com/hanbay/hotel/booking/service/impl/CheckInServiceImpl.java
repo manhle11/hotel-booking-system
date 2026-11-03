@@ -8,8 +8,10 @@ import com.hanbay.hotel.booking.dto.response.AvailablePhysicalRoomResponse;
 import com.hanbay.hotel.booking.dto.response.CheckInGuestResponse;
 import com.hanbay.hotel.booking.exception.CheckInBookingNotFoundException;
 import com.hanbay.hotel.booking.exception.CheckInConflictException;
+import com.hanbay.hotel.booking.policy.HotelStayPolicy;
 import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.booking.service.CheckInService;
+import com.hanbay.hotel.common.exception.RequestValidationException;
 import com.hanbay.hotel.common.security.CurrentUserProvider;
 import com.hanbay.hotel.room.domain.Room;
 import com.hanbay.hotel.room.domain.RoomStatus;
@@ -20,7 +22,6 @@ import com.hanbay.hotel.user.exception.UserNotFoundException;
 import com.hanbay.hotel.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,7 @@ public class CheckInServiceImpl implements CheckInService {
     private final UserRepository userRepository;
     private final CurrentUserProvider currentUserProvider;
     private final Clock clock;
+    private final HotelStayPolicy stayPolicy;
 
     @Override
     @Transactional
@@ -44,6 +46,18 @@ public class CheckInServiceImpl implements CheckInService {
                 .orElseThrow(() -> new CheckInBookingNotFoundException("Không tìm thấy booking"));
 
         validateBooking(booking);
+        String arrivalNote = null;
+        if (stayPolicy.isEarlyArrival(booking.getCheckInDate())) {
+            if (request.earlyArrivalReason() == null
+                    || request.earlyArrivalReason().isBlank()) {
+                throw new RequestValidationException(
+                        "earlyArrivalReason", "Nhận phòng trước giờ chuẩn cần lễ tân xác nhận và nhập lý do.");
+            }
+            arrivalNote = "Lễ tân duyệt nhận phòng sớm: "
+                    + request.earlyArrivalReason().trim();
+        } else if (booking.getCheckInDate().isBefore(stayPolicy.today())) {
+            arrivalNote = "Khách đến muộn sau nửa đêm, giữ nguyên ngày lưu trú đã đặt";
+        }
 
         Room room = roomRepository
                 .findByIdForUpdate(request.roomId())
@@ -58,7 +72,7 @@ public class CheckInServiceImpl implements CheckInService {
         Instant checkedInAt = clock.instant();
 
         room.occupy();
-        booking.checkIn(room, receptionist);
+        booking.checkIn(room, receptionist, checkedInAt, arrivalNote);
 
         return new CheckInGuestResponse(
                 booking.getId(),
@@ -80,6 +94,13 @@ public class CheckInServiceImpl implements CheckInService {
                 .findAllByRoomTypeIdAndStatusOrderByFloorAscRoomNumberAsc(
                         booking.getRoomType().getId(), RoomStatus.AVAILABLE)
                 .stream()
+                .filter(room -> bookingRepository.countAssignedRoomConflicts(
+                                room.getId(),
+                                booking.getId(),
+                                stayPolicy.today(),
+                                booking.getCheckOutDate(),
+                                List.of(BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN))
+                        == 0)
                 .map(room -> new AvailablePhysicalRoomResponse(room.getId(), room.getRoomNumber(), room.getFloor()))
                 .toList();
     }
@@ -91,7 +112,7 @@ public class CheckInServiceImpl implements CheckInService {
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
             throw CheckInConflictException.bookingNotConfirmed();
         }
-        if (!booking.getCheckInDate().equals(LocalDate.now(clock))) {
+        if (!stayPolicy.canArrive(booking.getCheckInDate(), booking.getCheckOutDate())) {
             throw CheckInConflictException.checkInDateNotAllowed();
         }
     }
@@ -101,6 +122,15 @@ public class CheckInServiceImpl implements CheckInService {
             throw CheckInConflictException.roomTypeMismatch();
         }
         if (room.getStatus() != RoomStatus.AVAILABLE) {
+            throw CheckInConflictException.roomNotAvailable();
+        }
+        if (bookingRepository.countAssignedRoomConflicts(
+                        room.getId(),
+                        booking.getId(),
+                        stayPolicy.today(),
+                        booking.getCheckOutDate(),
+                        List.of(BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN))
+                > 0) {
             throw CheckInConflictException.roomNotAvailable();
         }
     }

@@ -11,8 +11,8 @@
 flowchart TD
     A[Guest enters check-in/check-out date] --> B[System validates date range]
     B --> C[Calculate total rooms by room type]
-    C --> D[Find overlapped bookings]
-    D --> E[Calculate available rooms]
+    C --> D[Count demand for each stay night, including overdue stays]
+    D --> E[Take minimum remaining inventory across nights]
     E --> F[Calculate dynamic price]
     F --> G[Return available room types]
 ```
@@ -24,7 +24,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Guest selects room type] --> B[Create PENDING booking]
-    B --> C[Set expired_at = now + 15 minutes]
+    B --> C[Set expired_at from configured hold, default 15min]
     C --> D[Create payment request]
     D --> E{Payment success?}
     E -->|Yes| F[Payment SUCCESS]
@@ -39,9 +39,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Spring Scheduler runs every 1 minute] --> B[Find expired PENDING bookings]
+    A[Configured scheduler, default every minute] --> B[Lock PENDING rows expired_at less than or equal to now]
     B --> C[Update booking to EXPIRED]
-    C --> D[Release room availability]
+    C --> D[Record expired status and history; hold already excluded at deadline]
 ```
 
 ---
@@ -52,10 +52,11 @@ flowchart TD
 flowchart TD
     A[Guest arrives] --> B[Receptionist searches booking]
     B --> C[System verifies CONFIRMED booking]
-    C --> D[Show AVAILABLE physical rooms]
+    C --> W[Validate hotel arrival window and early reason if before14]
+    W --> D[Show AVAILABLE correct-type rooms without assigned conflicts]
     D --> E[Receptionist assigns room]
     E --> F[Room becomes OCCUPIED]
-    F --> G[Booking becomes CHECKED_IN]
+    F --> G[Booking CHECKED_IN; save actual UTC checked_in_at]
 ```
 
 ---
@@ -65,10 +66,11 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Guest requests check-out] --> B[Receptionist inspects room]
-    B --> C[Record damage or lost item charges if any]
+    B --> T[If after12 require late-checkout note; no automatic extra night]
+    T --> C[Record damage or lost item charges if any]
     C --> D[Receptionist checks final outstanding balance]
     D --> E[Guest pays remaining amount at front desk]
-    E --> F[Booking becomes CHECKED_OUT]
+    E --> F[Booking CHECKED_OUT; save actual UTC checked_out_at]
     F --> G[Room becomes DIRTY]
 ```
 
@@ -120,3 +122,15 @@ flowchart TD
 # 9. Trả phòng sớm và gia hạn lưu trú
 
 Trả phòng sớm khóa booking và phòng, tính khoản hoàn từ snapshot từng đêm. Phí hư hỏng/phát sinh và công nợ được bù trừ vào khoản hoàn; nếu còn phải thu thì lễ tân chỉ được thu đúng phần chênh lệch tại quầy. Khi có khoản hoàn, hệ thống tạo yêu cầu chuyển khoản `PENDING`; sau đó atomically chuyển booking sang `CHECKED_OUT` và phòng sang `DIRTY`. Gia hạn khóa booking, rồi khóa hạng phòng và phòng đã gán (nếu có); hệ thống kiểm tra lại khả dụng trước khi lưu các snapshot và tổng tiền mới.
+
+# 10. Biên thời gian, search refresh và liên kết hạng phòng
+
+[Quy tắc hiện tại](23-stay-time-and-inventory.md):14:00 bắt đầu nhận, không đóng đặt.
+19:55 ngày 03/11 vẫn đặt03→05/11 (2đêm) trước cutoff 23:59:59. expiredAt là hạn thanh toán riêng.
+Khách hôm qua chỉ nhận trước 06:00 khi còn điều kiện; giữ ngày đặt gốc. Không tự hủy confirmed,
+checkout, nhả phòng đang ở hoặc thêm đêm khi đồng hồ qua hạn.
+
+Nhấn tên thẻ→/room-types/{id}; nhãn dùng availableRooms cho kỳ đã submit. UI refresh 30s,
+focus/reconnect và invalidate khi sửa phòng, không thay kết quả bằng ngày form chưa gửi.
+Trả sớm execute chỉ hôm nay; gia hạn kiểm tồn đoạn thêm và lịch phòng cũ. Manual theo
+[16 luồng FE](testing/stay-time-fe-checklist.md), không suy ra các ca đã chạy từ sơ đồ này.

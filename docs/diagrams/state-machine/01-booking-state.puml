@@ -14,15 +14,14 @@ state CHECKED_OUT
 state CANCELLED
 state EXPIRED
 
-PENDING --> CONFIRMED : payment confirmed\n[before expiresAt]
+PENDING --> CONFIRMED : payment confirmed\n[before expiredAt]
 PENDING --> CANCELLED : guest cancels
-PENDING --> EXPIRED : payment timeout\n[now >= expiresAt]
-PENDING --> CANCELLED : payment rejected / booking invalid
+PENDING --> EXPIRED : payment timeout\n[now >= expiredAt]
 
-CONFIRMED --> CHECKED_IN : receptionist checks in\n[room assigned and AVAILABLE]
+CONFIRMED --> CHECKED_IN : receptionist checks in\n[arrival window, early reason if needed, correct AVAILABLE room without conflict]
 CONFIRMED --> CANCELLED : cancellation accepted\n[policy allows]
 
-CHECKED_IN --> CHECKED_OUT : receptionist checks out\n[no outstanding balance]
+CHECKED_IN --> CHECKED_OUT : receptionist checks out\n[scheduled date reached, late note if needed, final debt zero]
 
 CANCELLED --> [*]
 EXPIRED --> [*]
@@ -30,10 +29,12 @@ CHECKED_OUT --> [*]
 
 note right of PENDING
   A newly created booking holds inventory
-  for at most 15 minutes.
+  until configured expiry, default 15min.
+  At exact expiry no confirmation/hold,
+  even before scheduler writes EXPIRED.
 
   Counted in availability while:
-  status = PENDING and expiresAt > now.
+  status = PENDING and expiredAt > now.
 end note
 
 note right of CONFIRMED
@@ -44,6 +45,8 @@ end note
 
 note right of CHECKED_IN
   The assigned physical room is OCCUPIED.
+  Overdue occupancy still blocks inventory.
+  No automatic checkout or extra-night fee.
   Cancellation is no longer permitted.
 end note
 
@@ -61,7 +64,7 @@ note bottom of CANCELLED
 end note
 
 note bottom of EXPIRED
-  Payment was not confirmed before expiresAt.
+  Payment was not confirmed before expiredAt.
   The RoomType inventory hold is released.
   No physical Room needs to be unassigned.
 end note
@@ -69,7 +72,7 @@ end note
 legend bottom
   == Transition guard examples ==
   [room inventory available] : availability is rechecked inside a transaction
-  [before expiresAt]          : expired bookings cannot be confirmed
+  [before expiredAt]          : expired bookings cannot be confirmed
   [policy allows]             : cancellation policy is satisfied
 endlegend
 

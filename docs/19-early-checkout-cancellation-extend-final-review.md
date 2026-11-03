@@ -60,3 +60,11 @@ See the final implementation handoff for executed command results.
 ## 14. NOT VERIFIED
 
 Provider refund execution/callback and production PostgreSQL race behavior unless listed as passed in the final handoff.
+
+## Ghi chú cập nhật lưu trú03/11/2026
+
+Số liệu/bước demo phía trên giữ ngữ cảnh lần ghi nhận, không đại diện kết quả334 ca UAT mới.
+Quy tắc hiện tại xem [tài liệu23](23-stay-time-and-inventory.md):14:00 bắt đầu nhận, không chốt đặt;
+cutoff 23:59:59 riêng, nhận sớm cần lý do, hôm qua đến trước 06, sau 12 trả cần note, trả sớm chỉ hôm nay,
+tồn theo đêm gồm overdue, đúng expiredAt hết giữ. Kỳ demo cần sửa theo hotelToday của server.
+Checklist đúng phần thay đổi: [16 luồng FE](testing/stay-time-fe-checklist.md), ban đầu Chưa chạy.

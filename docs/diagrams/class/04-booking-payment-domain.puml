@@ -16,7 +16,9 @@ class Booking <<aggregate root>> {
   +BigDecimal roomAmount
   +BigDecimal addOnAmount
   +BigDecimal totalAmount
-  +Instant expiresAt
+  +Instant expiredAt
+  +Instant checkedInAt
+  +Instant checkedOutAt
   +Instant createdAt
 }
 
@@ -111,7 +113,8 @@ PaymentWebhookEvent --> WebhookStatus
 note bottom of Booking
   Invariant:
   checkInDate < checkOutDate.
-  PENDING bookings expire after 15 minutes.
+  PENDING hold configured, default 15min; expires at equality.
+  Calendar dates differ from UTC actual TIMESTAMPTZ instants.
   A booking reserves a RoomType; its physical Room
   remains unassigned until front-desk check-in.
 end note

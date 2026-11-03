@@ -63,7 +63,14 @@ class CheckInServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new CheckInServiceImpl(bookingRepository, roomRepository, userRepository, currentUserProvider, clock);
+        service = new CheckInServiceImpl(
+                bookingRepository,
+                roomRepository,
+                userRepository,
+                currentUserProvider,
+                clock,
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        clock, new com.hanbay.hotel.booking.config.HotelStayProperties()));
     }
 
     @Test
@@ -213,6 +220,65 @@ class CheckInServiceImplTest {
                 .isInstanceOf(CheckInConflictException.class)
                 .extracting(exception -> ((DomainException) exception).getErrorCode())
                 .isEqualTo(code);
+    }
+
+    private CheckInServiceImpl serviceAt(Instant instant) {
+        var clock = Clock.fixed(instant, ZoneId.of("Asia/Ho_Chi_Minh"));
+        return new CheckInServiceImpl(
+                bookingRepository,
+                roomRepository,
+                userRepository,
+                currentUserProvider,
+                clock,
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        clock, new com.hanbay.hotel.booking.config.HotelStayProperties()));
+    }
+
+    @Test
+    void requiresReceptionistReasonBeforeStandardArrivalTime() {
+        var booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), roomType(ROOM_TYPE_ID));
+        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
+                .thenReturn(Optional.of(booking));
+        assertThatThrownBy(
+                        () -> serviceAt(NOW.minusSeconds(3600)).checkIn(BOOKING_CODE, new CheckInGuestRequest(ROOM_ID)))
+                .isInstanceOf(com.hanbay.hotel.common.exception.RequestValidationException.class)
+                .hasMessageContaining("trước giờ chuẩn");
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        org.mockito.Mockito.verifyNoInteractions(roomRepository);
+    }
+
+    @Test
+    void recordsApprovedEarlyArrivalAndActualUtcTime() {
+        var type = roomType(ROOM_TYPE_ID);
+        var booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), type);
+        var room = room(type, RoomStatus.AVAILABLE);
+        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
+                .thenReturn(Optional.of(booking));
+        when(roomRepository.findByIdForUpdate(ROOM_ID)).thenReturn(Optional.of(room));
+        when(currentUserProvider.currentUserId()).thenReturn(Optional.of(RECEPTIONIST_ID));
+        when(userRepository.findById(RECEPTIONIST_ID))
+                .thenReturn(Optional.of(User.builder().id(RECEPTIONIST_ID).build()));
+        serviceAt(NOW.minusSeconds(3600)).checkIn(BOOKING_CODE, new CheckInGuestRequest(ROOM_ID, "Phòng đã dọn xong"));
+        assertThat(booking.getCheckedInAt()).isEqualTo(NOW.minusSeconds(3600));
+        assertThat(booking.getStatusHistories().get(0).getReason()).contains("duyệt nhận phòng sớm");
+    }
+
+    @Test
+    void acceptsLateArrivalAfterMidnightWithoutChangingOriginalStayDates() {
+        var type = roomType(ROOM_TYPE_ID);
+        var booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), type);
+        var room = room(type, RoomStatus.AVAILABLE);
+        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
+                .thenReturn(Optional.of(booking));
+        when(roomRepository.findByIdForUpdate(ROOM_ID)).thenReturn(Optional.of(room));
+        when(currentUserProvider.currentUserId()).thenReturn(Optional.of(RECEPTIONIST_ID));
+        when(userRepository.findById(RECEPTIONIST_ID))
+                .thenReturn(Optional.of(User.builder().id(RECEPTIONIST_ID).build()));
+        var actual = Instant.parse("2026-08-19T19:00:00Z");
+        serviceAt(actual).checkIn(BOOKING_CODE, new CheckInGuestRequest(ROOM_ID));
+        assertThat(booking.getCheckInDate()).isEqualTo(LocalDate.of(2026, 8, 19));
+        assertThat(booking.getCheckOutDate()).isEqualTo(LocalDate.of(2026, 8, 20));
+        assertThat(booking.getCheckedInAt()).isEqualTo(actual);
     }
 
     private Booking booking(BookingStatus status, LocalDate checkInDate, RoomType roomType) {

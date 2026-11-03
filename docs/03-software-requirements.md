@@ -45,7 +45,8 @@ Hệ thống cung cấp:
 ### FR-01 Search Available Rooms
 - Nhập check-in, check-out.
 - Nhập số khách.
-- Hiển thị các hạng phòng còn trống.
+- Hiển thị hạng còn tồn cho toàn kỳ, dùng `availableRooms`; nhấn tên mở chi tiết đúng hạng.
+- Phân biệt ngày nhận/ngày trả; số đêm thống nhất; làm mới tồn mỗi 30s/focus/reconnect và giữ query đã submit.
 
 ### FR-02 View Room Details
 - Hình ảnh.
@@ -73,15 +74,15 @@ Hệ thống cung cấp:
 
 ### FR-06 Reception Dashboard
 - Danh sách khách check-in hôm nay.
-- Danh sách khách check-out hôm nay.
+- Danh sách khách CHECKED_IN đang ở, gồm chưa đến hạn/đến hạn/quá hạn để trả thường hoặc trả sớm.
 
 ### FR-07 Room Assignment
 - Gán phòng vật lý.
-- Chỉ hiển thị phòng AVAILABLE.
+- Chỉ hiển thị phòng AVAILABLE đúng hạng và không có lịch gán xung đột; API kiểm lại khi nhận.
 
 ### FR-08 Check-in
 - Xác nhận nhận phòng.
-- Chuyển trạng thái booking sang CHECK_IN.
+- Chuyển trạng thái booking sang CHECKED_IN, phòng OCCUPIED; lưu checked_in_at và lý do nhận sớm khi cần.
 
 ### FR-09 Check-out
 - Tính chi phí phát sinh.
@@ -170,7 +171,7 @@ Trả lời câu hỏi về chính sách khách sạn.
 
 BR-01 Không cho phép booking khi không còn phòng.
 
-BR-02 Booking PENDING quá 15 phút sẽ tự động chuyển sang EXPIRED.
+BR-02 Hold mặc định 15 phút, cấu hình được. Đúng expiredAt hết giữ/xác nhận, scheduler ghi EXPIRED; sửa pending không đổi hạn.
 
 BR-03 Chỉ phòng AVAILABLE mới được gán cho khách.
 
@@ -213,3 +214,13 @@ Dự án được xem là hoàn thành khi:
   Search -> Booking -> Payment -> Check-in -> Check-out -> Housekeeping.
 - Không xảy ra overbooking trong bài kiểm thử concurrency.
 - Hệ thống triển khai thành công bằng Docker Compose.
+
+## Acceptance bổ sung cho thời gian và inventory
+
+Nguồn chuẩn: [23-stay-time-and-inventory.md](23-stay-time-and-inventory.md).
+14:00 không là hạn chót đặt; ngày hiện tại vẫn đặt được trước cutoff 23:59:59.
+Backend trả policy công khai; ngày/giờ theo khách sạn. Nhận trước 14 cần lý do;
+booking hôm qua còn điều kiện được nhận trước 06; sau 12 ngày trả cần ghi chú.
+Checkout không tự động; trả xong DIRTY, dọn xong mới AVAILABLE. Trả sớm chỉ hôm nay;
+gia hạn kiểm tồn đoạn thêm/phòng gán. Lưu thời điểm thực tế UTC/TIMESTAMPTZ.
+Kiểm trực tiếp bằng [16 luồng FE](testing/stay-time-fe-checklist.md); ca biên cần Clock backend test.

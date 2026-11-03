@@ -3,7 +3,7 @@ documentId: HANBAY-CHECK-OUT-POLICY
 title: Check-out Policy
 category: CHECK_OUT
 source: docs/knowledge-base/check-out-policy.md
-version: 1.2
+version: 1.3
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -21,6 +21,13 @@ Mô tả điều kiện hoàn tất lưu trú và trạng thái phòng sau check
 ## 3. Quy định
 
 ### 3.1 Điều kiện booking và phòng
+
+Giờ trả phòng chuẩn mặc định là **12:00** theo múi giờ khách sạn và có thể cấu hình.
+Sau giờ này, lễ tân phải nhập ghi chú xác nhận xử lý trả muộn/quá hạn; phí phát sinh
+được nhập theo chính sách tại quầy, không tự cộng một đêm. Thời điểm thực tế được lưu
+tại `bookings.checked_out_at` bằng timestamp có múi giờ. Phòng không tự trở về trống
+khi tới giờ trả; khi trả xong chuyển sang `DIRTY` và cần hoàn tất dọn phòng.
+Luồng trả sớm chỉ hoàn tất với ngày thực tế là ngày hiện tại tại khách sạn.
 
 Booking phải ở `CHECKED_IN`, có assigned room, và phòng đó phải ở `OCCUPIED`.
 Booking `PENDING` chưa được check-in không thể dùng checkout để thanh toán rồi kết thúc
@@ -81,3 +88,11 @@ Booking tổng 2.000.000 VND, đã thanh toán đủ, nhưng khi kiểm tra phò
 - `docs/07-business-workflows.md`
 - `CheckOutController.java`, `CheckOutServiceImpl.java`
 - `Booking.java`, `Room.java`
+
+### Biên giờ và ghi nhận thực tế
+
+Đúng 12:00 ngày trả chưa quá hạn; sau 12:00 cần note có nội dung (tối đa 500 ký tự).
+Quá hạn không tự checkout, tự nhả tồn hoặc tự cộng một đêm; phí theo quyết định tại quầy.
+Booking CHECKED_IN quá hạn vẫn chiếm tồn theo policy tới khi xử lý. Sau trả phòng DIRTY,
+không giao lại cho khách mới trước khi dọn xong. checked_out_at lưu instant UTC thực tế.
+Nguồn: HotelStayPolicy, CheckOutServiceImpl; [tài liệu23](../23-stay-time-and-inventory.md).

@@ -1,6 +1,8 @@
 import { Button, Card, Col, DatePicker, Form, InputNumber, Row, Typography } from 'antd';
 import type { FormInstance } from 'antd';
-import dayjs from 'dayjs';
+import { useStayPolicy } from '../../../hooks/use-stay-policy';
+import { countStayNights } from '../../../utils/hotel-time';
+import { StayPolicyNote } from '../../../components/room/StayPolicyNote';
 
 import { BookingSteps } from '@components/booking/BookingSteps';
 import type { SearchFormValues } from './room-search-utils';
@@ -21,6 +23,7 @@ export function RoomAvailabilityForm({
   searchLoading,
   onSearch,
 }: RoomAvailabilityFormProps) {
+  const { disabledArrivalDate } = useStayPolicy();
   return (
     <Card className="booking-panel" bordered>
       <div className="booking-panel-top">
@@ -41,13 +44,13 @@ export function RoomAvailabilityForm({
         <Row gutter={[14, 4]} align="bottom">
           <Col xs={24} lg={8}>
             <Form.Item
-              label="Ngày lưu trú"
+              label="Ngày nhận phòng → Ngày trả phòng"
               name="stayDates"
               rules={[
                 { required: true, message: 'Vui lòng chọn ngày lưu trú.' },
                 {
                   validator: (_, dates: SearchFormValues['stayDates'] | undefined) =>
-                    dates?.[1]?.isAfter(dates[0])
+                    countStayNights(dates?.[0], dates?.[1]) > 0
                       ? Promise.resolve()
                       : Promise.reject(new Error('Ngày trả phòng phải sau ngày nhận phòng.')),
                 },
@@ -56,7 +59,8 @@ export function RoomAvailabilityForm({
               <RangePicker
                 allowClear={false}
                 format="DD/MM/YYYY"
-                disabledDate={(date) => date.isBefore(dayjs().startOf('day'))}
+                placeholder={['Ngày nhận phòng', 'Ngày trả phòng']}
+                disabledDate={disabledArrivalDate}
                 style={{ width: '100%' }}
               />
             </Form.Item>
@@ -79,6 +83,7 @@ export function RoomAvailabilityForm({
             </Form.Item>
           </Col>
         </Row>
+        <StayPolicyNote />
       </Form>
     </Card>
   );

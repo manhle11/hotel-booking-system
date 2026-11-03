@@ -13,7 +13,7 @@ database "Hotel Database" as DB
 
 Receptionist -> FrontDesk: Select confirmed booking\nand physical room
 FrontDesk -> API: Check in guest
-API -> CheckInService: checkIn(bookingId, roomId)
+API -> CheckInService: checkIn(bookingCode, roomId, earlyArrivalReason)
 
 activate CheckInService
 
@@ -21,8 +21,8 @@ group Transaction
     CheckInService -> DB: Lock booking and room
     DB --> CheckInService: Locked records
 
-    CheckInService -> CheckInService: Validate booking status
-    CheckInService -> CheckInService: Validate room availability\nand room type
+    CheckInService -> CheckInService: Validate CONFIRMED and hotel arrival window\nEarly reason before14; yesterday before06 only
+    CheckInService -> CheckInService: Validate room AVAILABLE, correct type\nand no assigned room conflict
 
     alt Invalid booking state
         CheckInService --> API: Invalid booking state
@@ -30,7 +30,7 @@ group Transaction
         CheckInService --> API: Invalid room assignment
     else Check-in valid
         CheckInService -> DB: Assign physical room
-        CheckInService -> DB: Update booking to CHECKED_IN
+        CheckInService -> DB: Update CHECKED_IN, actual UTC checked_in_at\nand early/late arrival history
         CheckInService -> DB: Update room to OCCUPIED
         DB --> CheckInService: Changes committed
 

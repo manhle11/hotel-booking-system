@@ -19,6 +19,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
+import { Link } from 'react-router-dom';
 
 import type { AvailableRoomType } from '../types/available-room-search';
 import type { PageResponse } from '../../../types/api';
@@ -207,7 +208,11 @@ function AvailableRoomCard({ room, onBookRoom }: AvailableRoomCardProps) {
       <Space orientation="vertical" size={14} style={{ width: '100%' }}>
         <Space align="start" className="room-card-title">
           <div>
-            <Title level={4}>{room.name}</Title>
+            <Title level={4}>
+              <Link className="room-card-title-link" to={`/room-types/${room.id}`}>
+                {room.name}
+              </Link>
+            </Title>
             <Text type="secondary">{room.description ?? 'Đang cập nhật mô tả.'}</Text>
           </div>
           <Tag color="blue">Còn {room.availableRooms} phòng</Tag>

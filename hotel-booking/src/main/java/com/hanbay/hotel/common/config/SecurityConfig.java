@@ -89,7 +89,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/media/**")
                         .permitAll()
-                        .requestMatchers("/api/v1/room-types/**", "/api/v1/add-ons/**")
+                        .requestMatchers("/api/v1/room-types/**", "/api/v1/add-ons/**", "/api/v1/stay-policy")
                         .permitAll()
                         .requestMatchers("/api/v1/payments/sepay/webhook")
                         .permitAll()

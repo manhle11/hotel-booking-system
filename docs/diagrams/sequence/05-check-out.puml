@@ -1,54 +1,34 @@
 @startuml
 !include ../common/style.puml
-
-title HANBAY HOTEL - Guest Check-out
-
+title HANBAY - Checkout, cash settlement and actual time
 autonumber
-
-actor Receptionist
-boundary "Front Desk Application" as FrontDesk
-control "Front Desk API" as API
-control "Check-out Service" as CheckOutService
-control "Housekeeping Service" as HousekeepingService
-database "Hotel Database" as DB
-
-Receptionist -> FrontDesk: Start check-out
-FrontDesk -> API: Check out booking
-API -> CheckOutService: checkOut(bookingId, charges)
-
-activate CheckOutService
-
-group Transaction
-    CheckOutService -> DB: Lock checked-in booking\nand assigned room
-    DB --> CheckOutService: Locked records
-
-    CheckOutService -> CheckOutService: Validate CHECKED_IN status
-    CheckOutService -> CheckOutService: Calculate outstanding balance
-
-    alt Outstanding balance unpaid
-        CheckOutService --> API: Payment required
-    else Balance settled
-        CheckOutService -> DB: Save final charges
-        CheckOutService -> DB: Update booking to CHECKED_OUT
-        CheckOutService -> DB: Update room to DIRTY
-
-        CheckOutService -> HousekeepingService: createCleaningTask(roomId)
-        HousekeepingService -> DB: Save PENDING housekeeping task
-        DB --> HousekeepingService: Task created
-        HousekeepingService --> CheckOutService: Task result
-
-        CheckOutService --> API: Check-out successful
-    end
+actor "Receptionist / Manager / Admin" as Staff
+boundary "Front Desk FE" as FE
+control "Check-out API" as API
+control "CheckOutService" as Service
+database PostgreSQL as DB
+Staff -> FE: Open checkout; enter charges, collection, note
+FE -> API: PATCH /bookings/{bookingId}/check-out
+API -> Service: checkOut(bookingId, request)
+group Single transaction
+  Service -> DB: Lock booking then assigned room
+  Service -> Service: Validate CHECKED_IN/OCCUPIED, scheduled date
+  Service -> Service: If strictly after12 require note
+  Service -> Service: Recompute debt including fees and received cash
+  alt Invalid / unpaid / overcollection
+    Service --> API: Validation or409; rollback
+  else Valid settlement
+    Service -> DB: Save CASH receipt/transaction if positive collection
+    Service -> DB: CHECKED_OUT + actual UTC checked_out_at + history
+    Service -> DB: Room DIRTY; commit
+    Service --> API: Result with actual timestamp and final balance
+  end
 end
-
-deactivate CheckOutService
-
-alt Successful
-    API --> FrontDesk: 200 OK
-    FrontDesk --> Receptionist: Show final invoice
-else Failed
-    API --> FrontDesk: 400 or 409
-    FrontDesk --> Receptionist: Show failure reason
-end
-
+API --> FE: Success or error
+FE --> Staff: Show persisted result
+note over Service, DB
+No automatic extra night or checkout.
+No cleaning task creation; housekeeper reads DIRTY rooms.
+Early checkout uses separate command, actual date = hotelToday.
+end note
 @enduml

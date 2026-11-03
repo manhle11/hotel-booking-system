@@ -3,7 +3,7 @@ documentId: HANBAY-ROOM-POLICY
 title: Room Policy
 category: ROOM
 source: docs/knowledge-base/room-policy.md
-version: 1.2
+version: 1.3
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -27,8 +27,16 @@ room type và trạng thái vận hành riêng.
 
 ### 3.2 Availability theo khoảng ngày
 
-Khả dụng để đặt được tính theo inventory room type trừ các booking active bị overlap.
+Khả dụng để đặt được tính theo từng đêm trong khoảng `[checkInDate, checkOutDate)`.
+Mỗi đêm trừ booking `CONFIRMED`, `CHECKED_IN` và `PENDING` còn hạn giữ chỗ. Số phòng
+có thể đặt cho cả kỳ là số còn lại thấp nhất trong các đêm, không trừ gộp mọi booking
+chạm khoảng ngày. Booking vẫn `CHECKED_IN` sau giờ trả phòng tiếp tục chiếm tồn kho
+cho đến khi lễ tân xử lý; không tự giải phóng phòng vì đã qua ngày trả dự kiến.
 Trạng thái hiện tại của một phòng vật lý không thay thế phép tính booking overlap.
+
+Trên thẻ kết quả tìm kiếm, nhãn “Còn … phòng” hiển thị tồn kho có thể đặt theo khoảng
+ngày nhận/trả phòng đã chọn (`availableRooms`). Số phòng có trạng thái `AVAILABLE`
+hiện tại (`readyRooms`) là chỉ số vận hành riêng.
 
 ### 3.3 Trạng thái phòng
 
@@ -78,3 +86,12 @@ hôm nay; availability đặt phòng được tính theo overlap của khoảng 
 - `docs/07-business-workflows.md`
 - `Room.java`, `RoomStatus.java`, `RoomType.java`
 - `AvailabilityServiceImpl.java`, `RoomMaintenanceServiceImpl.java`
+
+### Tồn hiển thị, liên kết và dữ liệu inventory
+
+Nhấn tên hạng ở kết quả mở /room-types/{id}; nhãn Còn…phòng dùng availableRooms của kỳ đã tìm.
+Ví dụ2 phòng, A ở05→06/11, B ở06→07/11 vẫn còn 1 cho05→07/11. Không trừ cảA vàB như
+hai phòng bận đồng thời. Đúng expiredAt pending không giữ tồn; MAINTENANCE/OOS không bán.
+Khách ở quá hạn không tự nhả phòng. Số phòng demo không tự thêm vào hạng Ocean Suite
+đã có inventory khi restart. Nguồn: RoomAvailabilityCalculator, BookingRepository,
+RoomDataInitializer; [tài liệu23](../23-stay-time-and-inventory.md).

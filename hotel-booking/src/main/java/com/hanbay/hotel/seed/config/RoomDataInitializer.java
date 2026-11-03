@@ -78,6 +78,9 @@ public class RoomDataInitializer implements ApplicationRunner {
                         ('b1000000-0000-4000-8000-000000000012'::UUID, 'OS801', 8)
                 ) AS inventory(id, room_number, floor)
                 JOIN room_types room_type ON room_type.code = 'HANBAY-OCEAN-SUITE'
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM rooms existing_room WHERE existing_room.room_type_id = room_type.id
+                )
                 ON CONFLICT (room_number) DO NOTHING
                 """);
     }

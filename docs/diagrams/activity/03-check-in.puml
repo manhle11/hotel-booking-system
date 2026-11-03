@@ -1,65 +1,38 @@
 @startuml
 !include ../common/style.puml
-
-title HANBAY HOTEL - Guest Check-in Activity Diagram
-
+title HANBAY - Check-in with shared hotel time
 |Receptionist|
 start
-:Search booking by code,
-name, email or phone;
-
+:Enter confirmed booking code;
 |System|
-:Load booking details;
-if (Booking found?) then (Yes)
-  :Validate booking status and stay date;
+:Validate CONFIRMED and hotel arrival window;
+if (Booked day OR yesterday before06 with checkout >= today?) then (Yes)
 else (No)
-  :Return booking not found;
+  :Reject CHECK_IN_DATE_NOT_ALLOWED;
   stop
 endif
-
-if (Status = CONFIRMED?) then (Yes)
-else (No)
-  :Reject invalid booking state;
-  stop
-endif
-
-|Receptionist|
-:Verify guest identity and booking data;
-if (Guest information correct?) then (Yes)
-else (No)
-  :Resolve discrepancy or stop check-in;
-  stop
-endif
-
-|System|
-:Find AVAILABLE physical rooms
-of reserved room type;
-if (Physical room already assigned?) then (Yes)
-  :Load assigned room;
-else (No)
-  :Return available room list;
+if (Before14 on booked day?) then (Yes)
   |Receptionist|
-  :Select physical room;
+  :Provide nonblank earlyArrivalReason, max 500;
   |System|
-  :Begin transaction;
-  :Lock selected room row;
-  :Re-check room status;
-  if (Room still AVAILABLE?) then (Yes)
-    :Assign room to booking;
+  if (Valid reason?) then (Yes)
   else (No)
-    :Rollback transaction;
-    :Request another room selection;
+    :Return field validation error;
     stop
   endif
 endif
-
-:Update room status to OCCUPIED;
-:Update booking status to CHECKED_IN;
-:Append booking status history;
-:Commit transaction;
-
+:List correct-type AVAILABLE rooms without assigned conflicts;
 |Receptionist|
-:Provide room/key information;
-:Complete check-in;
+:Choose physical room;
+|System|
+:Lock booking and selected room in transaction;
+:Revalidate state, arrival window, room and assigned conflicts;
+if (Still valid?) then (Yes)
+  :Assign room; set OCCUPIED and CHECKED_IN;
+  :Save actual UTC checked_in_at and status reason;
+  :Commit;
+else (No)
+  :Rollback and return validation/conflict;
+endif
 stop
 @enduml

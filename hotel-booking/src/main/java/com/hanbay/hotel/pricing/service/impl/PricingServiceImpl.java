@@ -4,6 +4,7 @@ import com.hanbay.hotel.booking.domain.Booking;
 import com.hanbay.hotel.booking.domain.BookingNight;
 import com.hanbay.hotel.booking.domain.addon.BookingAddOn;
 import com.hanbay.hotel.booking.domain.pricing.BookingNightPriceRule;
+import com.hanbay.hotel.booking.policy.HotelStayPolicy;
 import com.hanbay.hotel.pricing.domain.AdjustmentDirection;
 import com.hanbay.hotel.pricing.domain.AdjustmentType;
 import com.hanbay.hotel.pricing.domain.HolidayCalendar;
@@ -42,6 +43,7 @@ public class PricingServiceImpl implements PricingService {
     private final HolidayCalendarRepository holidayCalendarRepository;
     private final RoomTypeRepository roomTypeRepository;
     private final Clock clock;
+    private final HotelStayPolicy stayPolicy;
 
     @Override
     public PricingResult calculatePrice(Booking booking) {
@@ -240,8 +242,12 @@ public class PricingServiceImpl implements PricingService {
 
     private void validateStayDates(LocalDate checkIn, LocalDate checkOut) {
         validateDateRange(checkIn, checkOut);
-        if (checkIn.isBefore(LocalDate.now(clock))) {
+        if (checkIn.isBefore(stayPolicy.today())) {
             throw new PricingValidationException("Ngày nhận phòng không được ở quá khứ.");
+        }
+        if (stayPolicy.bookingClosed(checkIn)) {
+            throw new PricingValidationException(
+                    "Đã qua giờ nhận đặt phòng cho hôm nay. Vui lòng chọn ngày tiếp theo.");
         }
     }
 

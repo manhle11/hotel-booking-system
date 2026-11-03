@@ -102,7 +102,7 @@ Then available count decreases.
 
 Given RoomType đang hoạt động và còn inventory  
 When khách hoàn thành hai bước đầu và bấm "Kiểm tra đơn hàng"  
-Then frontend gửi `POST /api/v1/bookings`, API trả `201`, booking có trạng thái PENDING, `expiredAt = now + 15 phút` và frontend chuyển sang trang thanh toán.
+Then frontend gửi `POST /api/v1/bookings`, API trả `201`, booking có trạng thái PENDING, `expiredAt = now + cấu hình hold (mặc định 15 phút)` và frontend chuyển sang trang thanh toán.
 
 Các trường hợp cần kiểm tra:
 
@@ -275,7 +275,7 @@ Kiểm tra backend:
 | Cập nhật rule hợp lệ | `PUT /api/v1/management/price-rules/{id}` với payload đầy đủ | `200 OK`, dữ liệu phản hồi khớp thay đổi |
 | Cập nhật trạng thái | `PATCH /api/v1/management/price-rules/{id}/status` | Rule active/inactive theo request; inactive rule không được dùng cho lần tính giá mới |
 | Validation sai | Thiếu field, enum sai, ngày kết thúc trước ngày bắt đầu, percentage lớn hơn 100 hoặc amount âm | `400` với error code/field errors phù hợp |
-| Nhiều rule overlap | Tạo nhiều active rule cùng hiệu lực trên một đêm | Các rule cùng được lưu và pricing engine áp dụng theo stacking hiện hữu; chính sách chọn một rule duy nhất vẫn là `NEEDS PRODUCT DECISION` |
+| Nhiều rule overlap | Tạo nhiều active rule cùng hiệu lực trên một đêm | Các rule cùng được lưu; engine chọn một modifier HOLIDAY>WEEKEND>SEASONAL theo priority/tie-break rồi một promotion tốt nhất, không cộng tất cả modifier |
 | Cập nhật đồng thời cùng rule | Hai transaction cập nhật chi tiết/trạng thái cùng một rule | Repository lấy pessimistic write lock; transaction sau đọc trạng thái đã commit, không ghi đè ngầm thay đổi ở field ngoài command của nó |
 | Không đủ quyền | Anonymous hoặc role không thuộc `MANAGER`/`ADMIN` gọi API quản trị | `401` hoặc `403` theo trạng thái xác thực |
 | Áp dụng giá phía khách | Public search/stay price nằm trong khoảng rule active | Giá từng đêm, tổng tiền và adjustment breakdown khớp rule |
@@ -549,8 +549,7 @@ PR vẫn cần được review và phê duyệt trước khi HAN-100 đáp ứng
 ### Phạm vi và quy tắc nghiệp vụ
 
 Receptionist, Manager và Admin truy cập `/front-desk/arrivals/today` để xem các
-booking có `checkInDate` bằng ngày hiện tại của khách sạn và trạng thái
-`CONFIRMED`. Ngày hiện tại do backend tính theo `Asia/Ho_Chi_Minh`; frontend
+booking CONFIRMED nhận hôm nay; trước 06:00 còn nhóm nhận hôm qua có checkOutDate>=hôm nay. Ngày hiện tại do backend tính theo `Asia/Ho_Chi_Minh`; frontend
 không tự lọc theo đồng hồ trình duyệt.
 
 `PENDING`, `CHECKED_IN`, `CHECKED_OUT`, `CANCELLED` và `EXPIRED` không xuất hiện.
@@ -562,7 +561,7 @@ lệ; UI phải hiển thị cảnh báo và không fallback sang người đặ
 
 | Tiêu chí | Kiểm thử tự động | Kết quả mong đợi |
 |---|---|---|
-| Chỉ hiển thị khách dự kiến đến hôm nay | Repository và service test | Chỉ `checkInDate=today`, `status=CONFIRMED` |
+| Khách đến trong cửa sổ hiện tại | Repository/service + Clock test | CONFIRMED nhận hôm nay hoặc hôm qua đủ điều kiện trước 06:00 |
 | Ngày khách sạn chính xác | Service test tại ranh giới UTC/+07 | Repository nhận ngày `Asia/Ho_Chi_Minh` |
 | Phân trang và thứ tự ổn định | Repository, service, controller và UI test | `page` zero-based, `size` 1–100, sort `createdAt` rồi `bookingCode` tăng dần |
 | Kết quả rỗng | Service, controller và UI test | `200 OK`, `content=[]`, UI hiển thị empty state |
@@ -583,7 +582,9 @@ lệ; UI phải hiển thị cảnh báo và không fallback sang người đặ
 | Hôm nay + `CHECKED_OUT` | Không |
 | Hôm nay + `CANCELLED` | Không |
 | Hôm nay + `EXPIRED` | Không |
-| Ngày khác + `CONFIRMED` | Không |
+| Hôm qua + CONFIRMED, trả>=hôm nay, giờ<06:00 | Có |
+| Hôm qua + CONFIRMED, đúng/từ06:00 | Không |
+| Ngày khác ngoài ngoại lệ + CONFIRMED | Không |
 | Hôm nay + `CONFIRMED`, thiếu primary guest | Có, `primaryGuest=null` |
 
 Repository integration test phải chạy trên PostgreSQL thật qua Testcontainers để
@@ -647,7 +648,7 @@ Các bước:
 1. Dùng `hotel-booking/http/today-arrivals.http` kiểm tra happy path, pagination,
    `401`, `403`, page/size sai giá trị và sai kiểu.
 2. Đăng nhập Receptionist, mở menu **Khách đến hôm nay** và đối chiếu dữ liệu với DB.
-3. Xác nhận `PENDING`, `CHECKED_IN` và booking khác ngày không xuất hiện.
+3. Xác nhận PENDING/CHECKED_IN không xuất hiện; hôm qua chỉ có trong ngoại lệ trước 06:00, ngày khác bị loại.
 4. Kiểm tra booking thiếu primary guest hiển thị **Thiếu thông tin khách**.
 5. Kiểm tra empty state, nút **Làm mới**, lỗi kết nối và nút **Thử lại**.
 6. Chuyển trang và xác nhận UI page 2 gọi API `page=1&size=20`.
@@ -950,7 +951,7 @@ Automated verification đã hoàn tất. Manual frontend-backend checklist và P
   và chuyển phòng vật lý đã gán sang `DIRTY` trong cùng transaction.
 - Frontend màn hình **Khách trả phòng** tại `/front-desk/departures/today`, bao gồm
   danh sách khách đang lưu trú, modal kiểm tra phòng, phí phát sinh/đền bù, tiền thu thêm,
-  ghi chú tùy chọn và UI feedback.
+  ghi chú (bắt buộc sau giờ trả12:00) và UI feedback.
 - Contract trong `docs/openapi/booking/check-out-guest.yaml` và tóm tắt API trong
   `docs/06-api-specification.md`.
 - Luồng liên quan tới housekeeping chỉ dừng ở việc room có trạng thái `DIRTY`; phân công
@@ -1205,3 +1206,21 @@ Cover nightly-snapshot calculation, the 20/80 split, refund destination validati
 - PostgreSQL: hai checkout đồng thời chỉ có một lần thu tiền.
 - UI: không tự điền tiền đã thu, cập nhật số dư khi modal đang mở, không cho thu vượt nợ.
 - PR không thêm hoặc sửa Flyway migration; dùng schema hiện tại của `main`.
+
+# Regression thời gian và tồn phòng —03/11/2026
+
+Nguồn chuẩn [tài liệu23](23-stay-time-and-inventory.md); manual có phạm vi đúng phần sửa tại
+[16 luồng FE](testing/stay-time-fe-checklist.md), toàn web tại [UAT guide](testing/web-uat-guide.md).
+Các kết quả đã ghi trong các phần story phía trên là lịch sử, không xác nhận334 ca UAT mới đã chạy.
+
+- Nhấn tên hạng mở đúng room-types/{id}; số đêm05→13/11 là8 ở mọi màn hình.
+-14:00 là bắt đầu nhận;19:55 vẫn đặt hôm nay được. Đúng cutoff 23:59:59 bị chặn.
+- Trước/đúng 14 nhận sớm cần/không cần lý do; hôm qua05:59:59 nhận được,06:00 bị chặn.
+- Đúng 12 chưa overdue; sau 12 cần note, không tự thêm đêm hoặc nhả phòng.
+- Pending đúng expiredAt không chiếm tồn/xác nhận; sửa không tăng hạn; không phụ thuộc scheduler.
+- SQL nhu cầu đỉnh từng đêm, exclude booking sửa, overdue đang ở, maintenance/OOS; không trả số âm.
+- Gia hạn kiểm đoạn thêm và phòng gán; trả sớm execute chỉ hôm nay, lưu instant thực tế.
+- UI inventory refresh 30s/focus/reconnect/invalidate, giữ query đã submit; seed restart không thêm phòng demo.
+
+Biên chính xác cần backend Clock và PostgreSQL test; đổi browser Date.now không đủ.
+Mặc định trạng thái các ca mới Chưa chạy; callback test/provider và browser UAT phải được ghi riêng.

@@ -10,7 +10,8 @@ import org.springframework.context.annotation.Configuration;
 public class TimeConfig {
 
     @Bean
-    public Clock clock(@Value("${booking.cancellation.hotel-zone:Asia/Ho_Chi_Minh}") String hotelTimeZone) {
+    public Clock clock(
+            @Value("${hotel.stay.zone:${booking.cancellation.hotel-zone:Asia/Ho_Chi_Minh}}") String hotelTimeZone) {
         return Clock.system(ZoneId.of(hotelTimeZone));
     }
 }

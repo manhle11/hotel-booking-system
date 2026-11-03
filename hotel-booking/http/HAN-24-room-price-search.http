@@ -17,3 +17,7 @@ Accept: application/json
 ### HAN-24 - Số khách không hợp lệ: phải có ít nhất một người lớn
 GET {{baseUrl}}/room-types/available?checkIn={{checkIn}}&checkOut={{checkOut}}&adults=0&children=0&page=0&size=6
 Accept: application/json
+
+# Rule thời gian hiện tại: xem GET /api/v1/stay-policy.14:00 bắt đầu nhận, cutoff 23:59:59 riêng.
+# countStayNights theo ngày;05→13/11 là8, không lấy tổng giờ/24.
+# availableRooms = nguồn bán - nhu cầu đỉnh từng đêm (không âm), có overdue đang ở; readyRooms riêng.

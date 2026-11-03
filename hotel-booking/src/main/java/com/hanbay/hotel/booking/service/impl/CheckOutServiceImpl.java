@@ -7,6 +7,7 @@ import com.hanbay.hotel.booking.dto.response.AssignedRoomResponse;
 import com.hanbay.hotel.booking.dto.response.CheckOutGuestResponse;
 import com.hanbay.hotel.booking.exception.CheckOutBookingNotFoundException;
 import com.hanbay.hotel.booking.exception.CheckOutConflictException;
+import com.hanbay.hotel.booking.policy.HotelStayPolicy;
 import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.booking.service.CheckOutService;
 import com.hanbay.hotel.common.exception.RequestValidationException;
@@ -37,6 +38,7 @@ public class CheckOutServiceImpl implements CheckOutService {
     private final CurrentUserProvider currentUserProvider;
     private final Clock clock;
     private final CounterPaymentService counterPaymentService;
+    private final HotelStayPolicy stayPolicy;
 
     @Override
     @Transactional
@@ -63,6 +65,13 @@ public class CheckOutServiceImpl implements CheckOutService {
         long collectedAmount = request == null ? 0L : request.normalizedCollectedAmount();
         String additionalChargeReason = request == null ? null : request.normalizedAdditionalChargeReason();
         String note = request == null ? null : request.normalizedNote();
+        if (stayPolicy.isOverdue(booking.getCheckOutDate())) {
+            if (note == null) {
+                throw new RequestValidationException(
+                        "note", "Trả phòng sau giờ chuẩn cần ghi chú xác nhận của lễ tân.");
+            }
+            note = "Lễ tân xử lý trả phòng muộn/quá hạn: " + note;
+        }
 
         long finalTotalAmount;
         long finalPaidAmount;
@@ -92,7 +101,9 @@ public class CheckOutServiceImpl implements CheckOutService {
         counterPaymentService.settleAtCheckout(booking, collectedAmount, receptionist.getId());
         room.markDirtyAfterCheckout();
         booking.checkOut(
-                receptionist, buildCheckOutNote(note, additionalChargeAmount, additionalChargeReason, collectedAmount));
+                receptionist,
+                buildCheckOutNote(note, additionalChargeAmount, additionalChargeReason, collectedAmount),
+                checkedOutAt);
 
         return new CheckOutGuestResponse(
                 booking.getId(),

@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: HANBAY stay policy and nightly availability
+  version: 1.0.0
+  description: >
+    Đối chiếu working tree main 03/11/2026.14:00 là bắt đầu nhận phòng, không phải hạn
+    đặt cùng ngày; cutoff mặc định23:59:59. Hạn payment/booking expiredAt là mốc riêng.
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/stay-policy:
+    get:
+      operationId: getHotelStayPolicy
+      summary: Lấy cấu hình thời gian, ngày khách sạn và giờ máy chủ
+      security: []
+      description: >
+        API công khai. Giá trị trả về là cấu hình có hiệu lực; frontend dùng để đồng bộ
+        đồng hồ và calendar, backend vẫn kiểm lại mỗi thao tác. Không trả secret.
+      responses:
+        '200':
+          description: Policy hiệu lực trong ApiResponse
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, timestamp]
+                properties:
+                  success: {type: boolean, enum: [true]}
+                  message: {type: string}
+                  timestamp: {type: string, format: date-time}
+                  data: {$ref: '#/components/schemas/StayPolicy'}
+              example:
+                success: true
+                message: Chính sách thời gian lưu trú
+                data:
+                  zone: Asia/Ho_Chi_Minh
+                  checkInTime: '14:00:00'
+                  checkOutTime: '12:00:00'
+                  sameDayBookingCutoff: '23:59:59'
+                  lateArrivalCutoff: '06:00:00'
+                  paymentHoldMinutes: 15
+                  hotelToday: '2026-11-03'
+                  serverNow: '2026-11-03T12:55:00Z'
+                timestamp: '2026-11-03T12:55:00Z'
+  /api/v1/room-types/available:
+    get:
+      operationId: searchNightlyAvailableRoomTypes
+      summary: Tìm hạng phòng theo tồn thấp nhất của các đêm khách chọn
+      security: []
+      description: |
+        Ngày ở [checkIn,checkOut), tối thiểu1đêm. Ngày nhận không quá khứ theo policy;
+        nhận hôm nay chỉ khi giờ nhỏ hơn cutoff.19:55 vẫn đặt được sau giờ nhận14:00.
+        Nguồn phòng đúng hạng gồm AVAILABLE/OCCUPIED/DIRTY/CLEANING, loại maintenance/OOS.
+        Trừ nhu cầu đỉnh từng đêm từ CONFIRMED/CHECKED_IN và PENDING expiredAt>now;
+        quá hạn vẫn đang ở tiếp tục chặn theo overdueThrough. Không cộng mọi overlap cả kỳ.
+        availableRooms là số trên thẻ, readyRooms chỉ đếm AVAILABLE hiện tại.
+        Lọc active/sức chứa/tồn trước phân trang; chỉ định giá trang trả về. Không giữ chỗ.
+      parameters:
+        - in: query
+          name: checkIn
+          required: true
+          schema: {type: string, format: date}
+        - in: query
+          name: checkOut
+          required: true
+          schema: {type: string, format: date}
+        - in: query
+          name: adults
+          required: true
+          schema: {type: integer, minimum: 1}
+        - in: query
+          name: children
+          schema: {type: integer, minimum: 0, default: 0}
+        - in: query
+          name: page
+          schema: {type: integer, minimum: 0, default: 0}
+        - in: query
+          name: size
+          schema: {type: integer, minimum: 1, maximum: 100, default: 6}
+        - in: query
+          name: roomTypeId
+          schema: {type: string, format: uuid}
+          description: Chỉ kiểm hạng đã chọn, không phụ thuộc vị trí trang catalog.
+      responses:
+        '200':
+          description: ApiResponse chứa PageResponse; rỗng vẫn200
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, timestamp]
+                properties:
+                  success: {type: boolean, enum: [true]}
+                  message: {type: string}
+                  timestamp: {type: string, format: date-time}
+                  data:
+                    type: object
+                    required: [content, page, size, totalElements, totalPages, first, last]
+                    properties:
+                      content:
+                        type: array
+                        items: {$ref: '#/components/schemas/AvailableRoomType'}
+                      page: {type: integer}
+                      size: {type: integer}
+                      totalElements: {type: integer, format: int64}
+                      totalPages: {type: integer}
+                      first: {type: boolean}
+                      last: {type: boolean}
+        '400':
+          description: Ngày/sức chứa/phân trang/UUID sai hoặc đã tới cutoff nhận hôm nay.
+components:
+  schemas:
+    StayPolicy:
+      type: object
+      required: [zone, checkInTime, checkOutTime, sameDayBookingCutoff, lateArrivalCutoff, paymentHoldMinutes, hotelToday, serverNow]
+      properties:
+        zone: {type: string, example: Asia/Ho_Chi_Minh}
+        checkInTime:
+          type: string
+          example: '14:00:00'
+          description: Bắt đầu nhận chuẩn; trước giờ trong ngày đặt cần lý do lễ tân.
+        checkOutTime:
+          type: string
+          example: '12:00:00'
+          description: Đúng giờ chưa overdue; sau giờ cần ghi chú checkout.
+        sameDayBookingCutoff:
+          type: string
+          example: '23:59:59'
+          description: Ngừng nhận đặt nhận hôm nay từ đúng giờ này; không phải expiredAt payment.
+        lateArrivalCutoff:
+          type: string
+          example: '06:00:00'
+          description: Booking nhận hôm qua với ngày trả>=hôm nay chỉ được đến trước giờ này.
+        paymentHoldMinutes: {type: integer, example: 15}
+        hotelToday: {type: string, format: date}
+        serverNow: {type: string, format: date-time}
+    AvailableRoomType:
+      type: object
+      required: [id, code, name, basePrice, maxGuests, adultCapacity, childCapacity, availableRooms, readyRooms, totalNights, roomSubtotal, roomDiscount, roomTotal, nightlyPrices]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        description: {type: string, nullable: true}
+        basePrice: {type: integer, format: int64}
+        maxGuests: {type: integer}
+        adultCapacity: {type: integer}
+        childCapacity: {type: integer}
+        bedType: {type: string, nullable: true}
+        areaM2: {type: number, nullable: true}
+        imageUrl: {type: string, nullable: true}
+        availableRooms:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Tồn cho cả kỳ; hạng hết tồn bị lọc khỏi kết quả.
+        readyRooms:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Số phòng AVAILABLE hiện tại; không trừ booking tương lai.
+        totalNights: {type: integer, minimum: 1}
+        roomSubtotal: {type: integer, format: int64}
+        roomDiscount: {type: integer, format: int64}
+        roomTotal: {type: integer, format: int64}
+        nightlyPrices:
+          type: array
+          items:
+            type: object
+            required: [stayDate, price, adjustments]
+            properties:
+              stayDate: {type: string, format: date}
+              price: {type: integer, format: int64}
+              adjustments:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name: {type: string}
+                    ruleType: {type: string}
+                    adjustmentType: {type: string}
+                    adjustmentValue: {type: integer, format: int64}
+                    amount: {type: integer, format: int64}

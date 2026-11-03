@@ -3,7 +3,7 @@ documentId: HANBAY-PAYMENT-POLICY
 title: Payment Policy
 category: PAYMENT
 source: docs/knowledge-base/payment-policy.md
-version: 1.1
+version: 1.3
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -118,3 +118,11 @@ trở về `PENDING` chỉ vì còn 500.000 VND công nợ.
 - `Payment.java`, `PaymentStatus.java`, `PaymentProperties.java`
 - `CounterPaymentService.java`, `CheckOutServiceImpl.java`, `StayModificationServiceImpl.java`
 - `RefundManagementServiceImpl.java`, `PaymentMonitoringController.java`
+
+### Hạn giữ chỗ không phải giờ check-in
+
+14:00 là bắt đầu nhận, cutoff 23:59:59 là hạn nhận đặt cùng ngày, expiredAt là hạn thanh toán
+riêng của hold. Mặc định hold15 phút theo PAYMENT_EXPIRATION_MINUTES; payment không vượt hạn
+booking. Đúng expiredAt không xác nhận pending dù scheduler chưa ghi EXPIRED. Sửa booking hoặc
+lấy lại QR không gia hạn hold. Tiền đến muộn đi đối soát/hoàn theo policy, không hồi sinh booking.
+Nguồn: BookingFactory, Booking.confirm, PaymentServiceImpl; [tài liệu23](../23-stay-time-and-inventory.md).

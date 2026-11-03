@@ -1,53 +1,30 @@
 @startuml
 !include ../common/style.puml
-
-title HANBAY HOTEL - Booking Expiration Activity Diagram
-
-|Scheduler|
+title HANBAY - Exact hold expiry and periodic status update
 start
-:Trigger expiration job
-at configured interval;
-
-|System|
-:Record job start;
-:Find PENDING bookings
-where expiresAt < current time;
-if (Expired bookings found?) then (Yes)
-else (No)
-  :Record no-op job result;
-  stop
-endif
-
+:now = backend clock instant;
+note right
+  Availability and confirm guard exclude
+  PENDING at now >= expiredAt immediately.
+  Status may still read PENDING before job runs.
+end note
+:Configured cron triggers scheduler;
+:Begin transaction and lock PENDING rows
+with non-null expiredAt <= now;
+if (Any expired rows?) then (Yes)
 repeat
-  :Select next expired booking;
-  :Begin new transaction;
-  :Lock booking row;
-  :Reload booking and payment state;
-  if (Booking still PENDING
-and expired?) then (Yes)
-    if (Successful payment exists?) then (Yes)
-      :Skip automatic expiration;
-      :Flag booking/payment for reconciliation;
-    else (No)
-      :Update booking status to EXPIRED;
-      :Append booking status history;
-      :Expire pending payment attempts;
-      :Release held RoomType inventory
-implicitly from availability calculation;
-      note right
-        No physical Room was assigned to the booking.
-        No room record needs to be released.
-        Availability excludes EXPIRED bookings.
-      end note
-    endif
-    :Commit transaction;
-  else (No)
-    :Rollback/close transaction without update;
-  endif
-repeat while (More expired bookings?) is (Yes)
-
-:Record processed, expired,
-skipped and failed counts;
-:Finish expiration job;
+  :Validate pending expiry;
+  :Set EXPIRED, clear expiredAt, append history;
+repeat while (More rows?) is (Yes)
+:Save and commit;
+else (No)
+  :No-op transaction;
+endif
+note right
+  Hold duration configured, default 15min.
+  Edit/QR recreation does not renew hold.
+  No physical room was assigned;
+  no automatic checkout of occupied guests.
+end note
 stop
 @enduml

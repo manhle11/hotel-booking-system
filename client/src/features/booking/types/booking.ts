@@ -152,6 +152,7 @@ export interface ExtendStayResponse {
 
 export interface CheckInGuestRequest {
   roomId: string;
+  earlyArrivalReason?: string;
 }
 
 export interface AssignedRoom {

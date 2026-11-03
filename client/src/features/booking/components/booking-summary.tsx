@@ -1,6 +1,8 @@
 ﻿import { HomeOutlined } from '@ant-design/icons';
 import { Button, Card, Divider, Flex, Grid, Tag, theme, Typography } from 'antd';
 import type { Dayjs } from 'dayjs';
+import { countStayNights } from '../../../utils/hotel-time';
+import { StayPolicyNote } from '../../../components/room/StayPolicyNote';
 import type { ReactNode } from 'react';
 
 import type { RoomTypeCatalogItem, SelectedAddOn } from '../types/booking';
@@ -26,7 +28,7 @@ export function BookingSummary({
 }: BookingSummaryProps) {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
-  const nights = stayDates?.[1].diff(stayDates[0], 'day') ?? 0;
+  const nights = countStayNights(stayDates?.[0], stayDates?.[1]);
   const roomSubtotal = roomType?.roomTotal ?? 0;
   const addOnSubtotal = addOns.reduce((total, addOn) => {
     return total + addOn.price * addOn.quantity;
@@ -95,6 +97,7 @@ export function BookingSummary({
             : 'Chưa chọn ngày'}
         </Typography.Text>
         <Tag>{nights} đêm</Tag>
+        <StayPolicyNote />
       </Flex>
 
       <SummaryLine

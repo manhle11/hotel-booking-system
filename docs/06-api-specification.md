@@ -51,6 +51,7 @@ Lỗi xác thực và phân quyền:
 | POST | `/api/v1/auth/forgot-password` | `PUBLIC` | — | Tiếp nhận yêu cầu đặt lại mật khẩu |
 | POST | `/api/v1/auth/reset-password/verify` | `PUBLIC` | — | Kiểm tra mã đặt lại mật khẩu còn hiệu lực |
 | POST | `/api/v1/auth/reset-password` | `PUBLIC` | — | Đặt lại mật khẩu bằng mã hợp lệ |
+| GET | `/api/v1/stay-policy` | `PUBLIC` | — | Policy thời gian, ngày khách sạn và giờ máy chủ |
 | GET | `/api/v1/room-types` | `PUBLIC` | — | Danh sách hạng phòng |
 | GET | `/api/v1/room-types/available` | `PUBLIC` | — | Hạng phòng còn trống và chi tiết giá động |
 | GET | `/api/v1/room-types/{id}` | `PUBLIC` | — | Chi tiết hạng phòng |
@@ -72,7 +73,7 @@ Lỗi xác thực và phân quyền:
 | GET | `/api/v1/bookings/{bookingCode}` | `AUTHENTICATED` | Tất cả tài khoản | Chi tiết đặt phòng thuộc tài khoản đang đăng nhập; không tồn tại/không sở hữu cùng trả `404`. UI chỉ công bố route này cho Guest không có staff role |
 | GET | `/api/v1/users/me` | `AUTHENTICATED` | Tất cả tài khoản | Xem hồ sơ của tài khoản đang đăng nhập |
 | PATCH | `/api/v1/users/me` | `AUTHENTICATED` | Tất cả tài khoản | Cập nhật hồ sơ của tài khoản đang đăng nhập |
-| POST | `/api/v1/payments/requests` | `PUBLIC_WITH_BOOKING_TOKEN` | — | Tạo yêu cầu thanh toán cho đặt phòng PENDING |
+| POST | `/api/v1/payments/requests` | `PUBLIC_WITH_BOOKING_TOKEN` | — | Payment cho pending còn hạn hoặc confirmed/checked-in có công nợ, đúng chủ/token |
 | GET | `/api/v1/payments/{paymentId}/status` | `PUBLIC_WITH_BOOKING_TOKEN` | — | Theo dõi kết quả thanh toán và xác nhận đặt phòng |
 | POST | `/api/v1/payments/sepay/webhook` | `PUBLIC` (API key SePay) | — | Nhận webhook giao dịch từ SePay |
 | GET | `/api/v1/payment-monitoring/summary` | `ROLE_RESTRICTED` | `MANAGER`, `ADMIN` | Tổng quan thanh toán và webhook |
@@ -81,7 +82,7 @@ Lỗi xác thực và phân quyền:
 | GET | `/api/v1/payment-monitoring/webhook-events/{eventId}` | `ROLE_RESTRICTED` | `ADMIN` | Xem sự kiện webhook và dữ liệu thô |
 | GET | `/api/v1/reports/dashboard` | `ROLE_RESTRICTED` | `MANAGER`, `ADMIN` | Báo cáo doanh thu, occupancy và booking theo khoảng ngày |
 
-Các API ở những phần dưới nhưng không có trong bảng này là API dự kiến, chưa được backend công bố. Mức bảo mật và vai trò được phép của chúng là `CẦN XÁC NHẬN NGHIỆP VỤ` trừ khi phần tương ứng ghi rõ khác đi.
+Bảng là danh mục tóm tắt, không suy diễn API chưa triển khai chỉ vì thiếu trong bảng. Contract và quyền cụ thể nằm ở từng phần/OpenAPI; không tự cấp quyền theo tên vai trò.
 
 Giới hạn khôi phục payment của guest ẩn danh: booking access token chỉ được client lưu trong `sessionStorage` và không xuất hiện trong URL. Backend không cung cấp API tìm lại token; đổi trình duyệt, tab không chia sẻ session hoặc kết thúc phiên sẽ không thể mở lại kết quả bằng danh tính ẩn danh. Chủ booking có tài khoản có thể dùng JWT và đi từ kết quả thanh toán tới `/account/bookings/{bookingCode}`.
 
@@ -101,11 +102,23 @@ Authorization: Bearer <access_token>
 - `currency` tùy chọn, mặc định `VND`, gồm đúng ba chữ cái viết hoa.
 - Response gồm summary và daily trend cho revenue, occupancy và booking.
 - Ngày không có dữ liệu vẫn xuất hiện trong daily trend với giá trị `0`.
-- Công thức và giới hạn dữ liệu được mô tả tại [`18-manager-dashboard-metrics.md`](./18-manager-dashboard-metrics.md).
+- Công thức và giới hạn dữ liệu được mô tả tại [financial reporting and maintenance](financial-reporting-and-maintenance.md).
+
+## Shared hotel stay policy
+
+`GET /api/v1/stay-policy`, PUBLIC, envelope ApiResponse. Data gồm zone,
+checkInTime/checkOutTime/sameDayBookingCutoff/lateArrivalCutoff dạng HH:mm:ss,
+paymentHoldMinutes, hotelToday (date), serverNow (UTC date-time).
+Mặc định Asia/Ho_Chi_Minh,14:00,12:00,23:59:59,06:00,15phút.
+Đúng cutoff chặn đặt nhận cùng ngày;14:00 chỉ là bắt đầu nhận phòng chuẩn.
+Ví dụ19:55 ngày 03/11 vẫn đặt03→05/11 (2đêm) nếu còn tồn; expiredAt riêng là hạn trả tiền.
+
+OpenAPI: [stay-policy-and-availability.yaml](openapi/room/stay-policy-and-availability.yaml).
+Biên/thuật toán: [tài liệu23](23-stay-time-and-inventory.md).
 
 ## Available room response data
 
-Mỗi hạng phòng gồm `basePrice`, `availableRooms`, `totalNights`, `roomSubtotal`, `roomDiscount`, `roomTotal` và `nightlyPrices[{stayDate,price,adjustments}]`. Mỗi phần tử `adjustments` là quy tắc giá thực tế đã áp dụng, gồm `name`, `ruleType`, `adjustmentType`, `adjustmentValue` và `amount`.
+Mỗi hạng phòng gồm `basePrice`, `availableRooms`, `readyRooms`, `totalNights`, `roomSubtotal`, `roomDiscount`, `roomTotal` và `nightlyPrices[{stayDate,price,adjustments}]`. Mỗi phần tử `adjustments` là quy tắc giá thực tế đã áp dụng, gồm `name`, `ruleType`, `adjustmentType`, `adjustmentValue` và `amount`.
 
 ## API contract HAN-43: Tính giá lưu trú theo từng đêm
 
@@ -499,6 +512,11 @@ Mục đích:
 - `roomTotal` là tổng tiền phòng cuối cùng sau khi áp dụng toàn bộ quy tắc giá.
 - `nightlyPrices` chứa giá cuối cùng và danh sách `adjustments` thực tế của từng đêm.
 - Chỉ trả về hạng phòng có `availableRooms > 0`.
+- availableRooms = max(0, nguồn bán - nhu cầu đỉnh từng đêm), loại maintenance/OOS; tính active,
+  pending có expiredAt > now và khách ở quá hạn theo policy. Không trừ gộp mọi booking overlap.
+- readyRooms chỉ đếm phòng AVAILABLE hiện tại; không dùng thay nhãn Còn…phòng theo kỳ.
+- Backend từ chối ngày nhận quá khứ/ngày trả≤nhận và nhận hôm nay từ đúng cutoff.
+- FE refresh 30s/focus/reconnect; nhấn tên mở /room-types/{id}, giữ tiêu chí đã submit.
 
 Các công thức phải luôn thỏa mãn:
 
@@ -554,7 +572,7 @@ Lỗi:
 Local smoke test file:
 
 ```text
-hotel-booking/http/HAN-22-room-detail.http
+hotel-booking/http/room.http
 ```
 
 ---
@@ -567,7 +585,7 @@ hotel-booking/http/HAN-22-room-detail.http
 POST /bookings
 ```
 
-Tạo booking public với trạng thái `PENDING`. Hệ thống lock RoomType, kiểm tra lại availability trong transaction và giữ inventory theo RoomType trong 15 phút. Không gán phòng vật lý tại bước này.
+Tạo booking public với trạng thái `PENDING`. Hệ thống lock RoomType, kiểm tra lại tồn từng đêm trong transaction và giữ inventory theo cấu hình (mặc định 15 phút). Đúng expiredAt ngừng giữ/xác nhận; scheduler ghi EXPIRED sau đó. Không gán phòng vật lý tại bước này.
 
 Request:
 
@@ -822,7 +840,7 @@ chính webhook trên. Hệ thống không cung cấp endpoint simulation riêng.
 
 # 7. Front Desk APIs
 
-Các API trong phần này là API dành cho nghiệp vụ lễ tân. Trừ endpoint “Khách trả phòng hôm nay” đã được xác định contract tại HAN-171, các endpoint còn lại vẫn là API dự kiến và cần xác nhận nghiệp vụ trước khi triển khai.
+Các endpoint danh sách khách đến/đang ở và nhận/trả bên dưới đã có implementation; xem quyền từng API. Check-in chỉ RECEPTIONIST; checkout thường/trả sớm RECEPTIONIST/MANAGER/ADMIN. Gia hạn yêu cầu chủ booking.
 
 ## Today Arrivals
 
@@ -838,7 +856,7 @@ Contract chi tiết tại
 định nghĩa:
 
 - Ngày hiện tại được tính theo múi giờ khách sạn `Asia/Ho_Chi_Minh`.
-- Chỉ trả booking có `checkInDate` bằng ngày hiện tại và trạng thái `CONFIRMED`.
+- Trả CONFIRMED nhận hôm nay; trước lateArrivalCutoff còn thêm booking nhận hôm qua có checkOutDate >= hôm nay. Đúng cutoff06:00 không thêm nhóm hôm qua.
   Các trạng thái `PENDING`, `CHECKED_IN`, `CHECKED_OUT`, `CANCELLED` và
   `EXPIRED` không xuất hiện trong danh sách.
 - Query `page` bắt đầu từ `0`; `size` từ `1` đến `100`. Giá trị mặc định lần
@@ -874,7 +892,7 @@ Authorization: Bearer <access_token>
 
 Mục đích:
 
-- Trả về danh sách booking có ngày trả phòng bằng ngày hiện tại của hệ thống để lễ tân chuẩn bị thao tác check-out.
+- Trả danh sách booking CHECKED_IN đang lưu trú, gồm chưa tới ngày trả/đến hạn/quá hạn để xử lý trả thường hoặc trả sớm. Sau giờ trả chuẩn12:00 mới đánh dấu quá hạn ngày đó, không tự checkout.
 - Kết quả được phân trang và sắp xếp ổn định theo ngày trả phòng, sau đó theo mã booking.
 - Không trả trực tiếp entity hoặc dữ liệu nhạy cảm của payment/webhook.
 
@@ -980,9 +998,12 @@ POST /api/v1/bookings/{bookingCode}/check-in
 ```
 
 API `GET` trả về các phòng vật lý `AVAILABLE` thuộc hạng phòng của booking để lễ tân
-lựa chọn; danh sách không giữ phòng. API `POST` nhận `roomId`, khóa và kiểm tra lại
+lựa chọn, loại lịch gán CONFIRMED/CHECKED_IN xung đột; danh sách không giữ phòng. API POST nhận roomId và earlyArrivalReason (tối đa 500 ký tự), khóa và kiểm tra lại
 room rồi thực hiện gán phòng vật lý cùng check-in trong một transaction.
-Chỉ booking `CONFIRMED` và room `AVAILABLE` thuộc đúng hạng phòng đã đặt mới hợp lệ.
+Chỉ booking CONFIRMED và room AVAILABLE đúng hạng, không lịch gán xung đột mới hợp lệ.
+Nhận trong ngày đặt hoặc hôm qua nếu checkOutDate>=hotelToday và giờ <06:00; giữ ngày gốc.
+Nhận trước 14:00 trong ngày đặt cần earlyArrivalReason có nội dung; thiếu trả400 với lỗi field.
+Thành công lưu checked_in_at UTC/TIMESTAMPTZ và trả checkedInAt thực tế.
 Khi thành công, booking chuyển sang `CHECKED_IN` và room chuyển sang `OCCUPIED`.
 Nếu booking đã được gán phòng từ trước, lễ tân được phép đổi sang room hợp lệ trong
 request; assignment chỉ được thay sau khi room mới đã được khóa và kiểm tra lại.
@@ -996,7 +1017,7 @@ Contract request, response, phân quyền và error code đầy đủ nằm tạ
 PATCH /api/v1/bookings/{bookingId}/check-out
 ```
 
-API cho lễ tân check out một booking đang `CHECKED_IN`. Booking và phòng vật lý đã
+API cho RECEPTIONIST/MANAGER/ADMIN checkout booking CHECKED_IN. Đúng 12:00 chưa muộn; sau 12:00 ngày trả cần note≤500 ký tự, không tự áp phí/cộng đêm. Lưu checked_out_at thực tế UTC/TIMESTAMPTZ. Trả trước ngày dự kiến phải dùng early checkout. Booking và phòng vật lý đã
 gán phải được khóa, kiểm tra và cập nhật trong cùng một transaction. Khi thành
 công, booking chuyển sang `CHECKED_OUT`, phòng vật lý chuyển từ `OCCUPIED` sang
 `DIRTY`, lịch sử trạng thái booking được ghi nhận và housekeeping có thể tiếp
@@ -1501,4 +1522,13 @@ Contract chi tiết: [`manage-room-maintenance-status.yaml`](openapi/housekeepin
 
 `GET /api/v1/bookings/{bookingId}/early-checkout?actualCheckOutDate=yyyy-MM-dd` trả số đêm, số tiền chưa sử dụng, phí 20% và khoản hoàn 80% do backend tính. `POST /api/v1/bookings/{bookingId}/early-checkout` nhận ngày trả thực tế, ghi chú, phí phát sinh/đền bù, lý do và số tiền mặt cần thu thêm. Backend bù trừ phí và công nợ vào khoản hoàn; chỉ chấp nhận đúng số tiền cần thu, rồi trả yêu cầu hoàn `PENDING` (nếu còn khoản hoàn), booking `CHECKED_OUT` và phòng `DIRTY`.
 
+Execute early-checkout chỉ chấp nhận actualCheckOutDate = hotelToday; quote không thay trạng thái.
+
 `POST /api/v1/bookings/{bookingId}/extend` accepts `newCheckOutDate`. It returns added nights/amount, new total, outstanding amount, payment-required flag and retained room ID. A same-room or inventory conflict returns `409 ROOM_NOT_AVAILABLE_FOR_EXTENSION`; no room move occurs.
+
+### Quyền và ràng buộc gia hạn hiện tại
+
+Extend yêu cầu authenticated user đúng bookedBy; chỉ CONFIRMED/CHECKED_IN, ngày mới sau ngày trả cũ.
+Luôn kiểm tồn hạng cho [ngày trả cũ,ngày trả mới), loại booking hiện tại; nếu đã gán phòng còn kiểm lịch
+phòng đó. Giữ snapshot cũ/phòng cũ hoặc từ chối409, không chuyển phòng tự động.
+Các giá trị mặc định và16 luồng FE tại [tài liệu23](23-stay-time-and-inventory.md).

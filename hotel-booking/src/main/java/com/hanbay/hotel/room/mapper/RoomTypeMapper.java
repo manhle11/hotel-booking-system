@@ -42,12 +42,14 @@ public interface RoomTypeMapper {
     @Mapping(target = "areaM2", source = "roomType.areaM2")
     @Mapping(target = "imageUrl", source = "roomType", qualifiedByName = "primaryImageUrl")
     @Mapping(target = "availableRooms", source = "availableRooms")
+    @Mapping(target = "readyRooms", source = "readyRooms")
     @Mapping(target = "totalNights", expression = "java(pricing.nights().size())")
     @Mapping(target = "roomSubtotal", source = "pricing.roomAmount")
     @Mapping(target = "roomDiscount", source = "pricing.roomDiscount")
     @Mapping(target = "roomTotal", source = "pricing.finalRoomAmount")
     @Mapping(target = "nightlyPrices", source = "pricing.nights")
-    AvailableRoomTypeResponse toAvailableResponse(RoomType roomType, long availableRooms, RoomPricingResult pricing);
+    AvailableRoomTypeResponse toAvailableResponse(
+            RoomType roomType, long availableRooms, long readyRooms, RoomPricingResult pricing);
 
     @Mapping(target = "price", source = "pricePerNight")
     @Mapping(target = "adjustments", source = "appliedRules")

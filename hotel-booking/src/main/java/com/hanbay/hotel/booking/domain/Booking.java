@@ -92,6 +92,12 @@ public class Booking extends BaseEntity {
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 
+    @Column(name = "checked_in_at")
+    private Instant checkedInAt;
+
+    @Column(name = "checked_out_at")
+    private Instant checkedOutAt;
+
     @OneToMany(mappedBy = "booking", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BookingGuest> guests = new ArrayList<>();
@@ -222,7 +228,7 @@ public class Booking extends BaseEntity {
             throw new InvalidBookingStateException("Chỉ có thể xác nhận đặt phòng khi đang ở trạng thái PENDING.");
         }
 
-        if (this.expiredAt != null && currentTime.isAfter(this.expiredAt)) {
+        if (this.expiredAt != null && !currentTime.isBefore(this.expiredAt)) {
             throw new InvalidBookingStateException("Không thể xác nhận đặt phòng đã quá hạn thanh toán.");
         }
 
@@ -258,6 +264,10 @@ public class Booking extends BaseEntity {
     }
 
     public void checkIn(Room room, User receptionist) {
+        checkIn(room, receptionist, Instant.now(), null);
+    }
+
+    public void checkIn(Room room, User receptionist, Instant actualTime, String note) {
         Objects.requireNonNull(room, "Phòng không được để trống");
         Objects.requireNonNull(receptionist, "Lễ tân thực hiện check-in không được để trống");
         if (status != BookingStatus.CONFIRMED) {
@@ -265,10 +275,18 @@ public class Booking extends BaseEntity {
         }
 
         assignedRoom = room;
-        changeStatus(BookingStatus.CHECKED_IN, receptionist, "Lễ tân check-in và gán phòng " + room.getRoomNumber());
+        checkedInAt = Objects.requireNonNull(actualTime);
+        changeStatus(
+                BookingStatus.CHECKED_IN,
+                receptionist,
+                "Lễ tân check-in và gán phòng " + room.getRoomNumber() + (note == null ? "" : ": " + note));
     }
 
     public void checkOut(User receptionist, String note) {
+        checkOut(receptionist, note, Instant.now());
+    }
+
+    public void checkOut(User receptionist, String note, Instant actualTime) {
         Objects.requireNonNull(receptionist, "Lễ tân thực hiện check-out không được để trống");
         if (status != BookingStatus.CHECKED_IN) {
             throw new InvalidBookingStateException("Chỉ booking CHECKED_IN mới có thể check-out.");
@@ -278,6 +296,7 @@ public class Booking extends BaseEntity {
         if (note != null && !note.trim().isEmpty()) {
             reason = reason + ": " + note.trim();
         }
+        checkedOutAt = Objects.requireNonNull(actualTime);
         changeStatus(BookingStatus.CHECKED_OUT, receptionist, reason);
     }
 

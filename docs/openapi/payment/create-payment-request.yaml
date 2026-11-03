@@ -2,9 +2,9 @@ openapi: 3.0.3
 
 info:
   title: API tạo yêu cầu thanh toán
-  version: 1.0.0
+  version: 1.1.0
   description: >
-    Đặc tả tạo yêu cầu thanh toán cho đặt phòng đang ở trạng thái PENDING.
+    Payment cho pending còn hạn hoặc confirmed/checked-in còn công nợ; đúng chủ hoặc token hợp lệ.
     API phục vụ cả khách vãng lai sau khi đã nhập thông tin liên hệ khi tạo đặt phòng.
 
 servers:
@@ -19,7 +19,7 @@ paths:
       description: >
         Tạo hoặc trả lại yêu cầu thanh toán PENDING còn hiệu lực cho một đặt phòng đang giữ phòng.
         Khách chưa đăng nhập phải gửi mã truy cập đặt phòng qua header X-Booking-Access-Token.
-        API không nhận số tiền từ client và chỉ webhook hợp lệ mới xác nhận đặt phòng.
+        API tính số còn thiếu ở server; pending hết hạn không xác nhận lại. Hạn payment≤hạn booking pending, mặc định hold15 phút theo cấu hình; tạo QR lại không kéo dài hold.14:00 không là hạn trả tiền hoặc cutoff đặt. Chỉ webhook hợp lệ đủ tiền xác nhận ban đầu; payment bổ sung không đổi trạng thái lưu trú.
       operationId: createPaymentRequest
       security: []
       parameters:

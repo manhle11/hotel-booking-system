@@ -176,9 +176,9 @@ Chiến lược test chi tiết (Unit / Integration / API / Coverage target): xe
 
 ## 8. Business Highlights
 
-- **Availability Calculation**: tính phòng trống bằng overlapping booking, không dựa vào trạng thái phòng hiện tại.
+- **Availability Calculation**: tính từng đêm [nhận,trả), lấy tồn thấp nhất cả kỳ; trừ hold còn hạn và booking active/quá hạn đang ở; loại MAINTENANCE/OUT_OF_SERVICE. `availableRooms` khác `readyRooms` hiện tại.
 - **Concurrency Control**: pessimistic lock khi xác nhận booking, tránh overbooking.
-- **Booking Hold**: booking `PENDING` giữ chỗ tối đa 15 phút, tự động `CANCELLED` nếu quá hạn.
+- **Booking Hold**: mặc định 15 phút, cấu hình qua `PAYMENT_EXPIRATION_MINUTES`. Đúng `expiredAt` không còn giữ tồn/xác nhận; scheduler ghi `EXPIRED`, không phải `CANCELLED`. Sửa pending không kéo dài hold.
 - **Payment Webhook Idempotency**: đảm bảo một giao dịch chỉ được xử lý một lần.
 - **Dynamic Pricing**: tính giá theo từng đêm dựa trên lịch giá (cuối tuần, ngày lễ).
 - **AI Assistant**: hỗ trợ gợi ý hạng phòng và trả lời chính sách khách sạn (không tự tạo booking, không xử lý thanh toán).
@@ -213,3 +213,14 @@ Vui lòng đọc [`CONTRIBUTING.md`](../CONTRIBUTING.md) trước khi tạo Pull
 | `14-sprint-report-template.md` | Mẫu báo cáo sprint |
 | `15-contribution-guide.md` | Hướng dẫn đóng góp (bản mở rộng) |
 | `16-authentication-jwt.md` | Đặc tả xác thực JWT và API guest login |
+
+## Thời gian lưu trú và inventory hiện tại
+
+Xem [quy tắc và cấu hình](../docs/23-stay-time-and-inventory.md),
+[OpenAPI](../docs/openapi/room/stay-policy-and-availability.yaml) và
+[16 luồng FE](../docs/testing/stay-time-fe-checklist.md).
+API public `GET /api/v1/stay-policy` cung cấp policy/ngày/giờ server cho FE.
+14:00 là bắt đầu nhận, không phải hạn đặt; lúc 19:55 vẫn được đặt hôm nay nếu trước cutoff 23:59:59.
+Nhận sớm cần lý do; khách hôm qua đến muộn chỉ nhận trước 06:00; checkout sau 12:00 cần ghi chú.
+Migration `V202611031800__record_actual_stay_times.sql` lưu giờ thực tế TIMESTAMPTZ và chuẩn hóa expired_at.
+Initializer không tự thêm phòng Ocean Suite demo khi hạng đã có inventory.

@@ -66,7 +66,11 @@ export function RoomManagementPage() {
       }
     },
   });
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['managed-rooms'] });
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['managed-rooms'] }),
+      queryClient.invalidateQueries({ queryKey: ['available-room-types'] }),
+    ]);
   const save = useMutation({
     mutationFn: (values: ManagedRoom) =>
       editing

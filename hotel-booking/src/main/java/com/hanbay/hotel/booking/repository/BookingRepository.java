@@ -17,6 +17,51 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+    @Query(
+            value =
+                    """
+            WITH stay_nights AS (
+                SELECT generate_series(CAST(:checkIn AS date), CAST(:checkOut AS date) - 1,
+                    INTERVAL '1 day')::date AS stay_date
+            ), nightly_demand AS (
+                SELECT b.room_type_id, n.stay_date, COUNT(*) AS booking_count
+                FROM stay_nights n
+                JOIN bookings b ON b.check_in_date <= n.stay_date
+                    AND (b.check_out_date > n.stay_date
+                        OR (b.status = 'CHECKED_IN' AND b.check_out_date <= :overdueThrough))
+                WHERE b.room_type_id IN (:roomTypeIds)
+                    AND (b.status IN ('CONFIRMED', 'CHECKED_IN')
+                        OR (b.status = 'PENDING' AND b.expired_at > :now))
+                    AND (CAST(:excludedBookingId AS uuid) IS NULL
+                        OR b.id <> CAST(:excludedBookingId AS uuid))
+                GROUP BY b.room_type_id, n.stay_date
+            )
+            SELECT room_type_id AS "roomTypeId", MAX(booking_count) AS "bookingCount"
+            FROM nightly_demand GROUP BY room_type_id
+            """,
+            nativeQuery = true)
+    Collection<RoomTypeBookingCount> countPeakActiveBookingsByRoomTypeIds(
+            @Param("roomTypeIds") Collection<UUID> roomTypeIds,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut,
+            @Param("overdueThrough") LocalDate overdueThrough,
+            @Param("now") Instant now,
+            @Param("excludedBookingId") UUID excludedBookingId);
+
+    @Query(
+            """
+            SELECT b FROM Booking b WHERE b.status = :status
+            AND (b.checkInDate = :today OR (:includeYesterday = true AND b.checkInDate = :yesterday
+                AND b.checkOutDate >= :today))
+            """)
+    @EntityGraph(attributePaths = "roomType")
+    Page<Booking> findArrivalsIncludingLate(
+            @Param("status") BookingStatus status,
+            @Param("today") LocalDate today,
+            @Param("yesterday") LocalDate yesterday,
+            @Param("includeYesterday") boolean includeYesterday,
+            Pageable pageable);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
             """
@@ -67,46 +112,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select booking from Booking booking where booking.id = :id")
     java.util.Optional<Booking> findByIdWithAssignedRoomForUpdate(@Param("id") UUID id);
-
-    @Query(
-            """
-            SELECT b.roomType.id AS roomTypeId, COUNT(b) AS bookingCount
-            FROM Booking b
-            WHERE b.roomType.id IN :roomTypeIds
-              AND b.checkInDate < :checkOut
-              AND b.checkOutDate > :checkIn
-              AND (
-                b.status IN :confirmedStatuses
-                OR (b.status = :pendingStatus AND b.expiredAt > :now)
-              )
-            GROUP BY b.roomType.id
-            """)
-    Collection<RoomTypeBookingCount> countOverlappingActiveBookingsByRoomTypeIds(
-            @Param("roomTypeIds") Collection<UUID> roomTypeIds,
-            @Param("checkIn") LocalDate checkIn,
-            @Param("checkOut") LocalDate checkOut,
-            @Param("now") Instant now,
-            @Param("confirmedStatuses") Collection<BookingStatus> confirmedStatuses,
-            @Param("pendingStatus") BookingStatus pendingStatus);
-
-    @Query(
-            """
-            SELECT COUNT(b)
-            FROM Booking b
-            WHERE b.roomType.id = :roomTypeId
-              AND b.id <> :excludedBookingId
-              AND b.checkInDate < :checkOut
-              AND b.checkOutDate > :checkIn
-              AND (b.status IN :confirmedStatuses OR (b.status = :pendingStatus AND b.expiredAt > :now))
-            """)
-    long countOverlappingActiveBookingsExcluding(
-            @Param("roomTypeId") UUID roomTypeId,
-            @Param("excludedBookingId") UUID excludedBookingId,
-            @Param("checkIn") LocalDate checkIn,
-            @Param("checkOut") LocalDate checkOut,
-            @Param("now") Instant now,
-            @Param("confirmedStatuses") Collection<BookingStatus> confirmedStatuses,
-            @Param("pendingStatus") BookingStatus pendingStatus);
 
     @Query(
             """

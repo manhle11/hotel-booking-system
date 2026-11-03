@@ -13,6 +13,7 @@ export interface AvailableRoomType {
   areaM2: number | null;
   imageUrl: string | null;
   availableRooms: number;
+  readyRooms: number;
   totalNights: number;
   roomSubtotal: number;
   roomDiscount: number;

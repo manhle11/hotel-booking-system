@@ -11,7 +11,7 @@ start
 :Submit search;
 
 |System|
-:Validate date range and occupancy;
+:Validate hotel dates, same-day cutoff and occupancy;
 if (Input valid?) then (Yes)
 else (No)
   :Return field validation errors;
@@ -28,10 +28,10 @@ endif
 
 repeat
   :Select next room type;
-  :Count active physical rooms;
-  :Count overlapping bookings with statuses:
-PENDING not expired, CONFIRMED, CHECKED_IN;
-  :Calculate available quantity;
+  :Count sellable rooms excluding MAINTENANCE/OUT_OF_SERVICE;
+  :Count demand for each night in [arrival,departure):
+PENDING expiredAt>now, CONFIRMED, CHECKED_IN incl overdue;
+  :Calculate max(0, sellable minus peak nightly demand);
   if (Available quantity > 0?) then (Yes)
     :Loop through each night of stay;
     :Load applicable price rate;

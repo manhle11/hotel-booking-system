@@ -28,6 +28,7 @@ import {
   Typography,
 } from 'antd';
 import dayjs from 'dayjs';
+import { countStayNights } from '../../../utils/hotel-time';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -63,7 +64,7 @@ export function BookingPaymentPage({
   const screens = Grid.useBreakpoint();
   const navigate = useNavigate();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const nights = dayjs(request.checkOutDate).diff(dayjs(request.checkInDate), 'day');
+  const nights = countStayNights(dayjs(request.checkInDate), dayjs(request.checkOutDate));
   const paymentMutation = useMutation({
     mutationFn: () => createPaymentRequest(booking.bookingId, booking.bookingAccessToken),
     onSuccess: (createdPayment) => {

@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: API check-out khách HANBAY Hotel
-  version: 1.0.0
+  version: 1.1.0
   description: >
     Contract cho thao tác lễ tân check-out booking đã check-in. API hoàn tất
     booking, đánh dấu phòng vật lý đã gán thành DIRTY và trả về snapshot công nợ
@@ -31,6 +31,10 @@ paths:
         Quy tắc nghiệp vụ:
 
         - Booking phải tồn tại và đang ở trạng thái `CHECKED_IN`.
+        - Checkout thường từ ngày trả dự kiến; trước ngày đó dùng early checkout.
+        - Đúng 12:00 chưa muộn; sau 12:00 ngày trả cần note có nội dung≤500 theo policy.
+        - Không tự cộng đêm, tự checkout hoặc nhả tồn khi khách chưa trả; phí do nhân viên ghi nhận.
+        - Ghi checked_out_at thực tế UTC/TIMESTAMPTZ.
         - Booking phải có phòng vật lý đã gán.
         - Phòng vật lý đã gán được kỳ vọng đang ở trạng thái `OCCUPIED`.
         - Lễ tân có thể ghi nhận phí phát sinh/đền bù sau khi kiểm tra phòng.
@@ -39,10 +43,7 @@ paths:
         - Công nợ cuối cùng sau phí phát sinh và tiền thu thêm phải bằng `0` trước khi có thể hoàn tất check-out.
         - Khi thành công, booking chuyển sang `CHECKED_OUT`.
         - Khi thành công, phòng vật lý đã gán chuyển sang `DIRTY`.
-        - Task implement phải ghi nhận lịch sử trạng thái booking.
-        - Nếu scope implement đã có nơi lưu housekeeping task, nên tạo task dọn phòng
-          đang chờ xử lý cho phòng dirty. Tối thiểu, room status phải là `DIRTY`
-          để Housekeeping lấy được phòng từ API danh sách phòng cần dọn.
+        - Ghi lịch sử; buồng phòng đọc room DIRTY, không tạo bảng/task dọn giả. Chỉ sau CLEANING→AVAILABLE mới giao phòng tiếp.
       security:
         - bearerAuth: []
       parameters:
@@ -183,7 +184,7 @@ components:
         note:
           type: string
           maxLength: 500
-          description: Ghi chú tùy chọn của lễ tân tại thời điểm check-out.
+          description: Ghi chú tối đa 500 ký tự; bắt buộc có nội dung khi trả sau giờ chuẩn theo policy, tùy chọn trước/đúng giờ.
         additionalChargeAmount:
           type: integer
           format: int64

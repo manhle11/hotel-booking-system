@@ -2,13 +2,12 @@ openapi: 3.0.3
 
 info:
   title: API danh sách khách đến hôm nay
-  version: 1.0.0
+  version: 1.1.0
   description: |
     API Front Desk trả danh sách booking dự kiến nhận phòng trong ngày hiện tại
     của khách sạn. Ngày hiện tại được xác định theo múi giờ `Asia/Ho_Chi_Minh`.
 
-    Chỉ booking có `checkInDate` bằng ngày hiện tại và trạng thái `CONFIRMED`
-    được trả về. Booking `PENDING`, `CHECKED_IN`, `CHECKED_OUT`, `CANCELLED`
+    Trả CONFIRMED nhận hôm nay; trước lateArrivalCutoff (mặc định 06:00), thêm booking nhận hôm qua với checkOutDate>=hotelToday. Đúng 06:00 loại nhóm hôm qua. Booking `PENDING`, `CHECKED_IN`, `CHECKED_OUT`, `CANCELLED`
     hoặc `EXPIRED` không thuộc danh sách này.
 
 servers:
@@ -26,8 +25,7 @@ paths:
       description: |
         API giới hạn cho các vai trò `RECEPTIONIST`, `MANAGER` và `ADMIN`.
 
-        Kết quả chỉ chứa booking `CONFIRMED` có ngày nhận phòng bằng ngày hiện
-        tại theo `Asia/Ho_Chi_Minh`. Kết quả được sắp xếp theo `createdAt` tăng
+        Kết quả chứa CONFIRMED trong ngày nhận hoặc hôm qua còn điều kiện trước 06:00 theo hotel.stay.zone. Giữ nguyên ngày đặt gốc. Kết quả được sắp xếp theo `createdAt` tăng
         dần, sau đó theo `bookingCode` tăng dần để bảo đảm thứ tự ổn định.
 
         API không hỗ trợ tìm kiếm hoặc lọc trạng thái. Thông tin phòng vật lý và

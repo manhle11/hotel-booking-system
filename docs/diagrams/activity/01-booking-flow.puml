@@ -30,14 +30,14 @@ endif
 :Submit booking request;
 
 |System|
-:Validate guest and stay information;
+:Validate guest, calendar dates and independent same-day cutoff;
 :Begin database transaction;
 :Lock selected room type inventory;
 :Re-check availability inside transaction;
 if (Room inventory available?) then (Yes)
   :Calculate final amount;
   :Create booking with status PENDING;
-  :Set expiresAt = now + 15 minutes;
+  :Set expiredAt from configured hold (default 15min);
   :Reserve inventory by RoomType;
   :Create nightly price snapshots
   and add-on records;

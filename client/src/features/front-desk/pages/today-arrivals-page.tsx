@@ -92,7 +92,8 @@ export function TodayArrivalsPage() {
         <div>
           <Title level={2}>Khách đến hôm nay</Title>
           <Paragraph type="secondary">
-            Danh sách đặt phòng đã xác nhận dự kiến nhận phòng trong ngày.
+            Danh sách đặt phòng đã xác nhận dự kiến nhận phòng trong ngày, bao gồm khách đến muộn từ
+            hôm trước khi còn trong khung giờ tiếp nhận.
           </Paragraph>
         </div>
         <Button

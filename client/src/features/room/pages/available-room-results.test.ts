@@ -16,6 +16,7 @@ const room: AvailableRoomType = {
   areaM2: null,
   imageUrl: null,
   availableRooms: 1,
+  readyRooms: 1,
   totalNights: 1,
   roomSubtotal: 1_200_000,
   roomDiscount: 120_000,

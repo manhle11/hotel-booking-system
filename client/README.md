@@ -71,3 +71,20 @@ export default defineConfig([
   },
 ]);
 ```
+
+## HANBAY frontend — stay time and inventory
+
+This client serves the HANBAY application in addition to the template setup above.
+Run `npm run dev` for local Vite; backend must be available through the configured API proxy.
+
+- Search `/rooms/search`: room-name links open `/room-types/:roomTypeId`; the badge uses
+  `availableRooms` for the submitted dates, not `readyRooms` now. Search refreshes every30s/on focus/reconnect.
+- `/bookings/new`: calendar-night counting is shared with room detail and summary/payment.
+- `GET /api/v1/stay-policy`: shared timezone/server clock and14:00/12:00 schedule; policy refresh 60s.
+- Same-day booking after14:00 is valid until the separate cutoff; expiredAt remains its own payment deadline.
+- Front desk supports early-arrival reason, late-arrival window, overdue checkout note and today-only early checkout.
+
+Use the [16 changed FE flows](../docs/testing/stay-time-fe-checklist.md) for focused manual testing;
+[full UAT](../docs/testing/web-uat-guide.md) covers the whole application.
+Rules/configuration: [stay time and inventory](../docs/23-stay-time-and-inventory.md).
+These checklists describe expectations; no manual pass is implied.

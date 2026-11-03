@@ -47,3 +47,14 @@ Happy path của Sprint Review phải chạy bằng UI HANBAY và SePay Test Mod
 - Không chạy toàn bộ file webhook bằng một lần “Run all”. Chạy từng scenario và kiểm tra prerequisite.
 - Không chiếu hoặc commit API key, JWT, password và dữ liệu ngân hàng thật.
 - Không dùng request HTTP để thay happy path của guest nếu UI và SePay Test Mode đang hoạt động.
+
+## Thời gian và tồn phòng03/11/2026
+
+`stay-time-policy.http` đọc public policy, thử tìm nhận hôm nay, nhận sớm/đến muộn và checkout
+quá hạn với fixture. Thay hotelToday từ response server; ngày tĩnh trong file là ví dụ, không
+chứng minh server đang ở mốc đó. Dùng backend Clock test cho exact06/12/14/cutoff/expiredAt.
+14:00 bắt đầu nhận;19:55 vẫn có thể đặt hôm nay trước 23:59:59. expiredAt riêng là hạn thanh toán.
+Số còn phòng là tồn thấp nhất từng đêm, khác readyRooms hiện tại. Manual FE chỉ phần sửa:
+[16 luồng](../../docs/testing/stay-time-fe-checklist.md); rule/schema tại
+[tài liệu23](../../docs/23-stay-time-and-inventory.md).
+Các request mutation chỉ dùng booking test đúng ngày/trạng thái; chưa được chạy chỉ vì có trong file.

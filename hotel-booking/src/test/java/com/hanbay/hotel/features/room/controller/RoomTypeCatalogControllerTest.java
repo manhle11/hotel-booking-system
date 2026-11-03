@@ -107,6 +107,7 @@ class RoomTypeCatalogControllerTest {
                 new BigDecimal("42.50"),
                 "https://example.com/deluxe.jpg",
                 3,
+                2,
                 3,
                 7_350_000,
                 0,
@@ -132,6 +133,7 @@ class RoomTypeCatalogControllerTest {
                 .andExpect(jsonPath("$.data.content[0].code").value("DELUXE"))
                 .andExpect(jsonPath("$.data.content[0].basePrice").value(2450000))
                 .andExpect(jsonPath("$.data.content[0].availableRooms").value(3))
+                .andExpect(jsonPath("$.data.content[0].readyRooms").value(2))
                 .andExpect(jsonPath("$.data.content[0].totalNights").value(3))
                 .andExpect(jsonPath("$.data.content[0].roomSubtotal").value(7350000))
                 .andExpect(jsonPath("$.data.content[0].roomDiscount").value(0))

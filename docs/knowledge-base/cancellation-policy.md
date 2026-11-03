@@ -3,7 +3,7 @@ documentId: HANBAY-CANCELLATION-POLICY
 title: Cancellation Policy
 category: CANCELLATION
 source: docs/knowledge-base/cancellation-policy.md
-version: 1.1
+version: 1.3
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -81,3 +81,10 @@ tiền booking và bắt đầu ở trạng thái `PENDING`.
 - `BookingCancellationProperties.java`, `application.yaml`
 - `BookingServiceImpl.java`
 - `RefundManagementServiceImpl.java`, `PaymentMonitoringController.java`
+
+### Đồng hồ chung với lưu trú
+
+Mốc48h/24h tính tới giờ nhận đã cấu hình (mặc định14:00) theo timezone khách sạn;
+không tính tới cutoff đặt cùng ngày23:59:59 hoặc expiredAt payment. Cấu hình lấy chung
+hotel.stay.check-in-time/zone. Đặt sau14:00 vẫn có thể hợp lệ, nhưng không bỏ qua giới hạn hủy.
+Nguồn: HotelStayProperties, BookingCancellationPolicy; [tài liệu23](../23-stay-time-and-inventory.md).

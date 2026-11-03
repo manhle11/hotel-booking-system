@@ -120,3 +120,14 @@ npm run build
 - `application-prod.yml` hiện được backend container trong local Compose
   sử dụng. Không xóa hoặc đổi tên file này nếu chưa thay profile của
   local stack.
+
+## Cấu hình thời gian và cập nhật tài liệu lưu trú
+
+[Quy tắc/cấu hình](23-stay-time-and-inventory.md) liệt kê HOTEL_TIME_ZONE,
+BOOKING_CHECK_IN_TIME, BOOKING_CHECK_OUT_TIME, SAME_DAY_BOOKING_CUTOFF,
+LATE_ARRIVAL_CUTOFF, PAYMENT_EXPIRATION_MINUTES. Kiểm cấu hình đang chạy bằng
+GET /api/v1/stay-policy; không lấy giờ browser làm chuẩn.
+Flyway áp dụng V202611031800 để thêm giờ nhận/trả thực tế và chuyển expired_at sang TIMESTAMPTZ
+với dữ liệu legacy GMT+7. Không chạy script thay inventory/clear dữ liệu để kiểm migration.
+Policy corpus version 1.3 chỉ được nạp lại sau build/restart với RAG bật theo checksum;
+sửa docs không đổi index trong process hiện tại. Đây không phải xác nhận đã deploy/reindex.

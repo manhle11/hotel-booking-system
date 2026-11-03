@@ -718,7 +718,7 @@ components:
                 errors: {}
 
     PaginationBadRequest:
-      description: `page` hoặc `size` không hợp lệ.
+      description: '`page` hoặc `size` không hợp lệ.'
       content:
         application/json:
           schema:
@@ -750,7 +750,7 @@ components:
                 path: /api/v1/maintenance-requests
                 timestamp: '2026-09-04T08:00:00Z'
                 errors:
-                  page: page phải có kiểu dữ liệu hợp lệ: int
+                  page: 'page phải có kiểu dữ liệu hợp lệ: int'
 
     InvalidMaintenanceRequestId:
       description: Path parameter `id` không phải UUID hợp lệ.

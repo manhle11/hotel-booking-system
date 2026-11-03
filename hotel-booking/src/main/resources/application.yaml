@@ -86,12 +86,23 @@ springdoc:
 api:
   prefix: /api/v1
 
+payment:
+  expiration-minutes: ${PAYMENT_EXPIRATION_MINUTES:15}
+
+hotel:
+  stay:
+    zone: ${HOTEL_TIME_ZONE:Asia/Ho_Chi_Minh}
+    check-in-time: ${BOOKING_CHECK_IN_TIME:14:00}
+    check-out-time: ${BOOKING_CHECK_OUT_TIME:12:00}
+    same-day-booking-cutoff: ${SAME_DAY_BOOKING_CUTOFF:23:59:59}
+    late-arrival-cutoff: ${LATE_ARRIVAL_CUTOFF:06:00}
+
 booking:
   expiration:
     cron: ${BOOKING_EXPIRATION_CRON:0 * * * * *}
   cancellation:
-    check-in-time: ${BOOKING_CHECK_IN_TIME:14:00}
-    hotel-zone: ${HOTEL_TIME_ZONE:Asia/Ho_Chi_Minh}
+    check-in-time: ${hotel.stay.check-in-time}
+    hotel-zone: ${hotel.stay.zone}
     full-refund-hours: ${BOOKING_FULL_REFUND_HOURS:48}
     partial-refund-hours: ${BOOKING_PARTIAL_REFUND_HOURS:24}
     partial-refund-percent: ${BOOKING_PARTIAL_REFUND_PERCENT:50}

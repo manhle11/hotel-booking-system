@@ -1,11 +1,10 @@
 package com.hanbay.hotel.room.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.hanbay.hotel.booking.domain.BookingStatus;
 import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.room.domain.RoomStatus;
 import com.hanbay.hotel.room.repository.RoomRepository;
@@ -13,7 +12,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,7 +41,28 @@ class RoomAvailabilityCalculatorTest {
 
     @BeforeEach
     void setUp() {
-        calculator = new RoomAvailabilityCalculator(roomRepository, bookingRepository, CLOCK);
+        calculator = new RoomAvailabilityCalculator(
+                roomRepository,
+                bookingRepository,
+                CLOCK,
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        CLOCK, new com.hanbay.hotel.booking.config.HotelStayProperties()));
+    }
+
+    @Test
+    void countsOnlyCurrentlyReadyRoomsWithoutSubtractingFutureBookings() {
+        UUID suiteId = UUID.randomUUID();
+        when(roomRepository.countByRoomTypeIdsAndStatusIn(List.of(suiteId), List.of(RoomStatus.AVAILABLE)))
+                .thenReturn(List.of(roomCount(suiteId, 2L)));
+
+        assertEquals(2L, calculator.countReadyRooms(List.of(suiteId)).get(suiteId));
+        verifyNoInteractions(bookingRepository);
+    }
+
+    @Test
+    void doesNotQueryInventoryWhenNoRoomTypesAreRequested() {
+        assertEquals(Map.of(), calculator.countReadyRooms(List.of()));
+        verifyNoInteractions(roomRepository, bookingRepository);
     }
 
     @Test
@@ -51,13 +70,13 @@ class RoomAvailabilityCalculatorTest {
         UUID suiteId = UUID.randomUUID();
         when(roomRepository.countByRoomTypeIdsAndStatusIn(List.of(suiteId), SELLABLE_STATUSES))
                 .thenReturn(List.of(roomCount(suiteId, 3L)));
-        when(bookingRepository.countOverlappingActiveBookingsByRoomTypeIds(
+        when(bookingRepository.countPeakActiveBookingsByRoomTypeIds(
                         eq(List.of(suiteId)),
                         eq(CHECK_IN),
                         eq(CHECK_OUT),
+                        eq(LocalDate.of(2026, 8, 7)),
                         eq(Instant.now(CLOCK)),
-                        anyBookingStatuses(),
-                        eq(BookingStatus.PENDING)))
+                        org.mockito.ArgumentMatchers.isNull()))
                 .thenReturn(List.of(bookingCount(suiteId, 1L)));
 
         Map<UUID, Long> counts = calculator.countAvailableRooms(List.of(suiteId), CHECK_IN, CHECK_OUT);
@@ -70,13 +89,13 @@ class RoomAvailabilityCalculatorTest {
         UUID suiteId = UUID.randomUUID();
         when(roomRepository.countByRoomTypeIdsAndStatusIn(List.of(suiteId), SELLABLE_STATUSES))
                 .thenReturn(List.of(roomCount(suiteId, 1L)));
-        when(bookingRepository.countOverlappingActiveBookingsByRoomTypeIds(
+        when(bookingRepository.countPeakActiveBookingsByRoomTypeIds(
                         eq(List.of(suiteId)),
                         eq(CHECK_IN),
                         eq(CHECK_OUT),
+                        eq(LocalDate.of(2026, 8, 7)),
                         eq(Instant.now(CLOCK)),
-                        anyBookingStatuses(),
-                        eq(BookingStatus.PENDING)))
+                        org.mockito.ArgumentMatchers.isNull()))
                 .thenReturn(List.of(bookingCount(suiteId, 3L)));
 
         Map<UUID, Long> counts = calculator.countAvailableRooms(List.of(suiteId), CHECK_IN, CHECK_OUT);
@@ -110,10 +129,5 @@ class RoomAvailabilityCalculatorTest {
                 return bookingCount;
             }
         };
-    }
-
-    @SuppressWarnings("unchecked")
-    private Collection<BookingStatus> anyBookingStatuses() {
-        return any(Collection.class);
     }
 }

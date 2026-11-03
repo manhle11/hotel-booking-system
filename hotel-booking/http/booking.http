@@ -82,3 +82,8 @@ Content-Type: application/json
   },
   "addOns": []
 }
+
+# Hold cấu hình PAYMENT_EXPIRATION_MINUTES (mặc định 15), không được kéo dài khi sửa.
+# Đúng expiredAt hết giữ/xác nhận dù scheduler chưa ghi EXPIRED.
+# Ngày ở/cutoff theo stay-policy;19:55 nhận hôm nay vẫn hợp lệ trước 23:59:59 nếu còn tồn.
+# Phân biệt14:00 bắt đầu nhận, expiredAt hạn trả tiền; /stay-time-policy.http có fixture mới.

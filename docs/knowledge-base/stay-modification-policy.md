@@ -3,7 +3,7 @@ documentId: HANBAY-STAY-MODIFICATION-POLICY
 title: Chính sách trả phòng sớm và gia hạn lưu trú
 category: STAY_MODIFICATION
 source: docs/knowledge-base/stay-modification-policy.md
-version: 1.1
+version: 1.3
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -108,3 +108,11 @@ vẫn để trống cho đến check-in.
 - `Booking.java`, `BookingRepository.java`, `PaymentRefund.java`
 - `PaymentServiceImpl.java`, `PaymentWebhookServiceImpl.java`, `CounterPaymentService.java`
 - `RefundManagementServiceImpl.java`, `PaymentMonitoringController.java`
+
+### Ngày thực tế và đoạn gia hạn
+
+Quote trả sớm không thay đổi trạng thái. Execute chỉ nhận actualCheckOutDate = ngày hiện tại
+của khách sạn; không cho lùi/tới ngày khác. Khi hoàn tất lưu checked_out_at thực tế UTC.
+Gia hạn kiểm tồn hạng cho [ngày trả cũ,ngày trả mới), loại booking đang sửa; cả khi đã gán
+phòng vẫn phải kiểm tồn hạng và lịch phòng. Không đổi snapshot đêm cũ hoặc tự chuyển phòng.
+Nguồn: StayModificationServiceImpl; [tài liệu23](../23-stay-time-and-inventory.md).

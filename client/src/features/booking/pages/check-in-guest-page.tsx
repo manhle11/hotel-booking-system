@@ -20,7 +20,8 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import dayjs from 'dayjs';
+import { useStayPolicy } from '../../../hooks/use-stay-policy';
+import { formatHotelDateTime } from '../../../utils/hotel-time';
 import { useState } from 'react';
 
 import { checkInGuest, getAvailablePhysicalRooms } from '../api/booking-api';
@@ -31,9 +32,11 @@ import './check-in-guest-page.css';
 interface CheckInFormValues {
   bookingCode: string;
   roomId: string;
+  earlyArrivalReason?: string;
 }
 
 export function CheckInGuestPage() {
+  const { policy } = useStayPolicy();
   const { message } = App.useApp();
   const [form] = Form.useForm<CheckInFormValues>();
   const [result, setResult] = useState<CheckInGuestResponse | null>(null);
@@ -47,8 +50,11 @@ export function CheckInGuestPage() {
   });
 
   const checkInMutation = useMutation({
-    mutationFn: ({ bookingCode, roomId }: CheckInFormValues) =>
-      checkInGuest(bookingCode.trim().toUpperCase(), roomId.trim()),
+    mutationFn: ({ bookingCode, roomId, earlyArrivalReason }: CheckInFormValues) => {
+      const code = bookingCode.trim().toUpperCase();
+      const reason = earlyArrivalReason?.trim();
+      return reason ? checkInGuest(code, roomId.trim(), reason) : checkInGuest(code, roomId.trim());
+    },
     onSuccess: (data) => {
       setResult(data);
       void message.success(`Check-in thành công, phòng ${data.room.roomNumber}`);
@@ -165,6 +171,15 @@ export function CheckInGuestPage() {
                 </Radio.Group>
               </Form.Item>
 
+              <Form.Item
+                name="earlyArrivalReason"
+                label="Lý do duyệt nhận phòng sớm (nếu có)"
+                extra={`Nhận trước ${policy.checkInTime.slice(0, 5)} cần lễ tân xác nhận phòng đã sẵn sàng và nhập lý do. Khách đến sau nửa đêm được xử lý theo booking gốc đến ${policy.lateArrivalCutoff.slice(0, 5)}.`}
+                rules={[{ max: 500, message: 'Lý do không được vượt quá 500 ký tự' }]}
+              >
+                <Input.TextArea rows={2} maxLength={500} />
+              </Form.Item>
+
               {checkInMutation.isError && (
                 <Alert
                   className="check-in-page__error"
@@ -217,7 +232,7 @@ export function CheckInGuestPage() {
                     <Tag color="green">Đang sử dụng</Tag>
                   </Descriptions.Item>
                   <Descriptions.Item label="Thời gian">
-                    {dayjs(result.checkedInAt).format('DD/MM/YYYY HH:mm')}
+                    {formatHotelDateTime(result.checkedInAt, policy.zone)}
                   </Descriptions.Item>
                 </Descriptions>
               </Space>

@@ -54,8 +54,13 @@ class PricingServiceTest {
 
     @BeforeEach
     void setUp() {
-        pricingService =
-                new PricingServiceImpl(priceRuleRepository, holidayCalendarRepository, roomTypeRepository, CLOCK);
+        pricingService = new PricingServiceImpl(
+                priceRuleRepository,
+                holidayCalendarRepository,
+                roomTypeRepository,
+                CLOCK,
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        CLOCK, new com.hanbay.hotel.booking.config.HotelStayProperties()));
     }
 
     @Test

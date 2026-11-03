@@ -73,7 +73,9 @@ class CheckOutServiceImplTest {
                 userRepository,
                 currentUserProvider,
                 clock,
-                new com.hanbay.hotel.payment.service.CounterPaymentService(paymentRepository, clock));
+                new com.hanbay.hotel.payment.service.CounterPaymentService(paymentRepository, clock),
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        clock, new com.hanbay.hotel.booking.config.HotelStayProperties()));
     }
 
     @Test
@@ -344,7 +346,9 @@ class CheckOutServiceImplTest {
                 userRepository,
                 currentUserProvider,
                 Clock.fixed(NOW.minusSeconds(86400), ZoneId.of("Asia/Ho_Chi_Minh")),
-                new com.hanbay.hotel.payment.service.CounterPaymentService(paymentRepository, clock));
+                new com.hanbay.hotel.payment.service.CounterPaymentService(paymentRepository, clock),
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        clock, new com.hanbay.hotel.booking.config.HotelStayProperties()));
         assertConflict("EARLY_CHECKOUT_REQUIRED", () -> earlierService.checkOut(BOOKING_ID, null));
         org.mockito.Mockito.verifyNoInteractions(roomRepository, paymentRepository);
     }
@@ -354,6 +358,47 @@ class CheckOutServiceImplTest {
                 .isInstanceOf(CheckOutConflictException.class)
                 .extracting(exception -> ((DomainException) exception).getErrorCode())
                 .isEqualTo(code);
+    }
+
+    private CheckOutServiceImpl lateService() {
+        var lateClock = Clock.fixed(Instant.parse("2026-08-24T06:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
+        return new CheckOutServiceImpl(
+                bookingRepository,
+                roomRepository,
+                userRepository,
+                currentUserProvider,
+                lateClock,
+                new com.hanbay.hotel.payment.service.CounterPaymentService(paymentRepository, lateClock),
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        lateClock, new com.hanbay.hotel.booking.config.HotelStayProperties()));
+    }
+
+    @Test
+    void requiresReceptionistNoteForLateCheckoutWithoutReleasingRoom() {
+        var room = room(roomType(), RoomStatus.OCCUPIED);
+        var booking = booking(BookingStatus.CHECKED_IN, room, 100L, 100L);
+        when(bookingRepository.findByIdWithAssignedRoomForUpdate(BOOKING_ID)).thenReturn(Optional.of(booking));
+        when(roomRepository.findByIdForUpdate(ROOM_ID)).thenReturn(Optional.of(room));
+        assertThatThrownBy(() -> lateService().checkOut(BOOKING_ID, null))
+                .isInstanceOf(com.hanbay.hotel.common.exception.RequestValidationException.class)
+                .hasMessageContaining("ghi chú xác nhận");
+        assertThat(room.getStatus()).isEqualTo(RoomStatus.OCCUPIED);
+        assertThat(booking.getCheckedOutAt()).isNull();
+    }
+
+    @Test
+    void recordsApprovedLateCheckoutAtActualUtcTimeAndMarksRoomDirty() {
+        var room = room(roomType(), RoomStatus.OCCUPIED);
+        var booking = booking(BookingStatus.CHECKED_IN, room, 100L, 100L);
+        when(bookingRepository.findByIdWithAssignedRoomForUpdate(BOOKING_ID)).thenReturn(Optional.of(booking));
+        when(roomRepository.findByIdForUpdate(ROOM_ID)).thenReturn(Optional.of(room));
+        when(currentUserProvider.currentUserId()).thenReturn(Optional.of(RECEPTIONIST_ID));
+        when(userRepository.findById(RECEPTIONIST_ID))
+                .thenReturn(Optional.of(User.builder().id(RECEPTIONIST_ID).build()));
+        lateService().checkOut(BOOKING_ID, new CheckOutGuestRequest("Đã kiểm tra lịch khách đến", null, null, null));
+        assertThat(booking.getCheckedOutAt()).isEqualTo(Instant.parse("2026-08-24T06:00:00Z"));
+        assertThat(room.getStatus()).isEqualTo(RoomStatus.DIRTY);
+        assertThat(booking.getTotalAmount()).isEqualTo(100L);
     }
 
     private CheckOutGuestRequest request(String note) {

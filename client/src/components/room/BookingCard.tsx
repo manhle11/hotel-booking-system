@@ -1,5 +1,5 @@
 import { Button, Card, DatePicker, Divider, Flex, InputNumber, Space, Typography } from 'antd';
-import dayjs, { type Dayjs } from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,16 +8,17 @@ import { useStayPrice } from '../../features/booking/hooks/use-stay-price';
 import { getStayPriceSelection } from '../../features/booking/utils/stay-price-selection';
 import type { RoomTypeDetail } from '../../features/room/types/room-detail';
 import { formatCurrency } from '../../features/room/pages/room-search-utils';
+import { countStayNights } from '../../utils/hotel-time';
+import { useStayPolicy } from '../../hooks/use-stay-policy';
+import { StayPolicyNote } from './StayPolicyNote';
 
 export function BookingCard({ roomType }: { roomType: RoomTypeDetail }) {
+  const { disabledArrivalDate } = useStayPolicy();
   const navigate = useNavigate();
   const [dates, setDates] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [adults, setAdults] = useState(Math.min(2, roomType.capacityAdults));
   const [children, setChildren] = useState(0);
-  const nights = useMemo(
-    () => (dates?.[0] && dates[1] ? dates[1].diff(dates[0], 'day') : 0),
-    [dates],
-  );
+  const nights = useMemo(() => countStayNights(dates?.[0], dates?.[1]), [dates]);
   const stayPriceSelection = getStayPriceSelection(roomType.id, dates);
   const stayPriceRequest = stayPriceSelection.request;
   const stayPriceQuery = useStayPrice(stayPriceRequest);
@@ -52,9 +53,10 @@ export function BookingCard({ roomType }: { roomType: RoomTypeDetail }) {
           style={{ width: '100%' }}
           format="DD/MM/YYYY"
           placeholder={['Ngày nhận phòng', 'Ngày trả phòng']}
-          disabledDate={(date) => date.isBefore(dayjs().add(1, 'day').startOf('day'))}
+          disabledDate={disabledArrivalDate}
           onChange={setDates}
         />
+        <StayPolicyNote />
         <Flex gap="middle">
           <Space orientation="vertical">
             <Typography.Text>Người lớn</Typography.Text>

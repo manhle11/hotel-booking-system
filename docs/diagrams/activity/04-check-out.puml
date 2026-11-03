@@ -1,36 +1,35 @@
 @startuml
 !include ../common/style.puml
-
-title HANBAY HOTEL - Guest Check-out Activity Diagram
-
-|Receptionist|
+title HANBAY - Normal checkout with actual hotel time
+|Front desk authorized staff|
 start
-:Search checked-in booking;
-
+:Choose CHECKED_IN booking;
 |System|
-:Load booking, room, payment
-and add-on details;
-if (Booking status = CHECKED_IN?) then (Yes)
+:Lock booking and assigned OCCUPIED room;
+if (Before scheduled checkout date?) then (Yes)
+  :Require separate early-checkout flow;
+  stop
+endif
+if (Now after scheduled checkout instant,12:00?) then (Yes)
+  |Front desk authorized staff|
+  :Provide nonblank late-checkout note;
+endif
+:Enter additional charges/reason and actual cash collection;
+|System|
+:Recompute final balance; validate note and charges;
+if (Final debt zero and no overcollection?) then (Yes)
+  :Persist CASH receipt/transaction if money collected;
+  :Set CHECKED_OUT and actual UTC checked_out_at;
+  :Set room DIRTY and append history;
+  :Commit all changes together;
 else (No)
-  :Reject invalid booking state;
-  stop
+  :Rollback; keep booking and room unchanged;
 endif
-
-:Calculate outstanding balance;
-if (Outstanding balance > 0?) then (Yes)
-  :Keep booking CHECKED_IN;
-  :Reject checkout and explain outstanding balance;
-  stop
-endif
-
-:Begin transaction;
-:Lock booking and assigned room;
-:Update booking status to CHECKED_OUT;
-:Update physical room status to DIRTY;
-:Append booking status history;
-:Commit transaction;
-
-|Receptionist|
-:View checkout confirmation;
+note right
+  R, MANAGER or ADMIN can check out.
+  No automatic extra night or checkout.
+  Housekeeping reads DIRTY rooms directly;
+  no generated cleaning task.
+end note
 stop
 @enduml

@@ -42,19 +42,13 @@ import type { RefundInformation } from '../../payment/types/refund';
 import { getCheckOutErrorMessage } from '../utils/check-out-error-mapper';
 import { ApiClientError } from '../../../types/api';
 import './today-departures-page.css';
+import { useStayPolicy } from '../../../hooks/use-stay-policy';
 
 const { Paragraph, Text, Title } = Typography;
 const MAX_CHECKOUT_AMOUNT = 9_999_999_999;
 
 const PAGE_SIZE = 20;
-const HOTEL_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
-const hotelDate = new Intl.DateTimeFormat('vi-VN', {
-  timeZone: HOTEL_TIME_ZONE,
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-});
 
 const formatDate = (value: string) => dayjs(value).format('DD/MM/YYYY');
 
@@ -66,6 +60,9 @@ interface CheckOutFormValues {
 }
 
 export function TodayDeparturesPage() {
+  const { policy, now, today: todayAtHotel } = useStayPolicy();
+  const isOverdue = (checkOutDate: string) =>
+    now.isAfter(dayjs.tz(`${checkOutDate} ${policy.checkOutTime}`, policy.zone));
   const { message } = App.useApp();
   const [form] = Form.useForm<CheckOutFormValues>();
   const [page, setPage] = useState(0);
@@ -83,9 +80,6 @@ export function TodayDeparturesPage() {
   const checkOutMutation = useCheckOutGuest();
   const earlyCheckoutMutation = useEarlyCheckout();
   const earlyCheckoutQuote = useEarlyCheckoutQuote(selectedSnapshot?.bookingId, earlyDate);
-  const todayAtHotel = dayjs(
-    new Date().toLocaleString('en-US', { timeZone: HOTEL_TIME_ZONE }),
-  ).startOf('day');
   const pageContent = departuresQuery.data?.content;
   const departures = Array.isArray(pageContent) ? pageContent : [];
   const selectedDeparture =
@@ -123,6 +117,7 @@ export function TodayDeparturesPage() {
   const selectedIsEarly = Boolean(
     selectedDeparture && todayAtHotel.isBefore(dayjs(selectedDeparture.checkOutDate), 'day'),
   );
+  const selectedOverdue = Boolean(selectedDeparture && isOverdue(selectedDeparture.checkOutDate));
   const finalTotalAmount = selectedDeparture
     ? selectedDeparture.totalAmount + Number(additionalChargeAmount)
     : 0;
@@ -288,7 +283,7 @@ export function TodayDeparturesPage() {
       key: 'status',
       width: 145,
       render: (_, departure) =>
-        dayjs(departure.checkOutDate).isBefore(todayAtHotel, 'day') ? (
+        isOverdue(departure.checkOutDate) ? (
           <Tag color="error">Quá hạn trả phòng</Tag>
         ) : (
           <Tag color="processing">Đang lưu trú</Tag>
@@ -372,7 +367,7 @@ export function TodayDeparturesPage() {
           <Title level={2}>Khách đang lưu trú</Title>
           <Paragraph type="secondary">
             Theo dõi toàn bộ khách đang ở, trả phòng đúng hạn hoặc xử lý trả phòng sớm tính đến ngày{' '}
-            {hotelDate.format(new Date())}.
+            {todayAtHotel.format('DD/MM/YYYY')}.
           </Paragraph>
         </div>
         <Button
@@ -491,6 +486,14 @@ export function TodayDeparturesPage() {
               Hoàn tất trả phòng cho mã đặt phòng <Text code>{selectedDeparture.bookingCode}</Text>{' '}
               của khách <Text strong>{selectedDeparture.guestName}</Text>.
             </Paragraph>
+            {selectedOverdue && (
+              <Alert
+                type="warning"
+                showIcon
+                message={`Khách đã quá giờ trả phòng ${policy.checkOutTime.slice(0, 5)}`}
+                description="Lễ tân cần xác nhận xử lý trả muộn trong ghi chú, kiểm tra lịch khách đến tiếp theo và nhập phí phát sinh theo chính sách khách sạn. Phòng chỉ sẵn sàng sau khi đã dọn xong."
+              />
+            )}
             <div className="today-departures-page__checkout-money">
               <Text>Tổng tiền: {money.format(selectedDeparture.totalAmount)}</Text>
               <Text type="success">
@@ -509,6 +512,7 @@ export function TodayDeparturesPage() {
                   maxDate={dayjs(selectedDeparture.checkOutDate).subtract(1, 'day')}
                   onChange={(date) => setEarlyDate(date?.format('YYYY-MM-DD'))}
                   format="DD/MM/YYYY"
+                  disabledDate={(date) => !date.isSame(todayAtHotel, 'day')}
                 />
                 {earlyCheckoutQuote.isLoading && (
                   <Alert showIcon type="info" message="Đang tính chính sách hoàn tiền..." />
@@ -683,7 +687,14 @@ export function TodayDeparturesPage() {
               <Form.Item
                 name="note"
                 label="Ghi chú"
-                rules={[{ max: 500, message: 'Ghi chú không được vượt quá 500 ký tự' }]}
+                rules={[
+                  { max: 500, message: 'Ghi chú không được vượt quá 500 ký tự' },
+                  {
+                    required: selectedOverdue,
+                    whitespace: true,
+                    message: 'Nhập ghi chú xác nhận xử lý trả phòng muộn.',
+                  },
+                ]}
               >
                 <Input.TextArea
                   rows={4}

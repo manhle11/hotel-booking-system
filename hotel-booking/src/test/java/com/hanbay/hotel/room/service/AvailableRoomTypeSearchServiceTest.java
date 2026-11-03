@@ -60,6 +60,8 @@ class AvailableRoomTypeSearchServiceTest {
                 roomTypeRepository,
                 roomAvailabilityCalculator,
                 CLOCK,
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        CLOCK, new com.hanbay.hotel.booking.config.HotelStayProperties()),
                 pricingService,
                 Mappers.getMapper(RoomTypeMapper.class));
         lenient()
@@ -74,6 +76,7 @@ class AvailableRoomTypeSearchServiceTest {
                 .thenReturn(List.of(suite));
         when(roomAvailabilityCalculator.countAvailableRooms(List.of(suite.getId()), CHECK_IN, CHECK_OUT))
                 .thenReturn(Map.of(suite.getId(), 2L));
+        when(roomAvailabilityCalculator.countReadyRooms(List.of(suite.getId()))).thenReturn(Map.of(suite.getId(), 1L));
         BookingNight adjustedNight = night(CHECK_IN.plusDays(1), 2_400_000);
         adjustedNight.addAppliedRule(BookingNightPriceRule.builder()
                 .priceRule(PriceRule.builder()
@@ -93,6 +96,7 @@ class AvailableRoomTypeSearchServiceTest {
         assertEquals(1, responses.totalElements());
         assertEquals("SUITE", responses.content().get(0).code());
         assertEquals(2, responses.content().get(0).availableRooms());
+        assertEquals(1, responses.content().get(0).readyRooms());
         assertEquals(2, responses.content().get(0).totalNights());
         assertEquals(4_400_000, responses.content().get(0).roomTotal());
         var adjustment =

@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: API check-in khách HANBAY Hotel
-  version: 1.0.0
+  version: 1.1.0
   description: >
     Contract cho thao tác lễ tân gán một phòng vật lý còn trống cho booking đã xác nhận
     và check-in khách trong cùng một transaction.
@@ -23,7 +23,7 @@ paths:
       operationId: getAvailablePhysicalRooms
       description: |
         Trả về các phòng có trạng thái `AVAILABLE` thuộc đúng hạng phòng của booking.
-        Booking phải ở trạng thái `CONFIRMED` và ngày hiện tại phải là ngày check-in.
+        Booking CONFIRMED trong ngày nhận hoặc hôm qua có checkOutDate >= hotelToday trước 06:00 theo policy. Loại phòng có lịch gán CONFIRMED/CHECKED_IN xung đột.
 
         Kết quả chỉ là snapshot để lễ tân lựa chọn và không giữ phòng. API check-in
         luôn khóa và kiểm tra lại room nhằm xử lý trường hợp nhiều lễ tân cùng chọn.
@@ -82,7 +82,11 @@ paths:
         Booking và room được khóa, kiểm tra và cập nhật trong cùng một transaction:
 
         - Booking phải tồn tại và đang ở trạng thái `CONFIRMED`.
-        - Ngày hiện tại theo múi giờ `Asia/Ho_Chi_Minh` phải bằng ngày check-in của booking.
+        - Ngày/giờ theo policy khách sạn: trong ngày đặt, hoặc booking hôm qua có checkOutDate>=hotelToday trước 06:00. Đúng 06:00 không được ngoại lệ.
+        - Trước14:00 trong ngày đặt cần earlyArrivalReason có nội dung≤500; đúng/từ14 không cần lý do sớm.
+        -14:00 là bắt đầu nhận, không phải hạn đặt; cutoff đặt cùng ngày23:59:59 độc lập.
+        - Room không được có lịch gán CONFIRMED/CHECKED_IN khác xung đột từ hôm nay tới ngày trả.
+        - Lưu checked_in_at thực tế UTC/TIMESTAMPTZ và giữ nguyên ngày booking khi đến muộn.
         - Room phải thuộc đúng hạng phòng đã đặt và có trạng thái `AVAILABLE`.
         - Nếu booking đã được gán một room khác trước lúc check-in, lễ tân được phép
           đổi sang room trong request. Assignment cũ chỉ bị thay sau khi room mới
@@ -125,7 +129,7 @@ paths:
                   checkedInAt: "2026-08-19T07:05:31Z"
                 timestamp: "2026-08-19T07:05:31Z"
         "400":
-          description: Body hoặc UUID không hợp lệ (`VALIDATION_FAILED`).
+          description: Body/UUID không hợp lệ, hoặc thiếu lý do nhận sớm (errors.earlyArrivalReason, VALIDATION_FAILED).
           content:
             application/json:
               schema:
@@ -161,7 +165,7 @@ paths:
 
             - `BOOKING_NOT_CONFIRMED`: booking không ở trạng thái `CONFIRMED`.
             - `BOOKING_ALREADY_CHECKED_IN`: booking đã được check-in trước đó.
-            - `CHECK_IN_DATE_NOT_ALLOWED`: chưa đến hoặc đã qua ngày check-in.
+            - `CHECK_IN_DATE_NOT_ALLOWED`: ngoài ngày/cửa sổ đến muộn hợp lệ theo policy.
             - `ROOM_TYPE_MISMATCH`: room không thuộc hạng phòng đã đặt.
             - `ROOM_NOT_AVAILABLE`: room không còn ở trạng thái `AVAILABLE`.
           content:
@@ -251,6 +255,10 @@ components:
           type: string
           format: uuid
           description: UUID của phòng vật lý được lễ tân chọn.
+        earlyArrivalReason:
+          type: string
+          maxLength: 500
+          description: Có nội dung bắt buộc khi nhận trước giờ chuẩn trong ngày đặt; không tự áp phí nhận sớm.
 
     CheckInGuestApiResponse:
       type: object
@@ -287,6 +295,7 @@ components:
         checkedInAt:
           type: string
           format: date-time
+          description: Instant UTC thực tế đã lưu; hiển thị theo timezone khách sạn.
 
     AssignedRoom:
       type: object

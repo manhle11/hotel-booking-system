@@ -1,0 +1,55 @@
+@baseUrl = http://localhost:8080/api/v1
+@receptionistToken = replace-with-receptionist-jwt
+@frontDeskToken = replace-with-receptionist-manager-or-admin-jwt
+@bookingCode = replace-with-confirmed-booking-code
+@bookingId = 00000000-0000-4000-8000-000000000001
+@roomId = 00000000-0000-4000-8000-000000000002
+@hotelToday = 2026-11-03
+@checkOut = 2026-11-05
+
+### 1. Public policy — đọc hotelToday/serverNow rồi thay ngày fixture, không lấy giờ browser
+GET {{baseUrl}}/stay-policy
+Accept: application/json
+
+### 2. Nhận hôm nay sau14:00, trước cutoff — còn tồn thì200, totalNights=2 cho03→05/11
+# 14:00 bắt đầu nhận, không đóng đặt. Đúng23:59:59 bị400 khi nhận cùng ngày.
+# availableRooms là tồn cả kỳ; readyRooms là AVAILABLE hiện tại. Mẫu không giữ phòng.
+GET {{baseUrl}}/room-types/available?checkIn={{hotelToday}}&checkOut={{checkOut}}&adults=2&children=0&page=0&size=6
+
+### 3. Phòng đúng hạng, AVAILABLE, không lịch gán trùng; trong cửa sổ ngày/giờ
+GET {{baseUrl}}/bookings/{{bookingCode}}/available-rooms
+Authorization: Bearer {{receptionistToken}}
+
+### 4. Nhận sớm — trước 14 cần reason≤500, bỏ reason phải400; thao tác ghi DB test
+# Fixture CONFIRMED nhận hôm nay; sau14 reason không bắt buộc.
+POST {{baseUrl}}/bookings/{{bookingCode}}/check-in
+Authorization: Bearer {{receptionistToken}}
+Content-Type: application/json
+
+{
+  "roomId": "{{roomId}}",
+  "earlyArrivalReason": "Phòng thử đã dọn xong; lễ tân duyệt nhận sớm"
+}
+
+### 5. Khách đến hôm nay và hôm qua còn điều kiện trước 06; đúng 06 loại nhóm hôm qua
+GET {{baseUrl}}/front-desk/arrivals/today?page=0&size=20
+Authorization: Bearer {{frontDeskToken}}
+
+### 6. Checkout quá12 — bỏ note phải400; chỉ dùng booking test CHECKED_IN đến hạn, đã đủ tiền
+# Không tự cộng đêm; thành công CHECKED_OUT/DIRTY và checkedOutAt instant UTC.
+PATCH {{baseUrl}}/bookings/{{bookingId}}/check-out
+Authorization: Bearer {{frontDeskToken}}
+Content-Type: application/json
+
+{
+  "note": "Đã kiểm tra lịch khách tiếp theo và xử lý trả muộn trên dữ liệu thử",
+  "additionalChargeAmount": 0,
+  "collectedAmount": 0
+}
+
+### 7. Quote trả sớm — chỉ đọc; execute riêng phải actualCheckOutDate=hotelToday
+GET {{baseUrl}}/bookings/{{bookingId}}/early-checkout?actualCheckOutDate={{hotelToday}}
+Authorization: Bearer {{frontDeskToken}}
+
+# Mốc đúng 06/12/14/cutoff/expiredAt cần Clock backend test; đổi biến ngày ở đây không đổi server time.
+# Không thực hiện cả check-in và checkout lên cùng fixture nếu chưa đúng ngày/trạng thái.

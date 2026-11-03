@@ -17,6 +17,7 @@ public record AvailableRoomTypeResponse(
         BigDecimal areaM2,
         String imageUrl,
         long availableRooms,
+        long readyRooms,
         int totalNights,
         long roomSubtotal,
         long roomDiscount,

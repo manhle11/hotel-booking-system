@@ -1,4 +1,5 @@
 import dayjs, { type Dayjs } from 'dayjs';
+import { hotelToday } from '../../../utils/hotel-time';
 
 export interface SearchFormValues {
   stayDates: [Dayjs, Dayjs];
@@ -10,7 +11,7 @@ export const fallbackRoomImageUrl =
   'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=900&q=80';
 
 export function getInitialSearchValues(searchParams: URLSearchParams): SearchFormValues {
-  const checkIn = parseDate(searchParams.get('checkIn'), dayjs().add(1, 'day'));
+  const checkIn = parseDate(searchParams.get('checkIn'), hotelToday().add(1, 'day'));
   const checkOut = parseDate(searchParams.get('checkOut'), checkIn.add(1, 'day'));
 
   return {
@@ -34,7 +35,7 @@ export function formatDisplayDate(date: Dayjs) {
 
 function parseDate(value: string | null, fallback: Dayjs) {
   const parsed = value ? dayjs(value) : fallback;
-  return parsed.isValid() ? parsed : fallback;
+  return parsed.isValid() ? parsed.startOf('day') : fallback.startOf('day');
 }
 
 function parseInteger(value: string | null, fallback: number, min: number, max: number) {

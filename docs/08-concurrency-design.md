@@ -19,28 +19,20 @@ Example:
 
 # 2. Availability Calculation
 
-The system does not rely only on current physical room status.
-
-Availability formula:
+For each night in [requestedCheckIn, requestedCheckOut), count demand for the correct room type.
 
 ```text
-available_rooms = total_physical_rooms - overlapped_bookings
+sellable = AVAILABLE + OCCUPIED + DIRTY + CLEANING physical rooms
+active_demand(night) = CONFIRMED + CHECKED_IN + PENDING with expired_at > now
+available_rooms = max(0, sellable - max(active_demand(night)))
 ```
 
-Overlap condition:
-
-```sql
-booking.check_in_date < :requestedCheckOut
-AND booking.check_out_date > :requestedCheckIn
-```
-
-Counted booking statuses:
-
-```text
-PENDING not expired
-CONFIRMED
-CHECKED_IN
-```
+MAINTENANCE/OUT_OF_SERVICE are not sellable. Overdue CHECKED_IN stays keep blocking future stock
+until handled; HotelStayPolicy.overdueThrough determines overdue relative to hotel checkout time.
+Cancelled/expired/checked-out do not consume stock. Editing excludes the booking itself;
+extension checks only the added [oldCheckout,newCheckout) nights and the assigned room's conflicts.
+Do not subtract all bookings that touch the entire range as if simultaneous.
+Example:2 rooms, A05→06 and B06→07 leaves1 for05→07.
 
 ---
 
@@ -82,24 +74,19 @@ When booking is created:
 
 ```text
 status = PENDING
-expired_at = now + 15 minutes
+expired_at = now + configured payment.expiration-minutes (default 15)
 ```
 
-Pending booking is counted as held inventory until expired.
+Pending holds only while now < expired_at. At equality it cannot confirm/hold even before the scheduler changes status. Editing or requesting another QR never renews the booking deadline.
 
 ---
 
 # 5. Booking Expiration
 
-A Spring Scheduler runs periodically:
-
-```java
-@Scheduled(fixedRate = 60000)
-public void expirePendingBookings() {
-    // find PENDING bookings where expired_at < now
-    // update status to EXPIRED
-}
-```
+A Spring Scheduler uses booking.expiration.cron (default every minute). In a transaction it locks
+PENDING rows with non-null expired_at <= now, invokes expireAutomatically and records EXPIRED.
+Availability and confirm guards already enforce expiry, independently of job timing. It does not
+release a physical room or auto-checkout a confirmed/occupied stay.
 
 ---
 
@@ -172,3 +159,9 @@ Steps:
 - Early and normal checkout serialize on the booking row, then lock the assigned room.
 - Extension locks booking, room type, then assigned room. Availability is rechecked in the transaction.
 - Refund keys distinguish `booking-cancellation:{bookingId}` and `early-checkout:{bookingId}`; the unique database constraint is the retry backstop.
+
+## Shared clock and operation boundaries
+
+Backend Clock uses hotel.stay.zone; [policy/biên](23-stay-time-and-inventory.md) defines14:00,
+12:00, late-arrival cutoff06:00 and independent booking cutoff 23:59:59.14:00 is not a sales deadline.
+Actual arrivals/departures are UTC TIMESTAMPTZ; pending expires strictly at the stored instant.

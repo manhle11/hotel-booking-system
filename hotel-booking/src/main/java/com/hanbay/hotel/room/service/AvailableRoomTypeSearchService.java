@@ -1,5 +1,6 @@
 package com.hanbay.hotel.room.service;
 
+import com.hanbay.hotel.booking.policy.HotelStayPolicy;
 import com.hanbay.hotel.common.response.PageResponse;
 import com.hanbay.hotel.common.validation.PaginationValidator;
 import com.hanbay.hotel.pricing.service.PricingService;
@@ -27,6 +28,7 @@ public class AvailableRoomTypeSearchService {
     private final RoomTypeRepository roomTypeRepository;
     private final RoomAvailabilityCalculator roomAvailabilityCalculator;
     private final Clock clock;
+    private final HotelStayPolicy stayPolicy;
     private final PricingService pricingService;
     private final RoomTypeMapper roomTypeMapper;
 
@@ -53,10 +55,14 @@ public class AvailableRoomTypeSearchService {
         int totalElements = availableRoomTypes.size();
         int fromIndex = (int) Math.min((long) page * size, totalElements);
         int toIndex = Math.min(fromIndex + size, totalElements);
-        List<AvailableRoomTypeResponse> content = availableRoomTypes.subList(fromIndex, toIndex).stream()
+        List<RoomType> pageRoomTypes = availableRoomTypes.subList(fromIndex, toIndex);
+        Map<UUID, Long> readyRoomCounts = roomAvailabilityCalculator.countReadyRooms(
+                pageRoomTypes.stream().map(RoomType::getId).toList());
+        List<AvailableRoomTypeResponse> content = pageRoomTypes.stream()
                 .map(roomType -> roomTypeMapper.toAvailableResponse(
                         roomType,
                         availableRoomCounts.getOrDefault(roomType.getId(), 0L),
+                        readyRoomCounts.getOrDefault(roomType.getId(), 0L),
                         pricingService.calculateRoomPrice(roomType, checkIn, checkOut)))
                 .toList();
         int totalPages = totalElements == 0 ? 0 : (int) Math.ceil((double) totalElements / size);
@@ -72,11 +78,14 @@ public class AvailableRoomTypeSearchService {
         if (checkOut == null) {
             throw new RoomValidationException("Ngày trả phòng là bắt buộc.");
         }
-        if (checkIn.isBefore(LocalDate.now(clock))) {
+        if (checkIn.isBefore(stayPolicy.today())) {
             throw new RoomValidationException("Ngày nhận phòng không được ở quá khứ.");
         }
         if (!checkOut.isAfter(checkIn)) {
             throw new RoomValidationException("Ngày trả phòng phải sau ngày nhận phòng.");
+        }
+        if (stayPolicy.bookingClosed(checkIn)) {
+            throw new RoomValidationException("Đã qua giờ nhận đặt phòng cho hôm nay. Vui lòng chọn ngày tiếp theo.");
         }
         if (adults < 1) {
             throw new RoomValidationException("Số người lớn phải lớn hơn hoặc bằng 1.");

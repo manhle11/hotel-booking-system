@@ -47,7 +47,12 @@ class FrontDeskServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new FrontDeskServiceImpl(bookingRepository, bookingGuestRepository, CLOCK);
+        service = new FrontDeskServiceImpl(
+                bookingRepository,
+                bookingGuestRepository,
+                CLOCK,
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        CLOCK, new com.hanbay.hotel.booking.config.HotelStayProperties()));
     }
 
     @Test
@@ -55,7 +60,8 @@ class FrontDeskServiceImplTest {
         Booking booking = booking();
         BookingGuest primaryGuest = primaryGuest(booking, "Nguyễn Văn A");
         PageRequest pageable = PageRequest.of(0, 20, ARRIVAL_SORT);
-        when(bookingRepository.findAllByCheckInDateAndStatus(HOTEL_TODAY, BookingStatus.CONFIRMED, pageable))
+        when(bookingRepository.findArrivalsIncludingLate(
+                        BookingStatus.CONFIRMED, HOTEL_TODAY, HOTEL_TODAY.minusDays(1), true, pageable))
                 .thenReturn(new PageImpl<>(List.of(booking), pageable, 1));
         when(bookingGuestRepository.findPrimaryGuestsByBookingIds(List.of(BOOKING_ID)))
                 .thenReturn(List.of(primaryGuest));
@@ -79,14 +85,17 @@ class FrontDeskServiceImplTest {
             assertThat(item.primaryGuest().phone()).isEqualTo("0901234567");
             assertThat(item.primaryGuest().email()).isEqualTo("guest@example.com");
         });
-        verify(bookingRepository).findAllByCheckInDateAndStatus(HOTEL_TODAY, BookingStatus.CONFIRMED, pageable);
+        verify(bookingRepository)
+                .findArrivalsIncludingLate(
+                        BookingStatus.CONFIRMED, HOTEL_TODAY, HOTEL_TODAY.minusDays(1), true, pageable);
     }
 
     @Test
     void returnsNullGuestInsteadOfFallingBackWhenPrimaryGuestIsMissing() {
         Booking booking = booking();
         PageRequest pageable = PageRequest.of(0, 20, ARRIVAL_SORT);
-        when(bookingRepository.findAllByCheckInDateAndStatus(HOTEL_TODAY, BookingStatus.CONFIRMED, pageable))
+        when(bookingRepository.findArrivalsIncludingLate(
+                        BookingStatus.CONFIRMED, HOTEL_TODAY, HOTEL_TODAY.minusDays(1), true, pageable))
                 .thenReturn(new PageImpl<>(List.of(booking), pageable, 1));
         when(bookingGuestRepository.findPrimaryGuestsByBookingIds(List.of(BOOKING_ID)))
                 .thenReturn(List.of());
@@ -105,7 +114,8 @@ class FrontDeskServiceImplTest {
         BookingGuest first = primaryGuest(booking, "Khách chính đầu tiên");
         BookingGuest duplicate = primaryGuest(booking, "Khách chính trùng");
         PageRequest pageable = PageRequest.of(0, 20, ARRIVAL_SORT);
-        when(bookingRepository.findAllByCheckInDateAndStatus(HOTEL_TODAY, BookingStatus.CONFIRMED, pageable))
+        when(bookingRepository.findArrivalsIncludingLate(
+                        BookingStatus.CONFIRMED, HOTEL_TODAY, HOTEL_TODAY.minusDays(1), true, pageable))
                 .thenReturn(new PageImpl<>(List.of(booking), pageable, 1));
         when(bookingGuestRepository.findPrimaryGuestsByBookingIds(List.of(BOOKING_ID)))
                 .thenReturn(List.of(first, duplicate));
@@ -121,7 +131,8 @@ class FrontDeskServiceImplTest {
     @Test
     void returnsEmptyPageWithoutLoadingGuests() {
         PageRequest pageable = PageRequest.of(2, 10, ARRIVAL_SORT);
-        when(bookingRepository.findAllByCheckInDateAndStatus(HOTEL_TODAY, BookingStatus.CONFIRMED, pageable))
+        when(bookingRepository.findArrivalsIncludingLate(
+                        BookingStatus.CONFIRMED, HOTEL_TODAY, HOTEL_TODAY.minusDays(1), true, pageable))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
         var result = service.getTodayArrivals(2, 10);
@@ -140,7 +151,8 @@ class FrontDeskServiceImplTest {
                 .hasMessage("Chỉ số trang phải lớn hơn hoặc bằng 0");
 
         verify(bookingRepository, never())
-                .findAllByCheckInDateAndStatus(HOTEL_TODAY, BookingStatus.CONFIRMED, PageRequest.of(0, 20));
+                .findArrivalsIncludingLate(
+                        BookingStatus.CONFIRMED, HOTEL_TODAY, HOTEL_TODAY.minusDays(1), true, PageRequest.of(0, 20));
     }
 
     @Test
@@ -153,21 +165,30 @@ class FrontDeskServiceImplTest {
                 .hasMessage("Số phần tử mỗi trang phải từ 1 đến 100");
 
         verify(bookingRepository, never())
-                .findAllByCheckInDateAndStatus(HOTEL_TODAY, BookingStatus.CONFIRMED, PageRequest.of(0, 20));
+                .findArrivalsIncludingLate(
+                        BookingStatus.CONFIRMED, HOTEL_TODAY, HOTEL_TODAY.minusDays(1), true, PageRequest.of(0, 20));
     }
 
     @Test
     void usesNextHotelDateWhenUtcIsStillOnPreviousDate() {
         Clock utcNearHotelMidnight = Clock.fixed(Instant.parse("2026-08-19T17:00:00Z"), ZoneOffset.UTC);
-        service = new FrontDeskServiceImpl(bookingRepository, bookingGuestRepository, utcNearHotelMidnight);
+        service = new FrontDeskServiceImpl(
+                bookingRepository,
+                bookingGuestRepository,
+                utcNearHotelMidnight,
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        utcNearHotelMidnight, new com.hanbay.hotel.booking.config.HotelStayProperties()));
         LocalDate nextHotelDate = LocalDate.of(2026, 8, 20);
         PageRequest pageable = PageRequest.of(0, 20, ARRIVAL_SORT);
-        when(bookingRepository.findAllByCheckInDateAndStatus(nextHotelDate, BookingStatus.CONFIRMED, pageable))
+        when(bookingRepository.findArrivalsIncludingLate(
+                        BookingStatus.CONFIRMED, nextHotelDate, nextHotelDate.minusDays(1), true, pageable))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
         service.getTodayArrivals(0, 20);
 
-        verify(bookingRepository).findAllByCheckInDateAndStatus(nextHotelDate, BookingStatus.CONFIRMED, pageable);
+        verify(bookingRepository)
+                .findArrivalsIncludingLate(
+                        BookingStatus.CONFIRMED, nextHotelDate, nextHotelDate.minusDays(1), true, pageable);
     }
 
     private Booking booking() {
