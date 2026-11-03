@@ -26,7 +26,7 @@ public class FrontDeskController {
     private final FrontDeskService frontDeskService;
 
     @GetMapping("/arrivals/today")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER')")
     @Operation(
             summary = "Xem danh sách khách dự kiến đến hôm nay",
             description = "Chỉ trả booking CONFIRMED có ngày nhận phòng là hôm nay theo Asia/Ho_Chi_Minh")

@@ -89,27 +89,26 @@ class PaymentMonitoringSecurityIntegrationTest {
     }
 
     @Test
-    void managerShouldNotAccessAdminOnlyWebhookDetail() throws Exception {
+    void managerShouldAccessWebhookDetail() throws Exception {
         authenticate("manager-token", "MANAGER");
 
         mockMvc.perform(get("/api/v1/payment-monitoring/webhook-events/96a8f221-c24d-4a52-a91d-b110fbde8c0e")
                         .header("Authorization", "Bearer manager-token"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+                .andExpect(status().isOk());
     }
 
     @Test
-    void adminShouldAccessAdminOnlyWebhookDetail() throws Exception {
+    void adminShouldNotAccessWebhookDetail() throws Exception {
         authenticate("admin-token", "ADMIN");
 
         mockMvc.perform(get("/api/v1/payment-monitoring/webhook-events/96a8f221-c24d-4a52-a91d-b110fbde8c0e")
                         .header("Authorization", "Bearer admin-token"))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     @ParameterizedTest
     @MethodSource("sharedMonitoringAccessCases")
-    void adminAndManagerShouldAccessSharedMonitoringEndpoints(String role, String path) throws Exception {
+    void managerShouldAccessMonitoringEndpoints(String role, String path) throws Exception {
         authenticate("allowed-token", role);
 
         mockMvc.perform(get(path).header("Authorization", "Bearer allowed-token"))
@@ -135,7 +134,7 @@ class PaymentMonitoringSecurityIntegrationTest {
     }
 
     private static Stream<Arguments> sharedMonitoringAccessCases() {
-        return Stream.of("ADMIN", "MANAGER").flatMap(role -> Stream.of(
+        return Stream.of("MANAGER").flatMap(role -> Stream.of(
                         "/api/v1/payment-monitoring/summary",
                         "/api/v1/payment-monitoring/payments",
                         "/api/v1/payment-monitoring/webhook-events")
@@ -143,7 +142,7 @@ class PaymentMonitoringSecurityIntegrationTest {
     }
 
     private static Stream<Arguments> deniedMonitoringAccessCases() {
-        return Stream.of("RECEPTIONIST", "HOUSEKEEPER").flatMap(role -> Stream.of(
+        return Stream.of("ADMIN", "RECEPTIONIST", "HOUSEKEEPER").flatMap(role -> Stream.of(
                         "/api/v1/payment-monitoring/summary",
                         "/api/v1/payment-monitoring/payments",
                         "/api/v1/payment-monitoring/webhook-events")

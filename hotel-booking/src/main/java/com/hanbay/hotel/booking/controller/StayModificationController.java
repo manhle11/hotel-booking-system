@@ -20,7 +20,7 @@ public class StayModificationController {
     private final StayModificationService service;
 
     @GetMapping("/{bookingId}/early-checkout")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER')")
     public ApiResponse<EarlyCheckoutResponse> quoteEarlyCheckout(
             @PathVariable UUID bookingId, @RequestParam LocalDate actualCheckOutDate) {
         return ApiResponse.success(
@@ -28,7 +28,7 @@ public class StayModificationController {
     }
 
     @PostMapping("/{bookingId}/early-checkout")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER')")
     public ApiResponse<EarlyCheckoutResponse> earlyCheckout(
             @PathVariable UUID bookingId, @RequestBody @Valid EarlyCheckoutRequest request) {
         return ApiResponse.success("Trả phòng sớm thành công", service.earlyCheckout(bookingId, request));

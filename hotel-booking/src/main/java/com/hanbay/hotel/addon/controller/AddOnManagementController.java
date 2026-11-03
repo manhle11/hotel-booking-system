@@ -33,7 +33,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 @RestController
 @RequestMapping("${api.prefix}/management/add-ons")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+@PreAuthorize("hasRole('MANAGER')")
 @Tag(name = "Quản lý dịch vụ bổ sung", description = "API quản lý danh mục dịch vụ bổ sung")
 public class AddOnManagementController {
 

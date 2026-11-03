@@ -36,7 +36,7 @@ function renderRestrictedRoute(roles: UserRole[], isAuthenticated = true) {
           />
           <Route
             element={
-              <RoleRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.manager]}>
+              <RoleRoute allowedRoles={[USER_ROLES.manager]}>
                 <div>Giám sát thanh toán</div>
               </RoleRoute>
             }
@@ -51,7 +51,7 @@ function renderRestrictedRoute(roles: UserRole[], isAuthenticated = true) {
 
 describe('RoleRoute', () => {
   it('renders a restricted route for an allowed role', () => {
-    renderRestrictedRoute([USER_ROLES.admin]);
+    renderRestrictedRoute([USER_ROLES.manager]);
 
     expect(screen.getByText('Giám sát thanh toán')).not.toBeNull();
   });
@@ -76,4 +76,12 @@ describe('RoleRoute', () => {
     expect(screen.getByText('Trang đăng nhập')).not.toBeNull();
     expect(screen.queryByText('Không có quyền')).toBeNull();
   });
+
+  it.each([[USER_ROLES.admin], [USER_ROLES.admin, USER_ROLES.manager]])(
+    'denies hotel operations for admin roles %j',
+    (...roles) => {
+      renderRestrictedRoute(roles);
+      expect(screen.getByText('Không có quyền')).not.toBeNull();
+    },
+  );
 });

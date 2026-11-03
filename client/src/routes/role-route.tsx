@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 
 import { useAuth } from '../features/authentication/providers/auth-context';
 import type { UserRole } from '../types/common';
+import { hasRouteRole } from './route-access';
 
 interface RoleRouteProps {
   allowedRoles: UserRole[];
@@ -11,7 +12,7 @@ interface RoleRouteProps {
 
 export function RoleRoute({ allowedRoles, children }: RoleRouteProps) {
   const { roles } = useAuth();
-  const isAllowed = allowedRoles.some((role) => roles.includes(role));
+  const isAllowed = hasRouteRole(roles, allowedRoles);
 
   return isAllowed ? children : <Navigate to="/forbidden" replace />;
 }

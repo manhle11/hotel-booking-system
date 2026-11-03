@@ -29,7 +29,7 @@ public class CheckOutController {
     private final CheckOutService checkOutService;
 
     @PatchMapping("/{bookingId}/check-out")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER')")
     @Operation(
             summary = "Check-out khách",
             description =
@@ -48,7 +48,7 @@ public class CheckOutController {
                 content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "403",
-                description = "Người gọi không có vai trò RECEPTIONIST, MANAGER hoặc ADMIN",
+                description = "Người gọi không có vai trò RECEPTIONIST hoặc MANAGER",
                 content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "404",

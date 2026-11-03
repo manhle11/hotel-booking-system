@@ -93,15 +93,11 @@ class CheckOutSecurityIntegrationTest {
     }
 
     @Test
-    void adminCanCheckOutGuest() throws Exception {
+    void adminCannotCheckOutGuest() throws Exception {
         authenticate("admin-token", "ADMIN");
-        when(checkOutService.checkOut(
-                        eq(BOOKING_ID), eq(new CheckOutGuestRequest("Khách đã trả đủ chìa khóa", null, null, null))))
-                .thenReturn(response());
-
         performCheckOut("admin-token")
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.outstandingAmount").value(0));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
     }
 
     private org.springframework.test.web.servlet.ResultActions performCheckOut(String token) throws Exception {

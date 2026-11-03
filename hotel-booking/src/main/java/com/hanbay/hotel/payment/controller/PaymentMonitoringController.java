@@ -35,14 +35,14 @@ public class PaymentMonitoringController {
     private final RefundManagementService refundManagementService;
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     @Operation(summary = "Lấy số liệu tổng quan thanh toán và webhook")
     public ApiResponse<PaymentMonitoringSummaryResponse> getSummary() {
         return ApiResponse.success(paymentMonitoringService.getSummary());
     }
 
     @GetMapping("/payments")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     @Operation(summary = "Tra cứu danh sách payment")
     public ApiResponse<PageResponse<MonitoredPaymentResponse>> getPayments(
             @RequestParam(defaultValue = "0") int page,
@@ -57,7 +57,7 @@ public class PaymentMonitoringController {
     }
 
     @GetMapping("/webhook-events")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     @Operation(summary = "Tra cứu danh sách webhook event không bao gồm raw payload")
     public ApiResponse<PageResponse<MonitoredWebhookEventResponse>> getWebhookEvents(
             @RequestParam(defaultValue = "0") int page,
@@ -72,7 +72,7 @@ public class PaymentMonitoringController {
     }
 
     @GetMapping("/webhook-events/{eventId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     @Operation(summary = "Xem chi tiết và raw payload của webhook event")
     public ApiResponse<WebhookEventDetailResponse> getWebhookEvent(@PathVariable UUID eventId) {
         return ApiResponse.success(paymentMonitoringService.getWebhookEvent(eventId));

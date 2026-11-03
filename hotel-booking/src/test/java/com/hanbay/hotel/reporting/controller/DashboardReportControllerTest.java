@@ -56,8 +56,8 @@ class DashboardReportControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"MANAGER", "ADMIN"})
-    void managerAndAdminCanAccessDashboard(String role) throws Exception {
+    @ValueSource(strings = {"MANAGER"})
+    void managerCanAccessDashboard(String role) throws Exception {
         authenticate(role);
         when(reportService.getDashboardReport(any())).thenReturn(response());
 
@@ -72,7 +72,7 @@ class DashboardReportControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"RECEPTIONIST", "HOUSEKEEPER"})
+    @ValueSource(strings = {"ADMIN", "RECEPTIONIST", "HOUSEKEEPER"})
     void otherStaffRolesReceiveForbidden(String role) throws Exception {
         authenticate(role);
 

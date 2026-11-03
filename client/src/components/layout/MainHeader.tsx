@@ -24,6 +24,7 @@ export function MainHeader() {
   const { isAuthenticated, roles, logout, session } = useAuth();
   const activeNavKey = getActiveNavKey(pathname);
   const latestPaymentId = getLatestPaymentResultId();
+  const isAdmin = roles.includes('ADMIN');
 
   return (
     <Layout.Header
@@ -42,7 +43,7 @@ export function MainHeader() {
         gap={token.marginLG}
         style={{ width: '100%', maxWidth: 1440, height: '100%', marginInline: 'auto' }}
       >
-        <Link to="/" aria-label="HANBAY Hotel - Trang chủ">
+        <Link to={isAdmin ? ROUTE_PATHS.adminAccounts : '/'} aria-label="HANBAY Hotel - Trang chủ">
           <Typography.Text
             strong
             style={{
@@ -58,11 +59,21 @@ export function MainHeader() {
         {screens.md && (
           <nav aria-label="Điều hướng chính" className="main-header__nav">
             <Flex justify="center" gap={token.marginXS}>
-              {[
-                { key: 'home', label: 'Tổng quan', route: '/' },
-                { key: 'booking', label: 'Đặt phòng', route: '/rooms/search' },
-                { key: 'room-types', label: 'Hạng phòng', route: '/room-types' },
-              ].map((item) => (
+              {(isAdmin
+                ? [
+                    {
+                      key: 'accounts',
+                      label: 'Quản lý tài khoản',
+                      route: ROUTE_PATHS.adminAccounts,
+                    },
+                    { key: 'roles', label: 'Quản lý vai trò', route: ROUTE_PATHS.adminRoles },
+                  ]
+                : [
+                    { key: 'home', label: 'Tổng quan', route: '/' },
+                    { key: 'booking', label: 'Đặt phòng', route: '/rooms/search' },
+                    { key: 'room-types', label: 'Hạng phòng', route: '/room-types' },
+                  ]
+              ).map((item) => (
                 <Button
                   key={item.key}
                   type={activeNavKey === item.key ? 'primary' : 'text'}
@@ -114,10 +125,13 @@ export function MainHeader() {
                   disabled: true,
                 },
                 { type: 'divider' },
-                ...(roles.some((r) => r === 'ADMIN' || r === 'MANAGER')
+                ...(isAdmin
+                  ? [{ key: 'nav_accounts', label: 'Quản lý tài khoản', icon: <UserOutlined /> }]
+                  : []),
+                ...(!isAdmin && roles.includes('MANAGER')
                   ? [{ key: 'nav_dashboard', label: 'Dashboard', icon: <DashboardOutlined /> }]
                   : []),
-                ...(roles.includes('RECEPTIONIST')
+                ...(!isAdmin && roles.includes('RECEPTIONIST')
                   ? [
                       {
                         key: 'nav_bookings',
@@ -135,7 +149,7 @@ export function MainHeader() {
                       },
                     ]
                   : []),
-                ...(roles.includes('HOUSEKEEPER')
+                ...(!isAdmin && roles.includes('HOUSEKEEPER')
                   ? [
                       {
                         key: 'nav_housekeeping',
@@ -144,7 +158,7 @@ export function MainHeader() {
                       },
                     ]
                   : []),
-                ...(latestPaymentId
+                ...(!isAdmin && latestPaymentId
                   ? [
                       {
                         key: 'resume_payment',
@@ -163,6 +177,7 @@ export function MainHeader() {
                 },
               ],
               onClick: ({ key }) => {
+                if (key === 'nav_accounts') navigate(ROUTE_PATHS.adminAccounts);
                 if (key === 'nav_dashboard') navigate('/dashboard');
                 if (key === 'nav_bookings') navigate('/front-desk/check-in');
                 if (key === 'guest_bookings') navigate(ROUTE_PATHS.guestBookings);
@@ -215,6 +230,8 @@ export function MainHeader() {
 }
 
 function getActiveNavKey(pathname: string) {
+  if (pathname === ROUTE_PATHS.adminAccounts) return 'accounts';
+  if (pathname === ROUTE_PATHS.adminRoles) return 'roles';
   if (pathname === '/') return 'home';
   if (pathname.startsWith('/rooms/search') || pathname.startsWith('/bookings/new')) {
     return 'booking';

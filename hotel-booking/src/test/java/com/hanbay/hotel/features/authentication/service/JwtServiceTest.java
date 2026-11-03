@@ -1,6 +1,7 @@
 package com.hanbay.hotel.features.authentication.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -30,14 +31,36 @@ class JwtServiceTest {
     void generatedTokenShouldContainUserIdAndRoles() {
         User user = new User();
         user.setId(UUID.randomUUID());
-        user.setRoles(Set.of(role("MANAGER"), role("HOUSEKEEPER")));
+        user.setRoles(Set.of(role("MANAGER")));
 
         String token = jwtService.generateAccessToken(user);
 
         assertThat(jwtService.validate(token)).get().satisfies(validatedJwt -> {
             assertThat(validatedJwt.subject()).isEqualTo(user.getId().toString());
-            assertThat(validatedJwt.roles()).containsExactly("HOUSEKEEPER", "MANAGER");
+            assertThat(validatedJwt.roles()).containsExactly("MANAGER");
         });
+    }
+
+    @Test
+    void cannotIssueTokenWithMultipleRoles() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setRoles(Set.of(role("MANAGER"), role("HOUSEKEEPER")));
+        assertThatThrownBy(() -> jwtService.generateAccessToken(user)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void legacyTokenWithMultipleRolesIsRejected() throws NoSuchAlgorithmException {
+        byte[] signingKey =
+                MessageDigest.getInstance("SHA-256").digest("test-secret-123".getBytes(StandardCharsets.UTF_8));
+        String token = Jwts.builder()
+                .issuer("hotel-booking-system")
+                .subject(UUID.randomUUID().toString())
+                .claim(JwtService.ROLES_CLAIM, java.util.List.of("MANAGER", "HOUSEKEEPER"))
+                .claim(JwtService.TOKEN_VERSION_CLAIM, 0L)
+                .signWith(Keys.hmacShaKeyFor(signingKey))
+                .compact();
+        assertThat(jwtService.validate(token)).isEmpty();
     }
 
     @Test

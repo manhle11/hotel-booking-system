@@ -75,7 +75,8 @@ export function PaymentMonitoringPage() {
   const { roles } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const isAdmin = roles.includes(USER_ROLES.admin);
+  const canViewWebhookDetails =
+    roles.includes(USER_ROLES.manager) && !roles.includes(USER_ROLES.admin);
   const activeTab = location.pathname.endsWith('/webhook-events') ? 'webhooks' : 'payments';
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
@@ -95,7 +96,7 @@ export function PaymentMonitoringPage() {
     { ...params, ...(webhookSorting.sort ? { sort: webhookSorting.sort } : {}) },
     activeTab === 'webhooks',
   );
-  const detailQuery = useWebhookEventDetail(selectedEventId, isAdmin);
+  const detailQuery = useWebhookEventDetail(selectedEventId, canViewWebhookDetails);
   const currentQuery = activeTab === 'payments' ? paymentsQuery : eventsQuery;
 
   const paymentColumns: TableColumnsType<MonitoredPayment> = [
@@ -186,7 +187,7 @@ export function PaymentMonitoringPage() {
       dataIndex: 'receivedAt',
       render: formatTime,
     },
-    ...(isAdmin
+    ...(canViewWebhookDetails
       ? [
           {
             title: 'Thao tác',
@@ -386,7 +387,7 @@ export function PaymentMonitoringPage() {
         title="Webhook Event Detail"
         rootClassName="payment-monitoring-drawer"
         size={640}
-        open={isAdmin && Boolean(selectedEventId)}
+        open={canViewWebhookDetails && Boolean(selectedEventId)}
         onClose={() => setSelectedEventId(undefined)}
         destroyOnHidden
       >

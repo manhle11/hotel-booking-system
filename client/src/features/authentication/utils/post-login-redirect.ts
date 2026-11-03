@@ -9,11 +9,9 @@ export type LoginRedirectLocation = {
   hash?: string;
 };
 
-const hasAnyRole = (roles: UserRole[], allowedRoles: UserRole[]) =>
-  allowedRoles.some((role) => roles.includes(role));
-
 export function getDefaultPathForRoles(roles: UserRole[]): string {
-  if (hasAnyRole(roles, [USER_ROLES.admin, USER_ROLES.manager])) {
+  if (roles.includes(USER_ROLES.admin)) return ROUTE_PATHS.adminAccounts;
+  if (roles.includes(USER_ROLES.manager)) {
     return ROUTE_PATHS.dashboard;
   }
   if (roles.includes(USER_ROLES.receptionist)) return ROUTE_PATHS.frontDeskCheckIn;
