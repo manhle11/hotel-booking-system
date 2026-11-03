@@ -42,7 +42,10 @@ class HousekeepingServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new HousekeepingServiceImpl(roomRepository, Mappers.getMapper(DirtyRoomMapper.class));
+        service = new HousekeepingServiceImpl(
+                roomRepository,
+                Mappers.getMapper(DirtyRoomMapper.class),
+                org.mockito.Mockito.mock(com.hanbay.hotel.common.query.DashboardTableQuery.class));
     }
 
     @Test

@@ -68,9 +68,14 @@ public class MaintenanceRequestController {
     @GetMapping
     @Operation(summary = "Xem danh sách yêu cầu bảo trì")
     public ApiResponse<PageResponse<MaintenanceRequestListItemResponse>> findAll(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort) {
         return ApiResponse.success(
-                "Lấy danh sách yêu cầu bảo trì thành công", maintenanceRequestService.findAll(page, size));
+                "Lấy danh sách yêu cầu bảo trì thành công",
+                sort == null
+                        ? maintenanceRequestService.findAll(page, size)
+                        : maintenanceRequestService.findAll(page, size, sort));
     }
 
     @GetMapping("/{id}")

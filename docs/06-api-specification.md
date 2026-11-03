@@ -41,6 +41,32 @@ Lỗi xác thực và phân quyền:
 | `401 Unauthorized` | `AUTH_UNAUTHORIZED` | Chưa xác thực; access token bị thiếu, không hợp lệ hoặc đã hết hạn |
 | `403 Forbidden` | `AUTH_FORBIDDEN` | Xác thực thành công nhưng người dùng không có vai trò được phép |
 
+## Sắp xếp các bảng dashboard
+
+Các API GET dưới đây hỗ trợ query tùy chọn `sort=<tên cột>,asc` hoặc `sort=<tên cột>,desc`. `page` bắt đầu từ `0`, `size` từ `1` đến `100`; mặc định `size=20` cho phòng, loại phòng, bảo trì và khách đang lưu trú, `size=10` cho thanh toán, webhook và hoàn tiền.
+
+| Đường dẫn (sau `/api/v1`) | Tên cột được chấp nhận |
+| --- | --- |
+| `/management/room-types` | `code`, `name`, `basePrice`, `maxGuests`, `status` |
+| `/management/rooms` | `roomNumber`, `roomTypeName`, `floor`, `status`, `note` |
+| `/housekeeping/rooms` | `roomNumber`, `roomTypeName`, `floor`, `note`, `status` |
+| `/maintenance-requests` | `roomNumber`, `title`, `status`, `createdAt` |
+| `/front-desk/departures/today` | `bookingCode`, `guestName`, `roomTypeName`, `stay`, `guests`, `status`, `totalAmount`, `paidAmount`, `outstandingAmount` |
+| `/payment-monitoring/payments` | `bookingCode`, `paymentCode`, `amount`, `status`, `createdAt`, `paidAt` |
+| `/payment-monitoring/webhook-events` | `eventId`, `gateway`, `paymentCode`, `transferAmount`, `status`, `attempts`, `receivedAt` |
+| `/payment-monitoring/refunds` | `bookingCode`, `paymentCode`, `amount`, `bankAccount`, `reason`, `requestedAt`, `status` |
+
+- Sắp xếp toàn bộ kết quả đã lọc **trước phân trang**. Bộ lọc `keyword`, `status` của thanh toán/webhook vẫn áp dụng; không đổi cấu trúc response hay quyền truy cập.
+- Bỏ `sort` hoặc truyền chuỗi rỗng: giữ thứ tự mặc định của endpoint. Tên cột/hướng không hợp lệ hoặc truyền nhiều cột: HTTP `400`, `errors.sort`.
+- Số tiền, tầng, số khách, số lần thử và ngày giờ sắp theo giá trị; số phòng/Event ID chỉ gồm chữ số sắp theo số. Chuỗi không phân biệt hoa/thường và dấu tiếng Việt; trạng thái sắp theo nhãn hiển thị. Giá trị `NULL` luôn ở cuối; khóa phụ `id ASC` giữ thứ tự ổn định khi bằng nhau.
+- `stay` = ngày nhận phòng; `guests` = người lớn + trẻ em; `outstandingAmount` = `max(totalAmount - paidAmount, 0)`. Trạng thái khách đang lưu trú: tăng dần là đang lưu trú → quá hạn, xác định theo giờ khách sạn và policy trả phòng.
+- `bankAccount` = ngân hàng → số tài khoản → chủ tài khoản. Danh sách hoàn tiền chỉ gồm `PENDING`, vì vậy sắp xếp trạng thái không làm thay đổi nhóm dữ liệu.
+- `/housekeeping/rooms` chỉ trả `DIRTY` và `CLEANING`, kể cả khi sắp xếp; trạng thái tăng dần là Chờ dọn → Đang dọn. Quyền gọi vẫn chỉ dành cho `HOUSEKEEPER`. Khi không có `sort`, giữ thứ tự mặc định tầng → số phòng.
+
+Ví dụ: `GET /api/v1/management/rooms?page=0&size=20&sort=roomNumber,asc`.
+
+Checklist thao tác FE: [dashboard-column-sorting.md](testing/dashboard-column-sorting.md).
+
 ## Endpoint hiện có
 
 | Phương thức | Đường dẫn | Mức bảo mật | Vai trò được phép | Mô tả |
@@ -893,7 +919,7 @@ Authorization: Bearer <access_token>
 Mục đích:
 
 - Trả danh sách booking CHECKED_IN đang lưu trú, gồm chưa tới ngày trả/đến hạn/quá hạn để xử lý trả thường hoặc trả sớm. Sau giờ trả chuẩn12:00 mới đánh dấu quá hạn ngày đó, không tự checkout.
-- Kết quả được phân trang và sắp xếp ổn định theo ngày trả phòng, sau đó theo mã booking.
+- Khi không truyền `sort`, kết quả được phân trang và sắp xếp ổn định theo ngày trả phòng, sau đó theo mã booking. Các cột có thể sắp xếp được liệt kê tại mục **Sắp xếp các bảng dashboard**.
 - Không trả trực tiếp entity hoặc dữ liệu nhạy cảm của payment/webhook.
 
 Mức bảo mật: `ROLE_RESTRICTED`.
@@ -1091,6 +1117,8 @@ GET /api/v1/housekeeping/rooms?page=0&size=20
 PATCH /api/v1/housekeeping/rooms/{roomId}/start-cleaning
 PATCH /api/v1/housekeeping/rooms/{roomId}/complete-cleaning
 ```
+
+Danh sách `/housekeeping/rooms` hỗ trợ `sort=roomNumber,asc` (hoặc `roomTypeName`, `floor`, `note`, `status`; chiều `asc`/`desc`). Sắp xếp toàn bộ phòng `DIRTY`/`CLEANING` trước phân trang. `sort` không hợp lệ trả `400` với `errors.sort`. Endpoint `/dirty-rooms` giữ contract hiện tại.
 
 Contract chi tiết tại
 [`openapi/housekeeping/view-dirty-rooms.yaml`](openapi/housekeeping/view-dirty-rooms.yaml).

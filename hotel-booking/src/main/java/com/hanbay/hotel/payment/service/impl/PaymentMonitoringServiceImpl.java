@@ -1,5 +1,6 @@
 package com.hanbay.hotel.payment.service.impl;
 
+import com.hanbay.hotel.common.query.DashboardTableQuery;
 import com.hanbay.hotel.common.response.PageResponse;
 import com.hanbay.hotel.common.validation.PaginationValidator;
 import com.hanbay.hotel.payment.domain.Payment;
@@ -32,6 +33,7 @@ public class PaymentMonitoringServiceImpl implements PaymentMonitoringService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentWebhookEventRepository webhookEventRepository;
+    private final DashboardTableQuery tableQuery;
 
     @Override
     public PaymentMonitoringSummaryResponse getSummary() {
@@ -66,6 +68,40 @@ public class PaymentMonitoringServiceImpl implements PaymentMonitoringService {
                 : webhookEventRepository.findForMonitoringByStatus(normalizedKeyword, status, pageable);
         Page<MonitoredWebhookEventResponse> result = events.map(this::toWebhookResponse);
         return PageResponse.from(result);
+    }
+
+    @Override
+    public PageResponse<MonitoredPaymentResponse> getPayments(
+            int page, int size, String keyword, PaymentStatus status, String sort) {
+        if (sort == null || sort.isBlank()) return getPayments(page, size, keyword, status);
+        return PageResponse.from(tableQuery
+                .findAll(
+                        DashboardTableQuery.Table.PAYMENTS,
+                        sort,
+                        page,
+                        size,
+                        keyword,
+                        status == null ? "" : status.name(),
+                        paymentRepository::findAllById,
+                        Payment::getId)
+                .map(this::toPaymentResponse));
+    }
+
+    @Override
+    public PageResponse<MonitoredWebhookEventResponse> getWebhookEvents(
+            int page, int size, String keyword, WebhookProcessingStatus status, String sort) {
+        if (sort == null || sort.isBlank()) return getWebhookEvents(page, size, keyword, status);
+        return PageResponse.from(tableQuery
+                .findAll(
+                        DashboardTableQuery.Table.WEBHOOKS,
+                        sort,
+                        page,
+                        size,
+                        keyword,
+                        status == null ? "" : status.name(),
+                        webhookEventRepository::findAllById,
+                        PaymentWebhookEvent::getId)
+                .map(this::toWebhookResponse));
     }
 
     @Override

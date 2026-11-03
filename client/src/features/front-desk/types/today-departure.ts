@@ -20,6 +20,7 @@ export interface TodayDeparture {
 export type TodayDeparturePage = PageResponse<TodayDeparture>;
 
 export interface TodayDepartureParams {
+  sort?: string;
   page: number;
   size: number;
 }

@@ -62,9 +62,14 @@ public class HousekeepingController {
     @PreAuthorize("hasRole('HOUSEKEEPER')")
     @Operation(summary = "Xem các phòng cần xử lý", description = "Trả phòng DIRTY và CLEANING")
     public ApiResponse<PageResponse<DirtyRoomResponse>> getRoomsRequiringCleaning(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort) {
         return ApiResponse.success(
-                "Lấy danh sách phòng cần xử lý thành công", housekeepingService.getRoomsRequiringCleaning(page, size));
+                "Lấy danh sách phòng cần xử lý thành công",
+                sort == null
+                        ? housekeepingService.getRoomsRequiringCleaning(page, size)
+                        : housekeepingService.getRoomsRequiringCleaning(page, size, sort));
     }
 
     @PatchMapping("/rooms/{roomId}/start-cleaning")

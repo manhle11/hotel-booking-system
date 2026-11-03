@@ -1,3 +1,4 @@
+import { useTableSorting } from '../../../hooks/use-table-sorting';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -80,66 +81,111 @@ export function PaymentMonitoringPage() {
   const deferredQuery = useDeferredValue(query);
   const [status, setStatus] = useState<string>();
   const [page, setPage] = useState(0);
+  const paymentSorting = useTableSorting<MonitoredPayment>(() => setPage(0));
+  const webhookSorting = useTableSorting<MonitoredWebhookEvent>(() => setPage(0));
   const [selectedEventId, setSelectedEventId] = useState<string>();
   const params = { page, size: PAGE_SIZE, keyword: deferredQuery, status };
 
   const summaryQuery = usePaymentMonitoringSummary();
-  const paymentsQuery = useMonitoredPayments(params, activeTab === 'payments');
-  const eventsQuery = useMonitoredWebhookEvents(params, activeTab === 'webhooks');
+  const paymentsQuery = useMonitoredPayments(
+    { ...params, ...(paymentSorting.sort ? { sort: paymentSorting.sort } : {}) },
+    activeTab === 'payments',
+  );
+  const eventsQuery = useMonitoredWebhookEvents(
+    { ...params, ...(webhookSorting.sort ? { sort: webhookSorting.sort } : {}) },
+    activeTab === 'webhooks',
+  );
   const detailQuery = useWebhookEventDetail(selectedEventId, isAdmin);
   const currentQuery = activeTab === 'payments' ? paymentsQuery : eventsQuery;
 
   const paymentColumns: TableColumnsType<MonitoredPayment> = [
     {
       title: 'Booking',
+      ...paymentSorting.column('bookingCode'),
       dataIndex: 'bookingCode',
       render: (value) => <Text strong>{value}</Text>,
     },
     {
       title: 'Mã thanh toán',
+      ...paymentSorting.column('paymentCode'),
       dataIndex: 'paymentCode',
       render: (value) => <Text code>{value}</Text>,
     },
     {
       title: 'Số tiền',
+      ...paymentSorting.column('amount'),
       dataIndex: 'amount',
       align: 'right',
       render: (value) => money.format(value),
     },
     {
       title: 'Trạng thái',
+      ...paymentSorting.column('status'),
       dataIndex: 'status',
       render: (value: PaymentStatus) => (
         <Tag color={paymentStatus[value].color}>{paymentStatus[value].label}</Tag>
       ),
     },
-    { title: 'Khởi tạo lúc', dataIndex: 'createdAt', render: formatTime },
-    { title: 'Thanh toán lúc', dataIndex: 'paidAt', render: formatTime },
+    {
+      title: 'Khởi tạo lúc',
+      ...paymentSorting.column('createdAt'),
+      dataIndex: 'createdAt',
+      render: formatTime,
+    },
+    {
+      title: 'Thanh toán lúc',
+      ...paymentSorting.column('paidAt'),
+      dataIndex: 'paidAt',
+      render: formatTime,
+    },
   ];
 
   const webhookColumns: TableColumnsType<MonitoredWebhookEvent> = [
-    { title: 'Event ID', dataIndex: 'eventId', render: (value) => <Text code>{value}</Text> },
-    { title: 'Ngân hàng', dataIndex: 'gateway', render: (value) => value ?? '—' },
+    {
+      title: 'Event ID',
+      ...webhookSorting.column('eventId'),
+      dataIndex: 'eventId',
+      render: (value) => <Text code>{value}</Text>,
+    },
+    {
+      title: 'Ngân hàng',
+      ...webhookSorting.column('gateway'),
+      dataIndex: 'gateway',
+      render: (value) => value ?? '—',
+    },
     {
       title: 'Mã thanh toán',
+      ...webhookSorting.column('paymentCode'),
       dataIndex: 'paymentCode',
       render: (value) => (value ? <Text code>{value}</Text> : '—'),
     },
     {
       title: 'Số tiền',
+      ...webhookSorting.column('transferAmount'),
       dataIndex: 'transferAmount',
       align: 'right',
       render: (value) => money.format(value),
     },
     {
       title: 'Trạng thái',
+      ...webhookSorting.column('status'),
       dataIndex: 'status',
       render: (value: WebhookStatus) => (
         <Tag color={webhookStatus[value].color}>{webhookStatus[value].label}</Tag>
       ),
     },
-    { title: 'Số lần thử', dataIndex: 'attempts', align: 'center' },
-    { title: 'Tiếp nhận lúc', dataIndex: 'receivedAt', render: formatTime },
+    {
+      title: 'Số lần thử',
+      ...webhookSorting.column('attempts'),
+      dataIndex: 'attempts',
+      align: 'center',
+    },
+    {
+      title: 'Tiếp nhận lúc',
+      ...webhookSorting.column('receivedAt'),
+      dataIndex: 'receivedAt',
+      render: formatTime,
+    },
     ...(isAdmin
       ? [
           {
@@ -301,6 +347,7 @@ export function PaymentMonitoringPage() {
 
         {activeTab === 'payments' ? (
           <Table<MonitoredPayment>
+            onChange={paymentSorting.onChange}
             className="payment-monitoring-page__table"
             columns={paymentColumns}
             dataSource={paymentsQuery.data?.content ?? []}
@@ -317,6 +364,7 @@ export function PaymentMonitoringPage() {
           />
         ) : (
           <Table<MonitoredWebhookEvent>
+            onChange={webhookSorting.onChange}
             className="payment-monitoring-page__table"
             columns={webhookColumns}
             dataSource={eventsQuery.data?.content ?? []}

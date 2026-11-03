@@ -7,6 +7,7 @@ import com.hanbay.hotel.booking.dto.response.TodayDepartureResponse;
 import com.hanbay.hotel.booking.mapper.TodayDepartureMapper;
 import com.hanbay.hotel.booking.repository.BookingGuestRepository;
 import com.hanbay.hotel.booking.repository.BookingRepository;
+import com.hanbay.hotel.common.query.DashboardTableQuery;
 import com.hanbay.hotel.common.response.PageResponse;
 import com.hanbay.hotel.common.validation.PaginationValidator;
 import java.time.Clock;
@@ -31,6 +32,7 @@ public class TodayDepartureService {
     private final BookingGuestRepository bookingGuestRepository;
     private final TodayDepartureMapper todayDepartureMapper;
     private final Clock clock;
+    private final DashboardTableQuery tableQuery;
 
     @Transactional(readOnly = true)
     public PageResponse<TodayDepartureResponse> getTodayDepartures(int page, int size) {
@@ -40,6 +42,16 @@ public class TodayDepartureService {
         Page<Booking> bookings = bookingRepository.findAllByStatus(BookingStatus.CHECKED_IN, pageable);
         Map<UUID, BookingGuest> primaryGuests = findPrimaryGuests(bookings.getContent());
 
+        return PageResponse.from(
+                bookings.map(booking -> todayDepartureMapper.toResponse(booking, primaryGuests.get(booking.getId()))));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TodayDepartureResponse> getTodayDepartures(int page, int size, String sort) {
+        if (sort == null || sort.isBlank()) return getTodayDepartures(page, size);
+        Page<Booking> bookings = tableQuery.findAll(
+                DashboardTableQuery.Table.DEPARTURES, sort, page, size, bookingRepository::findAllById, Booking::getId);
+        Map<UUID, BookingGuest> primaryGuests = findPrimaryGuests(bookings.getContent());
         return PageResponse.from(
                 bookings.map(booking -> todayDepartureMapper.toResponse(booking, primaryGuests.get(booking.getId()))));
     }

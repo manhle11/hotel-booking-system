@@ -38,7 +38,10 @@ class PaymentMonitoringServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new PaymentMonitoringServiceImpl(paymentRepository, webhookEventRepository);
+        service = new PaymentMonitoringServiceImpl(
+                paymentRepository,
+                webhookEventRepository,
+                org.mockito.Mockito.mock(com.hanbay.hotel.common.query.DashboardTableQuery.class));
     }
 
     @Test

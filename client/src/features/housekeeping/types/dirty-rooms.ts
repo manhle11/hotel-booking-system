@@ -18,6 +18,7 @@ export interface DirtyRoom {
 export interface DirtyRoomsParams {
   page: number;
   size: number;
+  sort?: string;
 }
 
 export type DirtyRoomsPage = PageResponse<DirtyRoom>;

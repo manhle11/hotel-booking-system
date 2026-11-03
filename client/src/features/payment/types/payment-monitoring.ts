@@ -14,6 +14,7 @@ export interface MonitoringPage<T> {
 }
 
 export interface MonitoringParams {
+  sort?: string;
   page: number;
   size: number;
   keyword?: string;

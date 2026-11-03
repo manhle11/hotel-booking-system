@@ -79,7 +79,19 @@ describe('DashboardLayout role menu', () => {
     renderLayout([USER_ROLES.housekeeper]);
 
     expect(screen.queryByText('Khách đến hôm nay')).toBeNull();
+    expect(screen.queryByText('Tạo đặt phòng')).toBeNull();
   });
+
+  it.each([USER_ROLES.receptionist, USER_ROLES.manager, USER_ROLES.admin])(
+    'keeps booking creation for %s, including users with an additional housekeeper role',
+    (role) => {
+      const view = renderLayout([role]);
+      expect(screen.getByText('Tạo đặt phòng')).not.toBeNull();
+      view.unmount();
+      renderLayout([USER_ROLES.housekeeper, role]);
+      expect(screen.getByText('Tạo đặt phòng')).not.toBeNull();
+    },
+  );
 
   it('shows dirty rooms only to housekeeper', () => {
     renderLayout([USER_ROLES.housekeeper]);

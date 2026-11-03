@@ -15,7 +15,8 @@ class RoomManagementServiceTest {
     private final RoomRepository rooms = mock(RoomRepository.class);
     private final RoomTypeRepository types = mock(RoomTypeRepository.class);
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    private final RoomManagementService service = new RoomManagementService(rooms, types, jdbc);
+    private final RoomManagementService service = new RoomManagementService(
+            rooms, types, jdbc, org.mockito.Mockito.mock(com.hanbay.hotel.common.query.DashboardTableQuery.class));
 
     @Test
     void cannotDeleteInventoryWithOutstandingBookings() {

@@ -1,3 +1,4 @@
+import { useTableSorting } from '../../../hooks/use-table-sorting';
 import {
   App,
   Alert,
@@ -28,11 +29,12 @@ export function RefundRequestsPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
+  const sorting = useTableSorting<RefundRequest>(() => setPage(0));
   const [selected, setSelected] = useState<RefundRequest | null>(null);
   const [form] = Form.useForm<{ bankReference: string }>();
   const refundQuery = useQuery({
-    queryKey: ['refund-requests', page],
-    queryFn: () => getPendingRefunds(page, PAGE_SIZE),
+    queryKey: ['refund-requests', page, sorting.sort],
+    queryFn: () => getPendingRefunds(page, PAGE_SIZE, sorting.sort),
   });
   const confirmMutation = useMutation({
     mutationFn: (bankReference: string) => confirmRefund(selected!.refundId, bankReference),
@@ -62,6 +64,7 @@ export function RefundRequestsPage() {
       )}
       <Card>
         <Table<RefundRequest>
+          onChange={sorting.onChange}
           rowKey="refundId"
           loading={refundQuery.isLoading}
           dataSource={refundQuery.data?.content ?? []}
@@ -69,15 +72,17 @@ export function RefundRequestsPage() {
           scroll={{ x: 1100 }}
           locale={{ emptyText: <Empty description="Không có yêu cầu hoàn tiền đang chờ" /> }}
           columns={[
-            { title: 'Mã đặt phòng', dataIndex: 'bookingCode' },
-            { title: 'Mã thanh toán', dataIndex: 'paymentCode' },
+            { title: 'Mã đặt phòng', ...sorting.column('bookingCode'), dataIndex: 'bookingCode' },
+            { title: 'Mã thanh toán', ...sorting.column('paymentCode'), dataIndex: 'paymentCode' },
             {
               title: 'Số tiền',
+              ...sorting.column('amount'),
               dataIndex: 'amount',
               render: (value: number) => money.format(value),
             },
             {
               title: 'Tài khoản nhận hoàn',
+              ...sorting.column('bankAccount'),
               render: (_, refund) =>
                 refund.bankName && refund.accountNumber && refund.accountHolderName ? (
                   <Space orientation="vertical" size={0}>
@@ -89,13 +94,18 @@ export function RefundRequestsPage() {
                   <Tag color="warning">Chưa có thông tin ngân hàng</Tag>
                 ),
             },
-            { title: 'Lý do', dataIndex: 'reason' },
+            { title: 'Lý do', ...sorting.column('reason'), dataIndex: 'reason' },
             {
               title: 'Yêu cầu lúc',
+              ...sorting.column('requestedAt'),
               dataIndex: 'requestedAt',
               render: (value: string) => dayjs(value).format('DD/MM/YYYY HH:mm'),
             },
-            { title: 'Trạng thái', render: () => <Tag color="orange">Chờ hoàn tiền</Tag> },
+            {
+              title: 'Trạng thái',
+              ...sorting.column('status'),
+              render: () => <Tag color="orange">Chờ hoàn tiền</Tag>,
+            },
             {
               title: 'Thao tác',
               render: (_, refund) => (
