@@ -49,7 +49,11 @@ class TodayDepartureServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-08-19T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
         service = new TodayDepartureService(
-                bookingRepository, bookingGuestRepository, Mappers.getMapper(TodayDepartureMapper.class), clock);
+                bookingRepository,
+                bookingGuestRepository,
+                Mappers.getMapper(TodayDepartureMapper.class),
+                clock,
+                org.mockito.Mockito.mock(com.hanbay.hotel.common.query.DashboardTableQuery.class));
     }
 
     @Test
@@ -126,7 +130,11 @@ class TodayDepartureServiceTest {
     void getTodayDeparturesIncludesAllCheckedInStaysRegardlessOfServerTimeZone() {
         Clock utcClock = Clock.fixed(Instant.parse("2026-08-19T17:00:00Z"), ZoneOffset.UTC);
         service = new TodayDepartureService(
-                bookingRepository, bookingGuestRepository, Mappers.getMapper(TodayDepartureMapper.class), utcClock);
+                bookingRepository,
+                bookingGuestRepository,
+                Mappers.getMapper(TodayDepartureMapper.class),
+                utcClock,
+                org.mockito.Mockito.mock(com.hanbay.hotel.common.query.DashboardTableQuery.class));
         PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "bookingCode"));
         when(bookingRepository.findAllByStatus(BookingStatus.CHECKED_IN, pageable))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));

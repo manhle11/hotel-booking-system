@@ -1,3 +1,4 @@
+import { useTableSorting } from '../../../hooks/use-table-sorting';
 import { MaintenanceCostPanel } from '../components/maintenance-cost-panel';
 import { PlusOutlined } from '@ant-design/icons';
 import {
@@ -38,10 +39,11 @@ import {
 export function MaintenancePage() {
   const { message } = App.useApp();
   const [page, setPage] = useState(0);
+  const sorting = useTableSorting<MaintenanceItem>(() => setPage(0));
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form] = Form.useForm<CreateMaintenanceRequest>();
-  const requestsQuery = useMaintenanceRequests(page);
+  const requestsQuery = useMaintenanceRequests(page, sorting.sort);
   const roomsQuery = usePhysicalRooms(createOpen);
   const detailQuery = useMaintenanceDetail(selectedId);
   const { create: createMutation, status: statusMutation } = useMaintenanceMutations();
@@ -78,15 +80,22 @@ export function MaintenancePage() {
     );
   };
   const columns: TableColumnsType<MaintenanceItem> = [
-    { title: 'Phòng', dataIndex: 'roomNumber', width: 100 },
-    { title: 'Lý do', dataIndex: 'title', ellipsis: true },
+    { title: 'Phòng', ...sorting.column('roomNumber'), dataIndex: 'roomNumber', width: 100 },
+    { title: 'Lý do', ...sorting.column('title'), dataIndex: 'title', ellipsis: true },
     {
       title: 'Trạng thái',
+      ...sorting.column('status'),
       dataIndex: 'status',
       width: 140,
       render: (status: MaintenanceItem['status']) => <Tag>{maintenanceStatusLabels[status]}</Tag>,
     },
-    { title: 'Ngày tạo', dataIndex: 'createdAt', width: 160, render: formatMaintenanceTime },
+    {
+      title: 'Ngày tạo',
+      ...sorting.column('createdAt'),
+      dataIndex: 'createdAt',
+      width: 160,
+      render: formatMaintenanceTime,
+    },
     {
       title: 'Thao tác',
       width: 240,
@@ -137,7 +146,8 @@ export function MaintenancePage() {
             action={<Button onClick={() => void requestsQuery.refetch()}>Thử lại</Button>}
           />
         ) : (
-          <Table
+          <Table<MaintenanceItem>
+            onChange={sorting.onChange}
             rowKey="id"
             loading={requestsQuery.isLoading || requestsQuery.isFetching}
             columns={columns}

@@ -13,6 +13,8 @@ public interface MaintenanceRequestService {
 
     PageResponse<MaintenanceRequestListItemResponse> findAll(int page, int size);
 
+    PageResponse<MaintenanceRequestListItemResponse> findAll(int page, int size, String sort);
+
     MaintenanceRequestResponse findById(UUID id);
 
     MaintenanceRequestResponse updateStatus(UUID id, UpdateMaintenanceRequestStatusRequest request);

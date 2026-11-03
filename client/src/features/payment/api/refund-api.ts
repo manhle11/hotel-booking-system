@@ -2,11 +2,15 @@ import { apiClient } from '../../../lib/axios';
 import type { ApiResponse } from '../../../types/api';
 import type { RefundRequest, RefundRequestPage } from '../types/refund';
 
-export async function getPendingRefunds(page: number, size: number): Promise<RefundRequestPage> {
+export async function getPendingRefunds(
+  page: number,
+  size: number,
+  sort?: string,
+): Promise<RefundRequestPage> {
   const response = await apiClient.get<ApiResponse<RefundRequestPage>>(
     '/payment-monitoring/refunds',
     {
-      params: { page, size },
+      params: { page, size, ...(sort ? { sort } : {}) },
     },
   );
   return response.data.data;

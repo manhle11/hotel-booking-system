@@ -21,6 +21,7 @@ import {
 } from 'antd';
 import { useEffect, useState } from 'react';
 
+import { useTableSorting } from '../../../hooks/use-table-sorting';
 import { useDirtyRooms, useHousekeepingAction } from '../api/housekeeping-query';
 import type { DirtyRoom } from '../types/dirty-rooms';
 import './housekeeping-page.css';
@@ -36,11 +37,13 @@ function getRoomAction(status: DirtyRoom['status']) {
 
 function buildColumns(
   onAction: (room: DirtyRoom) => void,
+  sorting: ReturnType<typeof useTableSorting<DirtyRoom>>,
   pendingRoomId?: string,
 ): TableColumnsType<DirtyRoom> {
   return [
     {
       title: 'Phòng',
+      ...sorting.column('roomNumber'),
       dataIndex: 'roomNumber',
       fixed: 'left',
       render: (roomNumber: string) => (
@@ -56,7 +59,7 @@ function buildColumns(
     },
     {
       title: 'Hạng phòng',
-      key: 'roomType',
+      ...sorting.column('roomTypeName'),
       render: (_value, room) => (
         <Space orientation="vertical" size={2}>
           <Text strong>{room.roomType.name}</Text>
@@ -66,12 +69,14 @@ function buildColumns(
     },
     {
       title: 'Tầng',
+      ...sorting.column('floor'),
       dataIndex: 'floor',
       align: 'center',
       render: (floor: number) => <Tag color="blue">Tầng {floor}</Tag>,
     },
     {
       title: 'Ghi chú vận hành',
+      ...sorting.column('note'),
       dataIndex: 'note',
       render: (note: string | null) =>
         note ? (
@@ -82,7 +87,7 @@ function buildColumns(
     },
     {
       title: 'Trạng thái / thao tác',
-      key: 'action',
+      ...sorting.column('status'),
       fixed: 'right',
       render: (_value, room) => {
         const action = getRoomAction(room.status);
@@ -122,7 +127,12 @@ function buildColumns(
 export function HousekeepingPage() {
   const { message } = App.useApp();
   const [page, setPage] = useState(0);
-  const dirtyRoomsQuery = useDirtyRooms({ page, size: PAGE_SIZE });
+  const sorting = useTableSorting<DirtyRoom>(() => setPage(0));
+  const dirtyRoomsQuery = useDirtyRooms({
+    page,
+    size: PAGE_SIZE,
+    ...(sorting.sort ? { sort: sorting.sort } : {}),
+  });
   const housekeepingAction = useHousekeepingAction();
   const dirtyRooms = dirtyRoomsQuery.data?.content ?? [];
   const currentPageFloorCount = new Set(dirtyRooms.map((room) => room.floor)).size;
@@ -145,6 +155,7 @@ export function HousekeepingPage() {
         },
       );
     },
+    sorting,
     housekeepingAction.isPending ? housekeepingAction.variables?.roomId : undefined,
   );
 
@@ -258,6 +269,7 @@ export function HousekeepingPage() {
             </Empty>
           ) : (
             <Table<DirtyRoom>
+              onChange={sorting.onChange}
               columns={columns}
               dataSource={dirtyRooms}
               rowKey="roomId"

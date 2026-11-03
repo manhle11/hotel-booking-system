@@ -3,7 +3,6 @@ import {
   LogoutOutlined,
   UserOutlined,
   DashboardOutlined,
-  BankOutlined,
   CreditCardOutlined,
   CalendarOutlined,
   HomeOutlined,
@@ -116,14 +115,7 @@ export function MainHeader() {
                 },
                 { type: 'divider' },
                 ...(roles.some((r) => r === 'ADMIN' || r === 'MANAGER')
-                  ? [
-                      { key: 'nav_dashboard', label: 'Dashboard', icon: <DashboardOutlined /> },
-                      {
-                        key: 'nav_payment_monitoring',
-                        label: 'Giám sát thanh toán',
-                        icon: <BankOutlined />,
-                      },
-                    ]
+                  ? [{ key: 'nav_dashboard', label: 'Dashboard', icon: <DashboardOutlined /> }]
                   : []),
                 ...(roles.includes('RECEPTIONIST')
                   ? [
@@ -172,7 +164,6 @@ export function MainHeader() {
               ],
               onClick: ({ key }) => {
                 if (key === 'nav_dashboard') navigate('/dashboard');
-                if (key === 'nav_payment_monitoring') navigate('/payment-monitoring/payments');
                 if (key === 'nav_bookings') navigate('/front-desk/check-in');
                 if (key === 'guest_bookings') navigate(ROUTE_PATHS.guestBookings);
                 if (key === 'nav_housekeeping') navigate('/housekeeping');

@@ -1,3 +1,4 @@
+import { useTableSorting } from '../../hooks/use-table-sorting';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -41,16 +42,17 @@ export function RoomTypeManagementPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
+  const sorting = useTableSorting<ManagedRoomType>(() => setPage(0));
   const [editing, setEditing] = useState<ManagedRoomType | null | undefined>();
   const [uploading, setUploading] = useState(false);
   const [form] = Form.useForm<ManagedRoomType>();
   const images = Form.useWatch('images', form) ?? [];
   const query = useQuery({
-    queryKey: ['managed-room-types', page],
+    queryKey: ['managed-room-types', page, sorting.sort],
     queryFn: async () =>
       (
         await apiClient.get<ApiResponse<PageResponse<ManagedRoomType>>>(endpoint, {
-          params: { page, size: 20 },
+          params: { page, size: 20, ...(sorting.sort ? { sort: sorting.sort } : {}) },
         })
       ).data.data,
   });
@@ -116,7 +118,8 @@ export function RoomTypeManagementPage() {
           action={<Button onClick={() => query.refetch()}>Thử lại</Button>}
         />
       )}
-      <Table
+      <Table<ManagedRoomType>
+        onChange={sorting.onChange}
         rowKey="id"
         loading={query.isLoading}
         dataSource={query.data?.content}
@@ -138,16 +141,18 @@ export function RoomTypeManagementPage() {
                 'Chưa có ảnh'
               ),
           },
-          { title: 'Mã', dataIndex: 'code' },
-          { title: 'Tên loại phòng', dataIndex: 'name' },
+          { title: 'Mã', ...sorting.column('code'), dataIndex: 'code' },
+          { title: 'Tên loại phòng', ...sorting.column('name'), dataIndex: 'name' },
           {
             title: 'Giá / đêm',
+            ...sorting.column('basePrice'),
             dataIndex: 'basePrice',
             render: (v) => `${Number(v).toLocaleString('vi-VN')} ₫`,
           },
-          { title: 'Số khách', dataIndex: 'maxGuests' },
+          { title: 'Số khách', ...sorting.column('maxGuests'), dataIndex: 'maxGuests' },
           {
             title: 'Trạng thái',
+            ...sorting.column('status'),
             dataIndex: 'status',
             render: (v) => (
               <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>

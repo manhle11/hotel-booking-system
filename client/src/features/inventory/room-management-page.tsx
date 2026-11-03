@@ -1,3 +1,4 @@
+import { useTableSorting } from '../../hooks/use-table-sorting';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -39,14 +40,15 @@ export function RoomManagementPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
+  const sorting = useTableSorting<ManagedRoom>(() => setPage(0));
   const [editing, setEditing] = useState<ManagedRoom | null | undefined>();
   const [form] = Form.useForm<ManagedRoom>();
   const query = useQuery({
-    queryKey: ['managed-rooms', page],
+    queryKey: ['managed-rooms', page, sorting.sort],
     queryFn: async () =>
       (
         await apiClient.get<ApiResponse<PageResponse<ManagedRoom>>>(endpoint, {
-          params: { page, size: 20 },
+          params: { page, size: 20, ...(sorting.sort ? { sort: sorting.sort } : {}) },
         })
       ).data.data,
   });
@@ -116,7 +118,8 @@ export function RoomManagementPage() {
           action={<Button onClick={() => query.refetch()}>Thử lại</Button>}
         />
       )}
-      <Table
+      <Table<ManagedRoom>
+        onChange={sorting.onChange}
         rowKey="id"
         dataSource={query.data?.content}
         loading={query.isLoading}
@@ -129,11 +132,12 @@ export function RoomManagementPage() {
           onChange: (value) => setPage(value - 1),
         }}
         columns={[
-          { title: 'Số phòng', dataIndex: 'roomNumber' },
-          { title: 'Loại phòng', dataIndex: 'roomTypeName' },
-          { title: 'Tầng', dataIndex: 'floor' },
+          { title: 'Số phòng', ...sorting.column('roomNumber'), dataIndex: 'roomNumber' },
+          { title: 'Loại phòng', ...sorting.column('roomTypeName'), dataIndex: 'roomTypeName' },
+          { title: 'Tầng', ...sorting.column('floor'), dataIndex: 'floor' },
           {
             title: 'Trạng thái',
+            ...sorting.column('status'),
             dataIndex: 'status',
             render: (value) => (
               <Tag color={value === 'AVAILABLE' ? 'green' : 'orange'}>
@@ -141,7 +145,7 @@ export function RoomManagementPage() {
               </Tag>
             ),
           },
-          { title: 'Ghi chú', dataIndex: 'note' },
+          { title: 'Ghi chú', ...sorting.column('note'), dataIndex: 'note' },
           {
             title: 'Thao tác',
             render: (_, r) => (

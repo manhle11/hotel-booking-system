@@ -20,11 +20,25 @@ paths:
       tags: [Housekeeping]
       summary: Xem các phòng cần xử lý
       operationId: getRoomsRequiringCleaning
+      description: |
+        Chỉ HOUSEKEEPER được gọi. Trả phòng DIRTY và CLEANING.
+        Sắp xếp toàn bộ kết quả trước phân trang; mặc định theo tầng rồi số phòng.
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
+        - name: sort
+          in: query
+          required: false
+          description: |
+            Một cột và chiều asc/desc, ví dụ roomNumber,asc.
+            Cột hợp lệ: roomNumber, roomTypeName, floor, note, status.
+            Trạng thái tăng dần: Chờ dọn → Đang dọn. Giá trị trống ở cuối cả hai chiều.
+            Bỏ tham số hoặc chuỗi rỗng để giữ thứ tự mặc định.
+          schema:
+            type: string
+          example: roomNumber,asc
       responses:
         "200":
           description: Danh sách phòng DIRTY và CLEANING
@@ -32,6 +46,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DirtyRoomsResponse"
+        "400":
+          description: "Phân trang hoặc sort không hợp lệ (VALIDATION_FAILED; errors.sort cho lỗi sắp xếp)."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
         "403":

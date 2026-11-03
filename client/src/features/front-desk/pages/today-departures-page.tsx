@@ -1,3 +1,4 @@
+import { useTableSorting } from '../../../hooks/use-table-sorting';
 import {
   CalendarOutlined,
   CheckCircleOutlined,
@@ -66,6 +67,7 @@ export function TodayDeparturesPage() {
   const { message } = App.useApp();
   const [form] = Form.useForm<CheckOutFormValues>();
   const [page, setPage] = useState(0);
+  const sorting = useTableSorting<TodayDeparture>(() => setPage(0));
   const [selectedSnapshot, setSelectedDeparture] = useState<TodayDeparture | null>(null);
   const additionalChargeAmount = Form.useWatch('additionalChargeAmount', form) ?? 0;
   const collectedAmount = Form.useWatch('collectedAmount', form) ?? 0;
@@ -76,7 +78,11 @@ export function TodayDeparturesPage() {
     accountHolderName: '',
     accountNumber: '',
   });
-  const departuresQuery = useTodayDepartures({ page, size: PAGE_SIZE });
+  const departuresQuery = useTodayDepartures({
+    page,
+    size: PAGE_SIZE,
+    ...(sorting.sort ? { sort: sorting.sort } : {}),
+  });
   const checkOutMutation = useCheckOutGuest();
   const earlyCheckoutMutation = useEarlyCheckout();
   const earlyCheckoutQuote = useEarlyCheckoutQuote(selectedSnapshot?.bookingId, earlyDate);
@@ -226,6 +232,7 @@ export function TodayDeparturesPage() {
   const columns: TableColumnsType<TodayDeparture> = [
     {
       title: 'Mã đặt phòng',
+      ...sorting.column('bookingCode'),
       dataIndex: 'bookingCode',
       fixed: 'left',
       width: 150,
@@ -233,7 +240,7 @@ export function TodayDeparturesPage() {
     },
     {
       title: 'Khách chính',
-      key: 'guest',
+      ...sorting.column('guestName'),
       width: 190,
       render: (_, departure) => (
         <Space className="today-departures-page__cell-stack" orientation="vertical" size={2}>
@@ -246,13 +253,14 @@ export function TodayDeparturesPage() {
     },
     {
       title: 'Hạng phòng',
+      ...sorting.column('roomTypeName'),
       dataIndex: 'roomTypeName',
       width: 170,
       render: (value: string) => <Text>{value}</Text>,
     },
     {
       title: 'Lưu trú',
-      key: 'stay',
+      ...sorting.column('stay'),
       width: 170,
       render: (_, departure) => (
         <Space className="today-departures-page__cell-stack" orientation="vertical" size={2}>
@@ -263,7 +271,7 @@ export function TodayDeparturesPage() {
     },
     {
       title: 'Số khách',
-      key: 'guests',
+      ...sorting.column('guests'),
       width: 150,
       render: (_, departure) => (
         <div className="today-departures-page__guest-count">
@@ -280,7 +288,7 @@ export function TodayDeparturesPage() {
     },
     {
       title: 'Trạng thái',
-      key: 'status',
+      ...sorting.column('status'),
       width: 145,
       render: (_, departure) =>
         isOverdue(departure.checkOutDate) ? (
@@ -291,6 +299,7 @@ export function TodayDeparturesPage() {
     },
     {
       title: 'Tổng tiền',
+      ...sorting.column('totalAmount'),
       dataIndex: 'totalAmount',
       align: 'right',
       width: 145,
@@ -299,6 +308,7 @@ export function TodayDeparturesPage() {
     },
     {
       title: 'Đã thanh toán',
+      ...sorting.column('paidAmount'),
       dataIndex: 'paidAmount',
       align: 'right',
       width: 155,
@@ -307,6 +317,7 @@ export function TodayDeparturesPage() {
     },
     {
       title: 'Còn phải thu',
+      ...sorting.column('outstandingAmount'),
       dataIndex: 'outstandingAmount',
       align: 'right',
       width: 165,
@@ -427,6 +438,7 @@ export function TodayDeparturesPage() {
       {(!departuresQuery.isError || departuresQuery.data !== undefined) && (
         <Card className="today-departures-page__table-card" title="Danh sách khách đang lưu trú">
           <Table<TodayDeparture>
+            onChange={sorting.onChange}
             childrenColumnName="nestedRows"
             columns={columns}
             dataSource={departures}

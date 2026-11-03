@@ -10,6 +10,8 @@ public interface HousekeepingService {
 
     PageResponse<DirtyRoomResponse> getRoomsRequiringCleaning(int page, int size);
 
+    PageResponse<DirtyRoomResponse> getRoomsRequiringCleaning(int page, int size, String sort);
+
     DirtyRoomResponse startCleaning(UUID roomId);
 
     DirtyRoomResponse completeCleaning(UUID roomId);

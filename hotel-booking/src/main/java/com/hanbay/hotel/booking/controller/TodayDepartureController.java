@@ -25,9 +25,13 @@ public class TodayDepartureController {
     @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Xem danh sách khách dự kiến trả phòng hôm nay")
     public ApiResponse<PageResponse<TodayDepartureResponse>> getTodayDepartures(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort) {
         return ApiResponse.success(
                 "Lấy danh sách khách trả phòng hôm nay thành công",
-                todayDepartureService.getTodayDepartures(page, size));
+                sort == null
+                        ? todayDepartureService.getTodayDepartures(page, size)
+                        : todayDepartureService.getTodayDepartures(page, size, sort));
     }
 }

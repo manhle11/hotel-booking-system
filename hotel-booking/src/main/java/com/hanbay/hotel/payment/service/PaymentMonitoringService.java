@@ -19,4 +19,10 @@ public interface PaymentMonitoringService {
             int page, int size, String keyword, WebhookProcessingStatus status);
 
     WebhookEventDetailResponse getWebhookEvent(UUID eventId);
+
+    PageResponse<MonitoredPaymentResponse> getPayments(
+            int page, int size, String keyword, PaymentStatus status, String sort);
+
+    PageResponse<MonitoredWebhookEventResponse> getWebhookEvents(
+            int page, int size, String keyword, WebhookProcessingStatus status, String sort);
 }

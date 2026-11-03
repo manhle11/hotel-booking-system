@@ -9,14 +9,14 @@ import {
 import type { CreateMaintenanceRequest, MaintenanceRequestStatus } from '../types/maintenance';
 export const maintenanceKeys = {
   all: ['maintenance'] as const,
-  list: (page: number) => [...maintenanceKeys.all, 'list', page] as const,
+  list: (page: number, sort?: string) => [...maintenanceKeys.all, 'list', page, sort] as const,
   detail: (id: string) => [...maintenanceKeys.all, 'detail', id] as const,
   rooms: () => [...maintenanceKeys.all, 'rooms'] as const,
 };
-export const useMaintenanceRequests = (page: number) =>
+export const useMaintenanceRequests = (page: number, sort?: string) =>
   useQuery({
-    queryKey: maintenanceKeys.list(page),
-    queryFn: () => getMaintenanceRequests(page, 20),
+    queryKey: maintenanceKeys.list(page, sort),
+    queryFn: () => getMaintenanceRequests(page, 20, sort),
   });
 export const usePhysicalRooms = (enabled = true) =>
   useQuery({ queryKey: maintenanceKeys.rooms(), queryFn: getPhysicalRooms, enabled });

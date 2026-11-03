@@ -8,9 +8,12 @@ import type {
   PhysicalRoomPage,
 } from '../types/maintenance';
 const maintenancePath = '/maintenance-requests';
-export const getMaintenanceRequests = async (page: number, size: number) =>
-  (await apiClient.get<ApiResponse<MaintenancePage>>(maintenancePath, { params: { page, size } }))
-    .data.data;
+export const getMaintenanceRequests = async (page: number, size: number, sort?: string) =>
+  (
+    await apiClient.get<ApiResponse<MaintenancePage>>(maintenancePath, {
+      params: { page, size, ...(sort ? { sort } : {}) },
+    })
+  ).data.data;
 export const getMaintenanceDetail = async (id: string) =>
   (
     await apiClient.get<ApiResponse<MaintenanceDetail>>(

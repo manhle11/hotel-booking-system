@@ -1,5 +1,6 @@
 package com.hanbay.hotel.payment.service.impl;
 
+import com.hanbay.hotel.common.query.DashboardTableQuery;
 import com.hanbay.hotel.common.response.PageResponse;
 import com.hanbay.hotel.common.validation.PaginationValidator;
 import com.hanbay.hotel.payment.domain.Payment;
@@ -31,6 +32,7 @@ public class RefundManagementServiceImpl implements RefundManagementService {
     private static final int MAX_PAGE_SIZE = 100;
     private final PaymentRefundRepository refundRepository;
     private final Clock clock;
+    private final DashboardTableQuery tableQuery;
 
     @Override
     @Transactional(readOnly = true)
@@ -39,6 +41,21 @@ public class RefundManagementServiceImpl implements RefundManagementService {
         PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "requestedAt"));
         Page<PaymentRefund> refunds = refundRepository.findAllByStatus(PaymentRefundStatus.PENDING, pageable);
         return PageResponse.from(refunds.map(this::toResponse));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<RefundRequestResponse> getPendingRefunds(int page, int size, String sort) {
+        if (sort == null || sort.isBlank()) return getPendingRefunds(page, size);
+        return PageResponse.from(tableQuery
+                .findAll(
+                        DashboardTableQuery.Table.REFUNDS,
+                        sort,
+                        page,
+                        size,
+                        refundRepository::findAllById,
+                        PaymentRefund::getId)
+                .map(this::toResponse));
     }
 
     @Override

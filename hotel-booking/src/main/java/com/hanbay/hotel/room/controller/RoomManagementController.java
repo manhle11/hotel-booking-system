@@ -19,8 +19,10 @@ public class RoomManagementController {
 
     @GetMapping
     public ApiResponse<PageResponse<RoomManagementResponse>> list(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(service.list(page, size));
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort) {
+        return ApiResponse.success(sort == null ? service.list(page, size) : service.list(page, size, sort));
     }
 
     @GetMapping("/{id}")

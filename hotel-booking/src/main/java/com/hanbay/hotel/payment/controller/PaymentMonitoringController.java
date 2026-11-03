@@ -48,8 +48,12 @@ public class PaymentMonitoringController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) PaymentStatus status) {
-        return ApiResponse.success(paymentMonitoringService.getPayments(page, size, keyword, status));
+            @RequestParam(required = false) PaymentStatus status,
+            @RequestParam(required = false) String sort) {
+        return ApiResponse.success(
+                sort == null
+                        ? paymentMonitoringService.getPayments(page, size, keyword, status)
+                        : paymentMonitoringService.getPayments(page, size, keyword, status, sort));
     }
 
     @GetMapping("/webhook-events")
@@ -59,8 +63,12 @@ public class PaymentMonitoringController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) WebhookProcessingStatus status) {
-        return ApiResponse.success(paymentMonitoringService.getWebhookEvents(page, size, keyword, status));
+            @RequestParam(required = false) WebhookProcessingStatus status,
+            @RequestParam(required = false) String sort) {
+        return ApiResponse.success(
+                sort == null
+                        ? paymentMonitoringService.getWebhookEvents(page, size, keyword, status)
+                        : paymentMonitoringService.getWebhookEvents(page, size, keyword, status, sort));
     }
 
     @GetMapping("/webhook-events/{eventId}")
@@ -74,8 +82,13 @@ public class PaymentMonitoringController {
     @PreAuthorize("hasRole('MANAGER')")
     @Operation(summary = "Lấy danh sách yêu cầu hoàn tiền đang chờ")
     public ApiResponse<PageResponse<RefundRequestResponse>> getPendingRefunds(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        return ApiResponse.success(refundManagementService.getPendingRefunds(page, size));
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String sort) {
+        return ApiResponse.success(
+                sort == null
+                        ? refundManagementService.getPendingRefunds(page, size)
+                        : refundManagementService.getPendingRefunds(page, size, sort));
     }
 
     @org.springframework.web.bind.annotation.PostMapping("/refunds/{refundId}/confirm")

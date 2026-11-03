@@ -8,5 +8,7 @@ import java.util.UUID;
 public interface RefundManagementService {
     PageResponse<RefundRequestResponse> getPendingRefunds(int page, int size);
 
+    PageResponse<RefundRequestResponse> getPendingRefunds(int page, int size, String sort);
+
     RefundRequestResponse confirmRefund(UUID refundId, ConfirmRefundRequest request);
 }

@@ -1,5 +1,6 @@
 package com.hanbay.hotel.room.service;
 
+import com.hanbay.hotel.common.query.DashboardTableQuery;
 import com.hanbay.hotel.common.response.PageResponse;
 import com.hanbay.hotel.media.ImageStorageService;
 import com.hanbay.hotel.room.domain.*;
@@ -20,11 +21,19 @@ public class RoomTypeManagementService {
     private final RoomTypeRepository types;
     private final AmenityRepository amenities;
     private final ImageStorageService storage;
+    private final DashboardTableQuery tableQuery;
 
     public PageResponse<RoomTypeManagementResponse> list(int page, int size) {
         if (page < 0 || size < 1 || size > 100) throw new RoomValidationException("Phân trang không hợp lệ.");
         return PageResponse.from(
                 types.findAll(PageRequest.of(page, size, Sort.by("name", "id"))).map(RoomTypeManagementResponse::from));
+    }
+
+    public PageResponse<RoomTypeManagementResponse> list(int page, int size, String sort) {
+        if (sort == null || sort.isBlank()) return list(page, size);
+        return PageResponse.from(tableQuery
+                .findAll(DashboardTableQuery.Table.ROOM_TYPES, sort, page, size, types::findAllById, RoomType::getId)
+                .map(RoomTypeManagementResponse::from));
     }
 
     public RoomTypeManagementResponse detail(UUID id) {

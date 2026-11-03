@@ -1,6 +1,7 @@
 package com.hanbay.hotel.maintenance.service.impl;
 
 import com.hanbay.hotel.common.exception.RequestValidationException;
+import com.hanbay.hotel.common.query.DashboardTableQuery;
 import com.hanbay.hotel.common.response.PageResponse;
 import com.hanbay.hotel.common.security.CurrentUserProvider;
 import com.hanbay.hotel.common.validation.PaginationValidator;
@@ -45,6 +46,7 @@ public class MaintenanceRequestServiceImpl implements MaintenanceRequestService 
     private final CurrentUserProvider currentUserProvider;
     private final MaintenanceRequestMapper maintenanceRequestMapper;
     private final Clock clock;
+    private final DashboardTableQuery tableQuery;
 
     @Override
     @Transactional
@@ -82,6 +84,21 @@ public class MaintenanceRequestServiceImpl implements MaintenanceRequestService 
         PageRequest pageable = PageRequest.of(page, size, DEFAULT_SORT);
         return PageResponse.from(
                 maintenanceRequestRepository.findAll(pageable).map(maintenanceRequestMapper::toListItemResponse));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<MaintenanceRequestListItemResponse> findAll(int page, int size, String sort) {
+        if (sort == null || sort.isBlank()) return findAll(page, size);
+        return PageResponse.from(tableQuery
+                .findAll(
+                        DashboardTableQuery.Table.MAINTENANCE,
+                        sort,
+                        page,
+                        size,
+                        maintenanceRequestRepository::findAllById,
+                        MaintenanceRequest::getId)
+                .map(maintenanceRequestMapper::toListItemResponse));
     }
 
     @Override

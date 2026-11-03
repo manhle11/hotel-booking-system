@@ -1,5 +1,6 @@
 package com.hanbay.hotel.room.service;
 
+import com.hanbay.hotel.common.query.DashboardTableQuery;
 import com.hanbay.hotel.common.response.PageResponse;
 import com.hanbay.hotel.room.domain.*;
 import com.hanbay.hotel.room.dto.request.RoomWriteRequest;
@@ -20,10 +21,18 @@ public class RoomManagementService {
     private final RoomRepository rooms;
     private final RoomTypeRepository types;
     private final JdbcTemplate jdbc;
+    private final DashboardTableQuery tableQuery;
 
     public PageResponse<RoomManagementResponse> list(int page, int size) {
         if (page < 0 || size < 1 || size > 100) throw new RoomValidationException("Phân trang không hợp lệ.");
         return PageResponse.from(rooms.findAllByOrderByFloorAscRoomNumberAsc(PageRequest.of(page, size))
+                .map(RoomManagementResponse::from));
+    }
+
+    public PageResponse<RoomManagementResponse> list(int page, int size, String sort) {
+        if (sort == null || sort.isBlank()) return list(page, size);
+        return PageResponse.from(tableQuery
+                .findAll(DashboardTableQuery.Table.ROOMS, sort, page, size, rooms::findAllById, Room::getId)
                 .map(RoomManagementResponse::from));
     }
 

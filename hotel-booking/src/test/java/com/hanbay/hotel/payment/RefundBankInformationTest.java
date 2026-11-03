@@ -18,7 +18,10 @@ class RefundBankInformationTest {
     @Test
     void returnsStoredRecipientBankDetailsToRefundManager() {
         var repository = mock(PaymentRefundRepository.class);
-        var service = new RefundManagementServiceImpl(repository, Clock.systemUTC());
+        var service = new RefundManagementServiceImpl(
+                repository,
+                Clock.systemUTC(),
+                org.mockito.Mockito.mock(com.hanbay.hotel.common.query.DashboardTableQuery.class));
         var payment = Payment.builder()
                 .booking(Booking.builder().bookingCode("BOOK-REFUND").build())
                 .paymentCode("PAY-REFUND")

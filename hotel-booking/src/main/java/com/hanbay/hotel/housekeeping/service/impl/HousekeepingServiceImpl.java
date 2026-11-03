@@ -1,10 +1,12 @@
 package com.hanbay.hotel.housekeeping.service.impl;
 
+import com.hanbay.hotel.common.query.DashboardTableQuery;
 import com.hanbay.hotel.common.response.PageResponse;
 import com.hanbay.hotel.common.validation.PaginationValidator;
 import com.hanbay.hotel.housekeeping.dto.response.DirtyRoomResponse;
 import com.hanbay.hotel.housekeeping.mapper.DirtyRoomMapper;
 import com.hanbay.hotel.housekeeping.service.HousekeepingService;
+import com.hanbay.hotel.room.domain.Room;
 import com.hanbay.hotel.room.domain.RoomStatus;
 import com.hanbay.hotel.room.exception.RoomNotFoundException;
 import com.hanbay.hotel.room.repository.RoomRepository;
@@ -25,6 +27,7 @@ public class HousekeepingServiceImpl implements HousekeepingService {
 
     private final RoomRepository roomRepository;
     private final DirtyRoomMapper dirtyRoomMapper;
+    private final DashboardTableQuery tableQuery;
 
     @Override
     @Transactional(readOnly = true)
@@ -43,6 +46,21 @@ public class HousekeepingServiceImpl implements HousekeepingService {
         PageRequest pageable = PageRequest.of(page, size, DIRTY_ROOM_SORT);
         return PageResponse.from(roomRepository
                 .findAllByStatusIn(List.of(RoomStatus.DIRTY, RoomStatus.CLEANING), pageable)
+                .map(dirtyRoomMapper::toResponse));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<DirtyRoomResponse> getRoomsRequiringCleaning(int page, int size, String sort) {
+        if (sort == null || sort.isBlank()) return getRoomsRequiringCleaning(page, size);
+        return PageResponse.from(tableQuery
+                .findAll(
+                        DashboardTableQuery.Table.HOUSEKEEPING,
+                        sort,
+                        page,
+                        size,
+                        roomRepository::findAllById,
+                        Room::getId)
                 .map(dirtyRoomMapper::toResponse));
     }
 

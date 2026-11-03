@@ -35,6 +35,10 @@ export function DashboardLayout() {
     (role) => role === USER_ROLES.admin || role === USER_ROLES.manager,
   );
   const canViewManagerDashboard = canMonitorPayments;
+  const canCreateBooking = roles.some(
+    (role) =>
+      role === USER_ROLES.receptionist || role === USER_ROLES.manager || role === USER_ROLES.admin,
+  );
   const canViewTodayArrivals = roles.some(
     (role) =>
       role === USER_ROLES.receptionist || role === USER_ROLES.manager || role === USER_ROLES.admin,
@@ -48,7 +52,9 @@ export function DashboardLayout() {
     ...(canViewManagerDashboard
       ? [{ key: '/dashboard', icon: <DashboardOutlined />, label: 'Tổng quan' }]
       : []),
-    { key: '/rooms/search', icon: <PlusCircleOutlined />, label: 'Tạo đặt phòng' },
+    ...(canCreateBooking
+      ? [{ key: '/rooms/search', icon: <PlusCircleOutlined />, label: 'Tạo đặt phòng' }]
+      : []),
     ...(canViewTodayArrivals
       ? [
           {
