@@ -36,14 +36,14 @@ export function useStayPolicy() {
     placeholderData: DEFAULT_STAY_POLICY,
   });
   const policy = query.data ?? DEFAULT_STAY_POLICY;
-  const [tick, setTick] = useState(0);
+  const [clientNow, setClientNow] = useState(() => Date.now());
   useEffect(() => {
-    const timer = window.setInterval(() => setTick((value) => value + 1), 30_000);
+    const timer = window.setInterval(() => setClientNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
-  void tick;
   const offset = policy.serverNow ? dayjs(policy.serverNow).valueOf() - query.dataUpdatedAt : 0;
-  const now = dayjs(Date.now() + offset).tz(policy.zone);
+  // A fresh response must use its server timestamp even before the next clock tick.
+  const now = dayjs(Math.max(clientNow, query.dataUpdatedAt) + offset).tz(policy.zone);
   const today = dayjs(now.format('YYYY-MM-DD'));
   const sameDayClosed = now.format('HH:mm:ss') >= policy.sameDayBookingCutoff;
   const disabledArrivalDate = (date: Dayjs) =>
