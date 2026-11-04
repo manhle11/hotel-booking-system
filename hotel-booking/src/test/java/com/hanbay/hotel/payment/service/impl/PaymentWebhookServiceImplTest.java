@@ -57,6 +57,9 @@ class PaymentWebhookServiceImplTest {
 
     private PaymentWebhookServiceImpl service;
 
+    @Mock
+    private com.hanbay.hotel.booking.service.BookingOrderPaymentService orderPayments;
+
     @BeforeEach
     void setUp() {
         SePayProperties properties =
@@ -67,7 +70,8 @@ class PaymentWebhookServiceImplTest {
                 transactionRepository,
                 properties,
                 Clock.fixed(RECEIVED_AT, ZoneOffset.UTC),
-                bookingRepository);
+                bookingRepository,
+                orderPayments);
     }
 
     @Test

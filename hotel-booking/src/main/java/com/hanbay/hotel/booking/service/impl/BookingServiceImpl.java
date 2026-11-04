@@ -115,13 +115,13 @@ public class BookingServiceImpl implements BookingService {
             Booking booking = bookingRepository
                     .findByIdForUpdate(bookingId)
                     .orElseThrow(() -> new BookingValidationException("Không tìm thấy đặt phòng."));
+            ensureCheckoutAccess(booking, bookingAccessToken);
+            ensureStandaloneBooking(booking);
             if (booking.getStatus() != BookingStatus.PENDING
                     || booking.getExpiredAt() == null
                     || !booking.getExpiredAt().isAfter(clock.instant())) {
                 throw new BookingValidationException("Booking không còn ở trạng thái PENDING hợp lệ để chỉnh sửa.");
             }
-            ensureCheckoutAccess(booking, bookingAccessToken);
-
             RoomType roomType = getValidatedRoomType(request);
             if (roomAvailabilityCalculator.countAvailableRoomsExcludingBooking(
                             roomType.getId(), request.checkInDate(), request.checkOutDate(), bookingId)
@@ -177,6 +177,11 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingRepository
                 .findByBookingCodeAndBookedById(bookingCode, userId)
                 .orElseThrow(() -> new BookingNotFoundException("Không tìm thấy đặt phòng"));
+        if (booking.getOrder() != null) {
+            return toEligibilityResponse(CancellationDecision.denied(
+                    "ORDER_CANCELLATION_REQUIRED",
+                    "Phòng thuộc đơn nhiều phòng. Vui lòng xem điều kiện hủy trên toàn đơn."));
+        }
         Payment payment = paymentRepository.findAllByBookingIdInOrderByCreatedAtDesc(List.of(booking.getId())).stream()
                 .findFirst()
                 .orElse(null);
@@ -207,6 +212,7 @@ public class BookingServiceImpl implements BookingService {
 
     private CancelBookingResponse cancelLockedBooking(Booking booking, CancelBookingRequest request, UUID userId) {
         ensureBookingOwner(booking, userId);
+        ensureStandaloneBooking(booking);
 
         Payment payment = paymentRepository
                 .findFirstByBookingIdAndStatusOrderByPaidAtDesc(booking.getId(), PaymentStatus.SUCCESS)
@@ -364,7 +370,10 @@ public class BookingServiceImpl implements BookingService {
         UUID currentUserId = currentAuthenticatedUserIdOrNull();
         boolean owner =
                 booking.getBookedBy() != null && booking.getBookedBy().getId().equals(currentUserId);
-        if (!owner && !bookingAccessTokenService.matches(bookingAccessToken, booking.getAccessTokenHash())) {
+        String tokenHash = booking.getOrder() == null
+                ? booking.getAccessTokenHash()
+                : booking.getOrder().getAccessTokenHash();
+        if (!owner && !bookingAccessTokenService.matches(bookingAccessToken, tokenHash)) {
             throw new BookingNotFoundException("Không tìm thấy đặt phòng");
         }
     }
@@ -485,6 +494,12 @@ public class BookingServiceImpl implements BookingService {
         if (stayPolicy.bookingClosed(checkIn)) {
             throw new InvalidBookingDateException(
                     "Đã qua giờ nhận đặt phòng cho hôm nay. Vui lòng chọn ngày tiếp theo.");
+        }
+    }
+
+    private void ensureStandaloneBooking(Booking booking) {
+        if (booking.getOrder() != null) {
+            throw new BookingValidationException("Phòng thuộc đơn nhiều phòng. Vui lòng thao tác trên toàn đơn.");
         }
     }
 

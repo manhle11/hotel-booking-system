@@ -1,6 +1,7 @@
 package com.hanbay.hotel.payment.domain;
 
 import com.hanbay.hotel.booking.domain.Booking;
+import com.hanbay.hotel.booking.domain.BookingOrder;
 import com.hanbay.hotel.common.domain.BaseEntity;
 import com.hanbay.hotel.payment.exception.InvalidPaymentStateException;
 import jakarta.persistence.*;
@@ -36,6 +37,26 @@ public class Payment extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private BookingOrder order;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "payment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PaymentAllocation> allocations = new ArrayList<>();
+
+    public void allocateTo(Booking roomBooking) {
+        allocations.add(PaymentAllocation.builder()
+                .payment(this)
+                .booking(roomBooking)
+                .amount(roomBooking.getTotalAmount())
+                .build());
+    }
+
+    public String referenceCode() {
+        return order == null ? booking.getBookingCode() : order.getOrderCode();
+    }
 
     @NaturalId
     @EqualsAndHashCode.Include

@@ -40,8 +40,17 @@ export const router = createBrowserRouter([
   {
     path: '/bookings/new',
     lazy: async () => {
-      const { CreateBookingPage } = await import('@features/booking');
-      return { Component: CreateBookingPage };
+      const { MultiRoomBookingPage } =
+        await import('@features/booking/pages/multi-room-booking-page');
+      return { Component: MultiRoomBookingPage };
+    },
+  },
+  {
+    path: '/booking-orders/:orderId',
+    hydrateFallbackElement: routeHydrationFallback,
+    lazy: async () => {
+      const { BookingOrderPage } = await import('@features/booking/pages/booking-order-page');
+      return { Component: BookingOrderPage };
     },
   },
   {

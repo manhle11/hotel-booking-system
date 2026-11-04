@@ -119,3 +119,4 @@ The payment hold deadline is separate; availability uses the lowest remaining st
 - [16 FE flows for the latest changes](docs/testing/stay-time-fe-checklist.md)
 - [Full UAT guide and workbook](docs/testing/web-uat-guide.md) —334 designed cases, initially not run.
 - [Public stay-policy/search API contract](docs/openapi/room/stay-policy-and-availability.yaml)
+- [Đặt nhiều phòng trong một đơn](docs/24-multi-room-booking.md) — luồng khách hàng, API, giữ phòng và thanh toán chung.

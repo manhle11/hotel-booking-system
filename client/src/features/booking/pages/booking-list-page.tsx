@@ -44,6 +44,7 @@ import type {
   ExtendStayResponse,
 } from '../types/booking';
 import './booking-list.css';
+import { BookingOrderHistorySection } from '../components/booking-order-history';
 
 const PAGE_SIZE = 6;
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
@@ -211,6 +212,7 @@ export function BookingHistorySection({
 
   return (
     <section aria-label="Lịch sử đặt phòng">
+      <BookingOrderHistorySection />
       <Card size="small" className="booking-history-page__filters">
         <Select
           aria-label="Lọc theo trạng thái đặt phòng"

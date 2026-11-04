@@ -57,6 +57,10 @@ public class PaymentServiceImpl implements PaymentService {
 
         ensureCheckoutAccess(booking, bookingAccessToken);
 
+        if (booking.getOrder() != null && booking.getStatus() == BookingStatus.PENDING) {
+            throw new PaymentBookingNotPayableException("Vui lòng thanh toán tổng tiền trên đơn đặt nhiều phòng.");
+        }
+
         validatePayableBooking(booking, now);
         long payableAmount = payableAmount(booking);
 
@@ -150,22 +154,37 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentStatusResponse getPaymentStatus(UUID paymentId, String bookingAccessToken) {
         Payment payment = findPayment(paymentId);
         ensureCheckoutAccess(payment.getBooking(), bookingAccessToken);
-        payment = expirePendingPaymentIfNeeded(payment, clock.instant());
+        if (payment.getOrder() == null) payment = expirePendingPaymentIfNeeded(payment, clock.instant());
         Booking booking = payment.getBooking();
+        var order = payment.getOrder();
         PaymentRefund refund = findRelevantRefund(payment);
         SePayQrInfo qrInfo = sePayService.generateQr(payment.getAmount(), payment.getPaymentCode());
         return new PaymentStatusResponse(
                 payment.getId(),
-                booking.getId(),
-                booking.getBookingCode(),
+                order == null ? booking.getId() : order.getId(),
+                payment.referenceCode(),
                 payment.getPaymentCode(),
-                payment.getStatus(),
-                booking.getStatus(),
-                booking.getRoomType().getName(),
+                payment.isPendingAndExpired(clock.instant())
+                        ? com.hanbay.hotel.payment.domain.PaymentStatus.EXPIRED
+                        : payment.getStatus(),
+                order == null
+                        ? booking.getStatus()
+                        : BookingStatus.valueOf(order.getStatus().name()),
+                order == null
+                        ? booking.getRoomType().getName()
+                        : order.getBookings().size() + " phòng",
                 booking.getCheckInDate(),
                 booking.getCheckOutDate(),
-                booking.getAdultCount(),
-                booking.getChildCount(),
+                order == null
+                        ? booking.getAdultCount()
+                        : order.getBookings().stream()
+                                .mapToInt(Booking::getAdultCount)
+                                .sum(),
+                order == null
+                        ? booking.getChildCount()
+                        : order.getBookings().stream()
+                                .mapToInt(Booking::getChildCount)
+                                .sum(),
                 java.time.temporal.ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate()),
                 payment.getAmount(),
                 paymentTransactionRepository.sumSuccessfulPaymentAmount(payment.getId()),
@@ -211,7 +230,10 @@ public class PaymentServiceImpl implements PaymentService {
         UUID currentUserId = currentUserProvider.currentUserId().orElse(null);
         boolean owner =
                 booking.getBookedBy() != null && booking.getBookedBy().getId().equals(currentUserId);
-        if (!owner && !bookingAccessTokenService.matches(bookingAccessToken, booking.getAccessTokenHash())) {
+        String tokenHash = booking.getOrder() == null
+                ? booking.getAccessTokenHash()
+                : booking.getOrder().getAccessTokenHash();
+        if (!owner && !bookingAccessTokenService.matches(bookingAccessToken, tokenHash)) {
             throw new PaymentBookingNotFoundException("Không tìm thấy đặt phòng cần thanh toán.");
         }
     }

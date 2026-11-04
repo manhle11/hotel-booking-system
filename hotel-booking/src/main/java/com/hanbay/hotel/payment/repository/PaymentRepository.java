@@ -16,6 +16,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
+    @Query("select p.order.id from Payment p where p.paymentCode = :code")
+    Optional<UUID> findOrderIdByPaymentCode(@Param("code") String code);
+
+    List<Payment> findAllByOrderIdOrderByCreatedAtDesc(UUID orderId);
 
     Optional<Payment> findByPaymentCode(String paymentCode);
 
@@ -58,18 +62,22 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
                 select payment
                   from Payment payment
                   join fetch payment.booking booking
+                  left join payment.order bookingOrder
                  where (:keyword = ''
                         or lower(payment.paymentCode) like lower(concat('%', :keyword, '%'))
-                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%')))
+                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%'))
+                        or lower(coalesce(bookingOrder.orderCode, '')) like lower(concat('%', :keyword, '%')))
                 """,
             countQuery =
                     """
                 select count(payment)
                   from Payment payment
                   join payment.booking booking
+                  left join payment.order bookingOrder
                  where (:keyword = ''
                         or lower(payment.paymentCode) like lower(concat('%', :keyword, '%'))
-                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%')))
+                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%'))
+                        or lower(coalesce(bookingOrder.orderCode, '')) like lower(concat('%', :keyword, '%')))
                 """)
     Page<Payment> findForMonitoring(@Param("keyword") String keyword, Pageable pageable);
 
@@ -79,20 +87,24 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
                 select payment
                   from Payment payment
                   join fetch payment.booking booking
+                  left join payment.order bookingOrder
                  where payment.status = :status
                    and (:keyword = ''
                         or lower(payment.paymentCode) like lower(concat('%', :keyword, '%'))
-                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%')))
+                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%'))
+                        or lower(coalesce(bookingOrder.orderCode, '')) like lower(concat('%', :keyword, '%')))
                 """,
             countQuery =
                     """
                 select count(payment)
                   from Payment payment
                   join payment.booking booking
+                  left join payment.order bookingOrder
                  where payment.status = :status
                    and (:keyword = ''
                         or lower(payment.paymentCode) like lower(concat('%', :keyword, '%'))
-                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%')))
+                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%'))
+                        or lower(coalesce(bookingOrder.orderCode, '')) like lower(concat('%', :keyword, '%')))
                 """)
     Page<Payment> findForMonitoringByStatus(
             @Param("keyword") String keyword, @Param("status") PaymentStatus status, Pageable pageable);

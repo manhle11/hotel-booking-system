@@ -40,10 +40,14 @@ export function MainHeader() {
       <Flex
         align="center"
         justify="space-between"
-        gap={token.marginLG}
+        gap={screens.md ? token.marginLG : token.marginSM}
         style={{ width: '100%', maxWidth: 1440, height: '100%', marginInline: 'auto' }}
       >
-        <Link to={isAdmin ? ROUTE_PATHS.adminAccounts : '/'} aria-label="HANBAY Hotel - Trang chủ">
+        <Link
+          to={isAdmin ? ROUTE_PATHS.adminAccounts : '/'}
+          aria-label="HANBAY Hotel - Trang chủ"
+          style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+        >
           <Typography.Text
             strong
             style={{
@@ -214,9 +218,10 @@ export function MainHeader() {
             {latestPaymentId && (
               <Button
                 icon={<CreditCardOutlined />}
+                aria-label="Tiếp tục thanh toán"
                 onClick={() => navigate(`/payments/${latestPaymentId}/result`)}
               >
-                {screens.md ? 'Tiếp tục thanh toán' : 'Thanh toán'}
+                {screens.sm ? (screens.md ? 'Tiếp tục thanh toán' : 'Thanh toán') : null}
               </Button>
             )}
             <Button type="primary" icon={<LoginOutlined />}>

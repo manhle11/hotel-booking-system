@@ -92,4 +92,15 @@ public class PaymentRefund extends BaseEntity {
         this.providerRefundId = bankReference;
         this.refundedAt = refundedAt;
     }
+
+    public void supplyDestination(
+            RefundMethod method, String bankName, String accountHolderName, String accountNumber) {
+        if (status != PaymentRefundStatus.PENDING || refundMethod != null) {
+            throw new InvalidRefundStateException("Không thể thay đổi tài khoản nhận tiền của yêu cầu này");
+        }
+        this.refundMethod = java.util.Objects.requireNonNull(method);
+        this.bankName = java.util.Objects.requireNonNull(bankName);
+        this.accountHolderName = java.util.Objects.requireNonNull(accountHolderName);
+        this.accountNumber = java.util.Objects.requireNonNull(accountNumber);
+    }
 }

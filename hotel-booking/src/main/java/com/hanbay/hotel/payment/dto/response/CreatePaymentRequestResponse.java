@@ -24,8 +24,10 @@ public record CreatePaymentRequestResponse(
     public static CreatePaymentRequestResponse from(Payment payment, SePayQrInfo qrInfo) {
         return new CreatePaymentRequestResponse(
                 payment.getId(),
-                payment.getBooking().getId(),
-                payment.getBooking().getBookingCode(),
+                payment.getOrder() == null
+                        ? payment.getBooking().getId()
+                        : payment.getOrder().getId(),
+                payment.referenceCode(),
                 payment.getPaymentCode(),
                 payment.getAmount(),
                 payment.getCurrency(),

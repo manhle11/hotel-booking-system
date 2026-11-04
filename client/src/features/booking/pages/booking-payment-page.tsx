@@ -404,7 +404,7 @@ interface PaymentInstructionsProps {
   onCopy: (value: string, successMessage: string) => Promise<void>;
 }
 
-function PaymentInstructions({ payment, onCopy }: PaymentInstructionsProps) {
+export function PaymentInstructions({ payment, onCopy }: PaymentInstructionsProps) {
   const { token } = theme.useToken();
   const expiresAt = dayjs(payment.expiredAt);
   const [qrUnavailable, setQrUnavailable] = useState(false);

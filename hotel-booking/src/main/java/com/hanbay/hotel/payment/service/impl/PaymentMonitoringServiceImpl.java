@@ -130,7 +130,7 @@ public class PaymentMonitoringServiceImpl implements PaymentMonitoringService {
     private MonitoredPaymentResponse toPaymentResponse(Payment payment) {
         return new MonitoredPaymentResponse(
                 payment.getId(),
-                payment.getBooking().getBookingCode(),
+                payment.referenceCode(),
                 payment.getPaymentCode(),
                 payment.getAmount(),
                 payment.getCurrency(),

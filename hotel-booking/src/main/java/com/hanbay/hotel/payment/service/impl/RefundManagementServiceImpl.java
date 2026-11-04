@@ -86,7 +86,7 @@ public class RefundManagementServiceImpl implements RefundManagementService {
         Payment payment = refund.getPayment();
         return new RefundRequestResponse(
                 refund.getId(),
-                payment.getBooking().getBookingCode(),
+                payment.referenceCode(),
                 payment.getPaymentCode(),
                 refund.getAmount(),
                 refund.getCurrency(),

@@ -199,7 +199,11 @@ function CompletedPaymentResult({
           ...(canViewBooking
             ? [
                 <Link
-                  to={`/account/bookings/${encodeURIComponent(payment.bookingCode)}`}
+                  to={
+                    payment.bookingCode.startsWith('ORD-')
+                      ? `/booking-orders/${payment.bookingId}`
+                      : `/account/bookings/${encodeURIComponent(payment.bookingCode)}`
+                  }
                   key="booking"
                 >
                   <Button type="primary">Xem chi tiết đặt phòng</Button>
