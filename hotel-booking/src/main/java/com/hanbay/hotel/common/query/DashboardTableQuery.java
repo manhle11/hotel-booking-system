@@ -114,15 +114,16 @@ public class DashboardTableQuery {
                         "outstandingAmount")),
         PAYMENTS(
                 """
-                SELECT p.id, lower(b.booking_code) AS "bookingCode", lower(p.payment_code) AS "paymentCode",
+                SELECT p.id, lower(coalesce(o.order_code, b.booking_code)) AS "bookingCode", lower(p.payment_code) AS "paymentCode",
                        p.amount AS "amount", p.created_at AS "createdAt", p.paid_at AS "paidAt",
                        CASE p.status::text WHEN 'PENDING' THEN 'Chờ thanh toán' WHEN 'SUCCESS' THEN 'Thành công'
                          WHEN 'FAILED' THEN 'Thất bại' WHEN 'CANCELLED' THEN 'Đã hủy' WHEN 'EXPIRED' THEN 'Hết hạn'
                          WHEN 'REFUNDED' THEN 'Đã hoàn tiền' ELSE 'Hoàn tiền một phần' END AS "status"
                 FROM payments p JOIN bookings b ON b.id = p.booking_id
+                LEFT JOIN booking_orders o ON o.id = p.order_id
                 WHERE (:status = '' OR p.status::text = :status)
                   AND (:keyword = '' OR lower(p.payment_code) LIKE '%' || lower(:keyword) || '%'
-                       OR lower(b.booking_code) LIKE '%' || lower(:keyword) || '%')
+                       OR lower(coalesce(o.order_code, b.booking_code)) LIKE '%' || lower(:keyword) || '%')
                 """,
                 Set.of("bookingCode", "paymentCode", "amount", "status", "createdAt", "paidAt")),
         WEBHOOKS(
@@ -150,7 +151,7 @@ public class DashboardTableQuery {
                 Set.of("eventId", "gateway", "paymentCode", "transferAmount", "status", "attempts", "receivedAt")),
         REFUNDS(
                 """
-                SELECT r.id, lower(b.booking_code) AS "bookingCode", lower(p.payment_code) AS "paymentCode",
+                SELECT r.id, lower(coalesce(o.order_code, b.booking_code)) AS "bookingCode", lower(p.payment_code) AS "paymentCode",
                        r.amount AS "amount", lower(r.reason) AS "reason", r.requested_at AS "requestedAt",
                        r.status::text AS "status",
                        CASE WHEN r.bank_name IS NOT NULL AND r.account_number IS NOT NULL
@@ -158,7 +159,8 @@ public class DashboardTableQuery {
                          THEN lower(r.bank_name || ' ' || r.account_number || ' ' || r.account_holder_name)
                          ELSE NULL END AS "bankAccount"
                 FROM payment_refunds r JOIN payments p ON p.id = r.payment_id
-                JOIN bookings b ON b.id = p.booking_id WHERE r.status::text = 'PENDING'
+                JOIN bookings b ON b.id = p.booking_id
+                LEFT JOIN booking_orders o ON o.id = p.order_id WHERE r.status::text = 'PENDING'
                 """,
                 Set.of("bookingCode", "paymentCode", "amount", "bankAccount", "reason", "requestedAt", "status"));
 

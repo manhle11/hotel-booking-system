@@ -19,13 +19,20 @@ public record CreatePaymentRequestResponse(
         String bankCode,
         String accountNumber,
         String accountName,
-        String transferContent) {
+        String transferContent,
+        long remainingAmount) {
 
     public static CreatePaymentRequestResponse from(Payment payment, SePayQrInfo qrInfo) {
+        return from(payment, qrInfo, payment.getAmount());
+    }
+
+    public static CreatePaymentRequestResponse from(Payment payment, SePayQrInfo qrInfo, long remainingAmount) {
         return new CreatePaymentRequestResponse(
                 payment.getId(),
-                payment.getBooking().getId(),
-                payment.getBooking().getBookingCode(),
+                payment.getOrder() == null
+                        ? payment.getBooking().getId()
+                        : payment.getOrder().getId(),
+                payment.referenceCode(),
                 payment.getPaymentCode(),
                 payment.getAmount(),
                 payment.getCurrency(),
@@ -35,6 +42,7 @@ public record CreatePaymentRequestResponse(
                 qrInfo.bankCode(),
                 qrInfo.accountNumber(),
                 qrInfo.accountName(),
-                qrInfo.transferContent());
+                qrInfo.transferContent(),
+                remainingAmount);
     }
 }

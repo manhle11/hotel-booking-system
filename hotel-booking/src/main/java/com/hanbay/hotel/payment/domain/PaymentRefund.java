@@ -31,6 +31,10 @@ public class PaymentRefund extends BaseEntity {
     @JoinColumn(name = "payment_id", nullable = false)
     private Payment payment;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transaction_id", unique = true)
+    private PaymentTransaction transaction;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
@@ -84,6 +88,10 @@ public class PaymentRefund extends BaseEntity {
         this.payment = payment;
     }
 
+    void assignTransaction(PaymentTransaction transaction) {
+        this.transaction = java.util.Objects.requireNonNull(transaction);
+    }
+
     public void markSuccessful(String bankReference, Instant refundedAt) {
         if (status != PaymentRefundStatus.PENDING) {
             throw new InvalidRefundStateException("Chỉ yêu cầu hoàn tiền đang chờ mới có thể xác nhận");
@@ -91,5 +99,16 @@ public class PaymentRefund extends BaseEntity {
         this.status = PaymentRefundStatus.SUCCESS;
         this.providerRefundId = bankReference;
         this.refundedAt = refundedAt;
+    }
+
+    public void supplyDestination(
+            RefundMethod method, String bankName, String accountHolderName, String accountNumber) {
+        if (status != PaymentRefundStatus.PENDING || refundMethod != null) {
+            throw new InvalidRefundStateException("Không thể thay đổi tài khoản nhận tiền của yêu cầu này");
+        }
+        this.refundMethod = java.util.Objects.requireNonNull(method);
+        this.bankName = java.util.Objects.requireNonNull(bankName);
+        this.accountHolderName = java.util.Objects.requireNonNull(accountHolderName);
+        this.accountNumber = java.util.Objects.requireNonNull(accountNumber);
     }
 }

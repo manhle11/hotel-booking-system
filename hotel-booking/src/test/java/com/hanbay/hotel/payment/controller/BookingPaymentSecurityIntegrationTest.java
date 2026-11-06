@@ -65,7 +65,8 @@ class BookingPaymentSecurityIntegrationTest {
                         "TESTBANK",
                         "0000000000",
                         "HANBAY HOTEL DEV",
-                        "PAY-20260813080000-ABC12345"));
+                        "PAY-20260813080000-ABC12345",
+                        2_450_000L));
 
         mockMvc.perform(
                         post("/api/v1/payments/requests")
@@ -111,7 +112,8 @@ class BookingPaymentSecurityIntegrationTest {
                         "HANBAY HOTEL",
                         "PAY-20260814070244-E02D78616064F1D9FA5F7DD96F876D",
                         Instant.parse("2026-08-14T08:15:00Z"),
-                        Instant.parse("2026-08-14T08:05:00Z")));
+                        Instant.parse("2026-08-14T08:05:00Z"),
+                        0L));
 
         mockMvc.perform(get("/api/v1/payments/{paymentId}/status", paymentId)
                         .header("X-Booking-Access-Token", "booking-access-token"))

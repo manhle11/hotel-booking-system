@@ -16,21 +16,31 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
+    @Query("select p.order.id from Payment p where p.paymentCode = :code")
+    Optional<UUID> findOrderIdByPaymentCode(@Param("code") String code);
+
+    List<Payment> findAllByOrderIdOrderByCreatedAtDesc(UUID orderId);
 
     Optional<Payment> findByPaymentCode(String paymentCode);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select payment from Payment payment where payment.id = :paymentId")
+    Optional<Payment> findByIdForUpdate(@Param("paymentId") UUID paymentId);
 
     @Query("select payment.booking.id from Payment payment where payment.paymentCode = :paymentCode")
     Optional<UUID> findBookingIdByPaymentCode(@Param("paymentCode") String paymentCode);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
-            """
-            update Payment payment
-               set payment.status = com.hanbay.hotel.payment.domain.PaymentStatus.EXPIRED
-             where payment.id = :paymentId
-               and payment.status = com.hanbay.hotel.payment.domain.PaymentStatus.PENDING
-               and payment.expiresAt <= :now
-            """)
+            value =
+                    """
+            update payments
+               set status = cast('EXPIRED' as payment_status), updated_at = :now
+             where id = :paymentId
+               and status = cast('PENDING' as payment_status)
+               and expires_at <= :now
+            """,
+            nativeQuery = true)
     int markPendingExpired(@Param("paymentId") UUID paymentId, @Param("now") java.time.Instant now);
 
     boolean existsByPaymentCode(String paymentCode);
@@ -58,18 +68,22 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
                 select payment
                   from Payment payment
                   join fetch payment.booking booking
+                  left join payment.order bookingOrder
                  where (:keyword = ''
                         or lower(payment.paymentCode) like lower(concat('%', :keyword, '%'))
-                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%')))
+                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%'))
+                        or lower(coalesce(bookingOrder.orderCode, '')) like lower(concat('%', :keyword, '%')))
                 """,
             countQuery =
                     """
                 select count(payment)
                   from Payment payment
                   join payment.booking booking
+                  left join payment.order bookingOrder
                  where (:keyword = ''
                         or lower(payment.paymentCode) like lower(concat('%', :keyword, '%'))
-                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%')))
+                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%'))
+                        or lower(coalesce(bookingOrder.orderCode, '')) like lower(concat('%', :keyword, '%')))
                 """)
     Page<Payment> findForMonitoring(@Param("keyword") String keyword, Pageable pageable);
 
@@ -79,20 +93,24 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
                 select payment
                   from Payment payment
                   join fetch payment.booking booking
+                  left join payment.order bookingOrder
                  where payment.status = :status
                    and (:keyword = ''
                         or lower(payment.paymentCode) like lower(concat('%', :keyword, '%'))
-                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%')))
+                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%'))
+                        or lower(coalesce(bookingOrder.orderCode, '')) like lower(concat('%', :keyword, '%')))
                 """,
             countQuery =
                     """
                 select count(payment)
                   from Payment payment
                   join payment.booking booking
+                  left join payment.order bookingOrder
                  where payment.status = :status
                    and (:keyword = ''
                         or lower(payment.paymentCode) like lower(concat('%', :keyword, '%'))
-                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%')))
+                        or lower(booking.bookingCode) like lower(concat('%', :keyword, '%'))
+                        or lower(coalesce(bookingOrder.orderCode, '')) like lower(concat('%', :keyword, '%')))
                 """)
     Page<Payment> findForMonitoringByStatus(
             @Param("keyword") String keyword, @Param("status") PaymentStatus status, Pageable pageable);

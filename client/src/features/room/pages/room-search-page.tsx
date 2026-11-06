@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Form } from 'antd';
+import { App, Button, Flex, Form, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -123,6 +123,18 @@ export function RoomSearchPage() {
             void handleSearch(values, page - 1);
           }}
         />
+        <Flex justify="center" align="center" gap={16} wrap style={{ padding: '0 24px 40px' }}>
+          <Typography.Text>Bạn đi cùng gia đình hoặc nhóm và cần nhiều phòng?</Typography.Text>
+          <Button
+            onClick={() =>
+              navigate(
+                `/bookings/new?${new URLSearchParams({ checkIn: checkIn.format('YYYY-MM-DD'), checkOut: checkOut.format('YYYY-MM-DD') }).toString()}`,
+              )
+            }
+          >
+            Đặt nhiều phòng cùng lúc
+          </Button>
+        </Flex>
       </main>
       <MainFooter />
     </div>

@@ -1,6 +1,7 @@
 package com.hanbay.hotel.payment.domain;
 
 import com.hanbay.hotel.booking.domain.Booking;
+import com.hanbay.hotel.booking.domain.BookingOrder;
 import com.hanbay.hotel.common.domain.BaseEntity;
 import com.hanbay.hotel.payment.exception.InvalidPaymentStateException;
 import jakarta.persistence.*;
@@ -36,6 +37,26 @@ public class Payment extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private BookingOrder order;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "payment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PaymentAllocation> allocations = new ArrayList<>();
+
+    public void allocateTo(Booking roomBooking) {
+        allocations.add(PaymentAllocation.builder()
+                .payment(this)
+                .booking(roomBooking)
+                .amount(roomBooking.getTotalAmount())
+                .build());
+    }
+
+    public String referenceCode() {
+        return order == null ? booking.getBookingCode() : order.getOrderCode();
+    }
 
     @NaturalId
     @EqualsAndHashCode.Include
@@ -88,6 +109,30 @@ public class Payment extends BaseEntity {
         Objects.requireNonNull(refund, "Yêu cầu hoàn tiền không được để trống");
         refunds.add(refund);
         refund.assignPayment(this);
+    }
+
+    public void requestRefund(PaymentRefund refund) {
+        Objects.requireNonNull(refund, "Yêu cầu hoàn tiền không được để trống");
+        if (refund.getTransaction() != null || refund.getStatus() != PaymentRefundStatus.PENDING) {
+            throw new IllegalArgumentException("Yêu cầu hoàn tiền phải là yêu cầu mới đang chờ xử lý");
+        }
+        PaymentTransaction transaction = PaymentTransaction.builder()
+                .type(PaymentTransactionType.REFUND)
+                .status(PaymentTransactionStatus.PENDING)
+                .amount(refund.getAmount().longValueExact())
+                .currency(refund.getCurrency())
+                .providerMessage(
+                        refund.getReason() == null
+                                ? null
+                                : refund.getReason()
+                                        .substring(
+                                                0,
+                                                Math.min(255, refund.getReason().length())))
+                .receivedAt(refund.getRequestedAt())
+                .build();
+        addTransaction(transaction);
+        addRefund(refund);
+        refund.assignTransaction(transaction);
     }
 
     public void cancelPending(Instant cancelledAt) {

@@ -17,9 +17,6 @@ import com.hanbay.hotel.payment.domain.Payment;
 import com.hanbay.hotel.payment.domain.PaymentRefund;
 import com.hanbay.hotel.payment.domain.PaymentRefundStatus;
 import com.hanbay.hotel.payment.domain.PaymentStatus;
-import com.hanbay.hotel.payment.domain.PaymentTransaction;
-import com.hanbay.hotel.payment.domain.PaymentTransactionStatus;
-import com.hanbay.hotel.payment.domain.PaymentTransactionType;
 import com.hanbay.hotel.payment.repository.PaymentRepository;
 import com.hanbay.hotel.payment.service.CounterPaymentService;
 import com.hanbay.hotel.pricing.dto.result.RoomPricingResult;
@@ -123,8 +120,16 @@ public class StayModificationServiceImpl implements StayModificationService {
         counterPaymentService.settleAtCheckout(booking, collectedAmount, receptionist.getId());
         PaymentRefundStatus refundStatus = null;
         if (refundAmount > 0) {
-            Payment payment = paymentRepository
-                    .findFirstByBookingIdAndStatusOrderByPaidAtDesc(bookingId, PaymentStatus.SUCCESS)
+            Payment payment = (booking.getOrder() == null
+                            ? paymentRepository.findFirstByBookingIdAndStatusOrderByPaidAtDesc(
+                                    bookingId, PaymentStatus.SUCCESS)
+                            : paymentRepository
+                                    .findAllByOrderIdOrderByCreatedAtDesc(
+                                            booking.getOrder().getId())
+                                    .stream()
+                                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS
+                                            || p.getStatus() == PaymentStatus.PARTIALLY_REFUNDED)
+                                    .findFirst())
                     .orElseThrow(() -> StayModificationException.conflict(
                             "INSUFFICIENT_PAID_AMOUNT", "Không có khoản thanh toán thành công để hoàn tiền"));
             PaymentRefund refund = PaymentRefund.builder()
@@ -139,14 +144,7 @@ public class StayModificationServiceImpl implements StayModificationService {
                     .accountNumber(request.refundInformation().normalizedAccountNumber())
                     .requestedAt(clock.instant())
                     .build();
-            payment.addRefund(refund);
-            payment.addTransaction(PaymentTransaction.builder()
-                    .type(PaymentTransactionType.REFUND)
-                    .status(PaymentTransactionStatus.PENDING)
-                    .amount(refundAmount)
-                    .currency(CURRENCY)
-                    .receivedAt(clock.instant())
-                    .build());
+            payment.requestRefund(refund);
             refundStatus = PaymentRefundStatus.PENDING;
         }
         room.markDirtyAfterCheckout();
@@ -164,6 +162,11 @@ public class StayModificationServiceImpl implements StayModificationService {
         Booking booking = bookingRepository
                 .findByIdWithAssignedRoomForUpdate(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException("Không tìm thấy đặt phòng"));
+        if (booking.getOrder() != null) {
+            throw StayModificationException.conflict(
+                    "ORDER_EXTENSION_NOT_SUPPORTED",
+                    "Gia hạn từng phòng trong đơn nhiều phòng chưa được hỗ trợ. Vui lòng liên hệ lễ tân để đặt thêm kỳ lưu trú.");
+        }
         UUID userId = currentUserProvider
                 .currentUserId()
                 .orElseThrow(() -> new BookingNotFoundException("Không tìm thấy đặt phòng"));

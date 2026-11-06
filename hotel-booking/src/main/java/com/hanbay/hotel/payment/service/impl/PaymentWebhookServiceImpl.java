@@ -3,6 +3,7 @@ package com.hanbay.hotel.payment.service.impl;
 import com.hanbay.hotel.booking.domain.Booking;
 import com.hanbay.hotel.booking.domain.BookingStatus;
 import com.hanbay.hotel.booking.repository.BookingRepository;
+import com.hanbay.hotel.booking.service.BookingOrderPaymentService;
 import com.hanbay.hotel.payment.config.SePayProperties;
 import com.hanbay.hotel.payment.domain.*;
 import com.hanbay.hotel.payment.dto.SePayTransferType;
@@ -45,6 +46,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
     private final SePayProperties sePayProperties;
     private final Clock clock;
     private final BookingRepository bookingRepository;
+    private final BookingOrderPaymentService orderPayments;
 
     @Override
     @Transactional
@@ -83,6 +85,12 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         Optional<String> paymentCode = extractPaymentCode(request);
         if (paymentCode.isEmpty()) {
             event.markIgnored(null, "Không tìm thấy mã thanh toán trong nội dung chuyển khoản.", now);
+            return;
+        }
+
+        var orderId = paymentRepository.findOrderIdByPaymentCode(paymentCode.get());
+        if (orderId.isPresent()) {
+            orderPayments.settle(orderId.get(), paymentCode.get(), request, event, now);
             return;
         }
 
@@ -195,21 +203,14 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
     }
 
     private void createRefund(Payment payment, long amount, String reason, String idempotencyKey, Instant now) {
-        payment.addRefund(PaymentRefund.builder()
+        payment.requestRefund(PaymentRefund.builder()
                 .amount(BigDecimal.valueOf(amount))
+                .refundMethod(null)
                 .currency("VND")
                 .status(PaymentRefundStatus.PENDING)
                 .reason(reason)
                 .idempotencyKey(idempotencyKey)
                 .requestedAt(now)
-                .build());
-        payment.addTransaction(PaymentTransaction.builder()
-                .type(PaymentTransactionType.REFUND)
-                .status(PaymentTransactionStatus.PENDING)
-                .amount(amount)
-                .currency("VND")
-                .providerMessage(reason)
-                .receivedAt(now)
                 .build());
     }
 

@@ -19,6 +19,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -83,6 +84,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleRequestValidation(
             RequestValidationException exception, HttpServletRequest request) {
         return validationErrorResponse(request, Map.of(exception.getField(), exception.getMessage()));
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ApiErrorResponse> handleMissingHeader(
+            MissingRequestHeaderException exception, HttpServletRequest request) {
+        return validationErrorResponse(
+                request, Map.of(exception.getHeaderName(), "Thiếu thông tin bắt buộc trong header"));
+    }
+
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleConstraintViolation(
+            jakarta.validation.ConstraintViolationException exception, HttpServletRequest request) {
+        return validationErrorResponse(request, Map.of("request", "Thông tin yêu cầu không hợp lệ"));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

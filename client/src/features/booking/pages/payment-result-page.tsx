@@ -87,7 +87,7 @@ export function PaymentResultPage() {
               onRetry={() => void paymentQuery.refetch()}
             />
           ) : paymentQuery.data?.paymentStatus === 'PENDING' ? (
-            <PendingPaymentResult payment={paymentQuery.data} />
+            <PendingPaymentResult key={paymentQuery.data.paymentUrl} payment={paymentQuery.data} />
           ) : paymentQuery.data ? (
             <CompletedPaymentResult
               payment={paymentQuery.data}
@@ -157,7 +157,7 @@ function PendingPaymentResult({ payment }: { payment: PaymentStatusResponse }) {
             </Descriptions.Item>
             <Descriptions.Item label="Tên tài khoản">{payment.accountName}</Descriptions.Item>
             <Descriptions.Item label="Số tiền">
-              {formatMoney(payment.amount, payment.currency)}
+              {formatMoney(payment.remainingAmount, payment.currency)}
             </Descriptions.Item>
             <Descriptions.Item label="Nội dung chuyển khoản">
               <Typography.Text
@@ -199,7 +199,11 @@ function CompletedPaymentResult({
           ...(canViewBooking
             ? [
                 <Link
-                  to={`/account/bookings/${encodeURIComponent(payment.bookingCode)}`}
+                  to={
+                    payment.bookingCode.startsWith('ORD-')
+                      ? `/booking-orders/${payment.bookingId}`
+                      : `/account/bookings/${encodeURIComponent(payment.bookingCode)}`
+                  }
                   key="booking"
                 >
                   <Button type="primary">Xem chi tiết đặt phòng</Button>

@@ -95,6 +95,20 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/bookings")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/booking-orders/my-orders")
+                        .authenticated()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/booking-orders",
+                                "/api/v1/booking-orders/*/payments",
+                                "/api/v1/booking-orders/*/cancel",
+                                "/api/v1/booking-orders/*/refund-information")
+                        .permitAll()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/booking-orders/*",
+                                "/api/v1/booking-orders/*/cancellation-eligibility")
+                        .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/bookings/*/check-in")
                         .hasRole("RECEPTIONIST")
                         .requestMatchers(HttpMethod.GET, "/api/v1/bookings/*/available-rooms")

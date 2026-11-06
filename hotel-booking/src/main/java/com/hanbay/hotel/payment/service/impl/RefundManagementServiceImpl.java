@@ -14,6 +14,7 @@ import com.hanbay.hotel.payment.dto.response.RefundRequestResponse;
 import com.hanbay.hotel.payment.exception.InvalidRefundStateException;
 import com.hanbay.hotel.payment.exception.RefundNotFoundException;
 import com.hanbay.hotel.payment.repository.PaymentRefundRepository;
+import com.hanbay.hotel.payment.repository.PaymentRepository;
 import com.hanbay.hotel.payment.service.RefundManagementService;
 import java.time.Clock;
 import java.time.Instant;
@@ -31,6 +32,7 @@ public class RefundManagementServiceImpl implements RefundManagementService {
 
     private static final int MAX_PAGE_SIZE = 100;
     private final PaymentRefundRepository refundRepository;
+    private final PaymentRepository paymentRepository;
     private final Clock clock;
     private final DashboardTableQuery tableQuery;
 
@@ -61,20 +63,26 @@ public class RefundManagementServiceImpl implements RefundManagementService {
     @Override
     @Transactional
     public RefundRequestResponse confirmRefund(UUID refundId, ConfirmRefundRequest request) {
+        UUID paymentId = refundRepository.findPaymentIdById(refundId).orElseThrow(RefundNotFoundException::new);
+        // Serialize every refund and webhook on the same payment before loading its ledger.
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId).orElseThrow(RefundNotFoundException::new);
         PaymentRefund refund = refundRepository.findByIdForUpdate(refundId).orElseThrow(RefundNotFoundException::new);
         if (refund.getStatus() != PaymentRefundStatus.PENDING) {
             throw new InvalidRefundStateException("Yêu cầu hoàn tiền đã được xử lý");
         }
 
-        Payment payment = refund.getPayment();
         Instant now = clock.instant();
         String bankReference = request.normalizedBankReference();
-        PaymentTransaction transaction = payment.getTransactions().stream()
-                .filter(item -> item.getType() == PaymentTransactionType.REFUND)
-                .filter(item -> item.getStatus() == PaymentTransactionStatus.PENDING)
-                .filter(item -> item.getAmount() == refund.getAmount().longValueExact())
-                .findFirst()
-                .orElseThrow(() -> new InvalidRefundStateException("Không tìm thấy giao dịch hoàn tiền đang chờ"));
+        PaymentTransaction transaction = refund.getTransaction();
+        if (transaction == null
+                || !transaction.getPayment().getId().equals(paymentId)
+                || transaction.getType() != PaymentTransactionType.REFUND
+                || transaction.getStatus() != PaymentTransactionStatus.PENDING
+                || transaction.getAmount() != refund.getAmount().longValueExact()
+                || !transaction.getCurrency().equals(refund.getCurrency())) {
+            throw new InvalidRefundStateException(
+                    "Giao dịch hoàn tiền chưa được liên kết hợp lệ; cần đối soát trước khi xác nhận");
+        }
 
         refund.markSuccessful(bankReference, now);
         transaction.markSuccessful(bankReference, now);
@@ -86,7 +94,7 @@ public class RefundManagementServiceImpl implements RefundManagementService {
         Payment payment = refund.getPayment();
         return new RefundRequestResponse(
                 refund.getId(),
-                payment.getBooking().getBookingCode(),
+                payment.referenceCode(),
                 payment.getPaymentCode(),
                 refund.getAmount(),
                 refund.getCurrency(),

@@ -35,8 +35,9 @@ export interface CreatePaymentRequestResponse {
   bookingCode: string;
   transactionRef: string;
   amount: number;
+  remainingAmount: number;
   currency: 'VND';
-  status: 'PENDING';
+  status: BookingPaymentStatus;
   paymentUrl: string;
   expiredAt: string;
   bankCode: string;
@@ -59,6 +60,7 @@ export interface PaymentStatusResponse {
   childCount: number;
   totalNights: number;
   amount: number;
+  remainingAmount: number;
   paidAmount: number;
   currency: 'VND';
   refundStatus: PaymentRefundStatus | null;

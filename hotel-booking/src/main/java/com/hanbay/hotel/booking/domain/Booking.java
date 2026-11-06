@@ -48,6 +48,12 @@ public class Booking extends BaseEntity {
     private User bookedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private BookingOrder order;
+
+    private Integer orderRoomNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_type_id", nullable = false)
     private RoomType roomType;
 
@@ -124,6 +130,12 @@ public class Booking extends BaseEntity {
                 .build();
 
         addStatusHistory(history);
+    }
+
+    public void assignOrder(BookingOrder order, int roomNumber) {
+        this.order = Objects.requireNonNull(order);
+        this.orderRoomNumber = roomNumber;
+        this.expiredAt = order.getExpiresAt();
     }
 
     public void addGuest(BookingGuest guest) {
@@ -248,7 +260,7 @@ public class Booking extends BaseEntity {
     }
 
     public void cancel(User cancelledBy, String reason, Instant cancelledAt) {
-        Objects.requireNonNull(cancelledBy, "Người hủy không được để trống");
+        if (order == null) Objects.requireNonNull(cancelledBy, "Người hủy không được để trống");
         Objects.requireNonNull(cancelledAt, "Thời gian hủy không được để trống");
         if (reason == null || reason.trim().isEmpty()) {
             throw new BookingValidationException("Lý do hủy không được để trống");

@@ -10,6 +10,8 @@ Nguồn quy tắc/biên chính xác: [thời gian và inventory](../23-stay-time
 
 ## 1. Mở file nào
 
+Đặt nhiều phòng và các luồng sửa ngày 06/11/2026: [hướng dẫn kiểm tra nhóm phòng](multi-room-booking-regression.md), gồm thanh toán thiếu, QR, hoàn tiền đồng thời, hết hạn và phí trả phòng.
+
 | File | Cách dùng |
 | --- | --- |
 | [Excel checklist](web-test-cases.xlsx) | File chính để chạy: có bộ lọc, cố định hàng tiêu đề, dropdown trạng thái; ghi thực tế, bằng chứng, mã lỗi. |

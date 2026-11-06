@@ -314,7 +314,19 @@ export function BookingPaymentPage({
                     }
                   />
                 )}
-                <PaymentInstructions payment={payment} onCopy={copyText} />
+                <PaymentInstructions
+                  key={paymentStatus?.paymentUrl ?? payment.paymentUrl}
+                  payment={
+                    paymentStatus
+                      ? {
+                          ...payment,
+                          remainingAmount: paymentStatus.remainingAmount,
+                          paymentUrl: paymentStatus.paymentUrl,
+                        }
+                      : payment
+                  }
+                  onCopy={copyText}
+                />
               </Flex>
             ) : null}
           </Card>
@@ -404,7 +416,7 @@ interface PaymentInstructionsProps {
   onCopy: (value: string, successMessage: string) => Promise<void>;
 }
 
-function PaymentInstructions({ payment, onCopy }: PaymentInstructionsProps) {
+export function PaymentInstructions({ payment, onCopy }: PaymentInstructionsProps) {
   const { token } = theme.useToken();
   const expiresAt = dayjs(payment.expiredAt);
   const [qrUnavailable, setQrUnavailable] = useState(false);
@@ -468,7 +480,7 @@ function PaymentInstructions({ payment, onCopy }: PaymentInstructionsProps) {
             </Descriptions.Item>
             <Descriptions.Item label="Tên tài khoản">{payment.accountName}</Descriptions.Item>
             <Descriptions.Item label="Số tiền">
-              <Typography.Text strong>{formatMoney(payment.amount)}</Typography.Text>
+              <Typography.Text strong>{formatMoney(payment.remainingAmount)}</Typography.Text>
             </Descriptions.Item>
             <Descriptions.Item label="Nội dung">
               <Flex wrap="wrap" gap={8} align="center">

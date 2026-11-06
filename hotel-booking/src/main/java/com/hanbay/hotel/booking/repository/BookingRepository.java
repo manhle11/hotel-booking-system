@@ -17,6 +17,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+    @Query("select b.id from Booking b where b.order.id = :orderId order by b.id")
+    java.util.List<UUID> findIdsByOrderId(@Param("orderId") UUID orderId);
+
+    @Query("select distinct b.roomType.id from Booking b where b.order.id = :orderId")
+    java.util.List<UUID> findRoomTypeIdsByOrderId(@Param("orderId") UUID orderId);
+
     @Query(
             value =
                     """
@@ -76,7 +82,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             """
             SELECT booking
             FROM Booking booking
-            JOIN FETCH booking.roomType
             WHERE booking.bookingCode = :bookingCode
             """)
     Optional<Booking> findByBookingCodeWithRoomTypeForUpdate(@Param("bookingCode") String bookingCode);
@@ -90,10 +95,13 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     boolean existsByBookingCode(String bookingCode);
 
     @EntityGraph(attributePaths = "roomType")
-    Page<Booking> findAllByBookedById(UUID userId, Pageable pageable);
+    @Query("select b from Booking b where b.bookedBy.id = :userId and b.order is null")
+    Page<Booking> findAllByBookedById(@Param("userId") UUID userId, Pageable pageable);
 
     @EntityGraph(attributePaths = "roomType")
-    Page<Booking> findAllByBookedByIdAndStatus(UUID userId, BookingStatus status, Pageable pageable);
+    @Query("select b from Booking b where b.bookedBy.id = :userId and b.status = :status and b.order is null")
+    Page<Booking> findAllByBookedByIdAndStatus(
+            @Param("userId") UUID userId, @Param("status") BookingStatus status, Pageable pageable);
 
     @EntityGraph(attributePaths = "roomType")
     Page<Booking> findAllByCheckInDateAndStatus(LocalDate checkInDate, BookingStatus status, Pageable pageable);
@@ -106,7 +114,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     Page<Booking> findAllByStatus(BookingStatus status, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select booking from Booking booking join fetch booking.roomType where booking.id = :id")
+    @Query("select booking from Booking booking where booking.id = :id")
     java.util.Optional<Booking> findByIdForUpdate(@Param("id") UUID id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -133,6 +141,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             SELECT b
             FROM Booking b
             WHERE b.status = :status
+              AND b.order IS NULL
               AND b.expiredAt IS NOT NULL
               AND b.expiredAt <= :now
             """)
