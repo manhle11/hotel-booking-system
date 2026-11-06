@@ -18,14 +18,10 @@ public interface PaymentRefundRepository extends JpaRepository<PaymentRefund, UU
     @EntityGraph(attributePaths = {"payment", "payment.booking"})
     Page<PaymentRefund> findAllByStatus(PaymentRefundStatus status, Pageable pageable);
 
+    @Query("select refund.payment.id from PaymentRefund refund where refund.id = :refundId")
+    Optional<UUID> findPaymentIdById(@Param("refundId") UUID refundId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query(
-            """
-            select refund
-            from PaymentRefund refund
-            join fetch refund.payment payment
-            join fetch payment.booking booking
-            where refund.id = :refundId
-            """)
+    @Query("select refund from PaymentRefund refund where refund.id = :refundId")
     Optional<PaymentRefund> findByIdForUpdate(@Param("refundId") UUID refundId);
 }

@@ -298,6 +298,16 @@ public class BookingOrderService {
 
     private BookingOrderResponse toResponse(BookingOrder order) {
         Payment payment = latestPayment(order);
+        long totalAmount =
+                order.getBookings().stream().mapToLong(Booking::getTotalAmount).sum();
+        long remainingAmount = payment == null
+                ? 0
+                : Math.max(
+                        0,
+                        payment.getAmount()
+                                - payment.getAllocations().stream()
+                                        .mapToLong(allocation -> allocation.getAppliedAmount())
+                                        .sum());
         long paid =
                 order.getBookings().stream().mapToLong(Booking::getPaidAmount).sum();
         long refund = payment == null
@@ -326,7 +336,7 @@ public class BookingOrderService {
                 order.getCheckOutDate(),
                 order.getContactName(),
                 order.getContactEmail(),
-                order.getTotalAmount(),
+                totalAmount,
                 paid,
                 "VND",
                 order.getExpiresAt(),
@@ -349,14 +359,18 @@ public class BookingOrderService {
                 payment == null
                         ? null
                         : CreatePaymentRequestResponse.from(
-                                payment, sePayService.generateQr(payment.getAmount(), payment.getPaymentCode())),
+                                payment,
+                                sePayService.generateQr(remainingAmount, payment.getPaymentCode()),
+                                remainingAmount),
                 payment == null ? null : payment.getStatus(),
                 refund,
                 refundStatus,
                 payment != null
                         && payment.getRefunds().stream()
                                 .anyMatch(r ->
-                                        r.getStatus() == PaymentRefundStatus.PENDING && r.getRefundMethod() == null));
+                                        r.getStatus() == PaymentRefundStatus.PENDING && r.getRefundMethod() == null),
+                order.getTotalAmount(),
+                totalAmount - order.getTotalAmount());
     }
 
     private static BookingNotFoundException notFound() {

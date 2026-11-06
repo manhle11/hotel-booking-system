@@ -17,9 +17,6 @@ import com.hanbay.hotel.payment.domain.Payment;
 import com.hanbay.hotel.payment.domain.PaymentRefund;
 import com.hanbay.hotel.payment.domain.PaymentRefundStatus;
 import com.hanbay.hotel.payment.domain.PaymentStatus;
-import com.hanbay.hotel.payment.domain.PaymentTransaction;
-import com.hanbay.hotel.payment.domain.PaymentTransactionStatus;
-import com.hanbay.hotel.payment.domain.PaymentTransactionType;
 import com.hanbay.hotel.payment.repository.PaymentRepository;
 import com.hanbay.hotel.payment.service.CounterPaymentService;
 import com.hanbay.hotel.pricing.dto.result.RoomPricingResult;
@@ -147,14 +144,7 @@ public class StayModificationServiceImpl implements StayModificationService {
                     .accountNumber(request.refundInformation().normalizedAccountNumber())
                     .requestedAt(clock.instant())
                     .build();
-            payment.addRefund(refund);
-            payment.addTransaction(PaymentTransaction.builder()
-                    .type(PaymentTransactionType.REFUND)
-                    .status(PaymentTransactionStatus.PENDING)
-                    .amount(refundAmount)
-                    .currency(CURRENCY)
-                    .receivedAt(clock.instant())
-                    .build());
+            payment.requestRefund(refund);
             refundStatus = PaymentRefundStatus.PENDING;
         }
         room.markDirtyAfterCheckout();

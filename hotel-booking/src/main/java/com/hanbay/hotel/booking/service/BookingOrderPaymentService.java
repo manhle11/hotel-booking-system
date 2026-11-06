@@ -161,14 +161,6 @@ public class BookingOrderPaymentService {
                     .accountHolderName(information.normalizedAccountHolderName())
                     .accountNumber(information.normalizedAccountNumber());
         }
-        payment.addRefund(builder.build());
-        payment.addTransaction(PaymentTransaction.builder()
-                .type(PaymentTransactionType.REFUND)
-                .status(PaymentTransactionStatus.PENDING)
-                .amount(amount)
-                .currency("VND")
-                .providerMessage(reason)
-                .receivedAt(now)
-                .build());
+        payment.requestRefund(builder.build());
     }
 }

@@ -203,7 +203,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
     }
 
     private void createRefund(Payment payment, long amount, String reason, String idempotencyKey, Instant now) {
-        payment.addRefund(PaymentRefund.builder()
+        payment.requestRefund(PaymentRefund.builder()
                 .amount(BigDecimal.valueOf(amount))
                 .refundMethod(null)
                 .currency("VND")
@@ -211,14 +211,6 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
                 .reason(reason)
                 .idempotencyKey(idempotencyKey)
                 .requestedAt(now)
-                .build());
-        payment.addTransaction(PaymentTransaction.builder()
-                .type(PaymentTransactionType.REFUND)
-                .status(PaymentTransactionStatus.PENDING)
-                .amount(amount)
-                .currency("VND")
-                .providerMessage(reason)
-                .receivedAt(now)
                 .build());
     }
 

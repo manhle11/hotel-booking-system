@@ -14,9 +14,12 @@ import com.hanbay.hotel.booking.service.*;
 import com.hanbay.hotel.payment.domain.*;
 import com.hanbay.hotel.payment.dto.SePayTransferType;
 import com.hanbay.hotel.payment.dto.request.*;
+import com.hanbay.hotel.payment.exception.InvalidRefundStateException;
+import com.hanbay.hotel.payment.repository.PaymentRefundRepository;
 import com.hanbay.hotel.payment.repository.PaymentRepository;
 import com.hanbay.hotel.payment.service.PaymentService;
 import com.hanbay.hotel.payment.service.PaymentWebhookService;
+import com.hanbay.hotel.payment.service.RefundManagementService;
 import com.hanbay.hotel.pricing.dto.result.PricingResult;
 import com.hanbay.hotel.pricing.dto.result.RoomPricingResult;
 import com.hanbay.hotel.pricing.service.PricingService;
@@ -109,6 +112,18 @@ class BookingOrderIntegrationTest {
 
     @Autowired
     CheckInService checkInService;
+
+    @Autowired
+    CheckOutService checkOutService;
+
+    @Autowired
+    RefundManagementService refundManagement;
+
+    @Autowired
+    PaymentRefundRepository refunds;
+
+    @Autowired
+    javax.sql.DataSource dataSource;
 
     @Autowired
     TransactionTemplate transaction;
@@ -254,11 +269,22 @@ class BookingOrderIntegrationTest {
         var partial = service.get(order.orderId(), TOKEN);
         assertThat(partial.status()).isEqualTo(BookingOrderStatus.PENDING);
         assertThat(partial.paidAmount()).isEqualTo(1500);
+        assertThat(partial.payment().amount()).isEqualTo(4000);
+        assertThat(partial.payment().remainingAmount()).isEqualTo(2500);
+        assertThat(partial.payment().paymentUrl()).contains("amount=2500");
+        var reused = service.createPayment(order.orderId(), TOKEN);
+        assertThat(reused.payment().paymentId()).isEqualTo(order.payment().paymentId());
+        assertThat(reused.payment().remainingAmount()).isEqualTo(2500);
+        var paymentStatus = paymentService.getPaymentStatus(order.payment().paymentId(), TOKEN);
+        assertThat(paymentStatus.amount()).isEqualTo(4000);
+        assertThat(paymentStatus.remainingAmount()).isEqualTo(2500);
+        assertThat(paymentStatus.paymentUrl()).contains("amount=2500");
         assertThat(partial.rooms()).allSatisfy(room -> assertThat(room.status()).isEqualTo(BookingStatus.PENDING));
         webhook(transfer(order, 2500));
         var completed = service.get(order.orderId(), TOKEN);
         assertThat(completed.status()).isEqualTo(BookingOrderStatus.CONFIRMED);
         assertThat(completed.paymentStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(completed.payment().remainingAmount()).isZero();
         assertThat(completed.rooms()).allSatisfy(room -> {
             assertThat(room.status()).isEqualTo(BookingStatus.CONFIRMED);
             assertThat(room.paidAmount()).isEqualTo(room.totalAmount());
@@ -335,18 +361,21 @@ class BookingOrderIntegrationTest {
         assertThatThrownBy(() -> service.cancel(order.orderId(), TOKEN, new CancelBookingRequest("Hủy")))
                 .isInstanceOf(BookingValidationException.class);
         var bank = new RefundInformationRequest(RefundMethod.BANK_TRANSFER, "Test bank", "TEST GUEST", "12345678");
-        var cancelled = service.cancel(order.orderId(), TOKEN, new CancelBookingRequest("Đổi kế hoạch", bank));
+        String reason = "H".repeat(500);
+        var cancelled = service.cancel(order.orderId(), TOKEN, new CancelBookingRequest(reason, bank));
         assertThat(cancelled.refundAmount()).isEqualTo(4000);
         assertThat(cancelled.status()).isEqualTo(BookingOrderStatus.CANCELLED);
-        transaction.executeWithoutResult(
-                status -> assertThat(payments.findById(order.payment().paymentId())
+        transaction.executeWithoutResult(status -> assertThat(
+                        payments.findById(order.payment().paymentId())
                                 .orElseThrow()
                                 .getRefunds())
-                        .singleElement()
-                        .satisfies(refund -> {
-                            assertThat(refund.getBankName()).isEqualTo("Test bank");
-                            assertThat(refund.getAmount()).isEqualByComparingTo("4000");
-                        }));
+                .singleElement()
+                .satisfies(refund -> {
+                    assertThat(refund.getBankName()).isEqualTo("Test bank");
+                    assertThat(refund.getAmount()).isEqualByComparingTo("4000");
+                    assertThat(refund.getReason()).isEqualTo(reason);
+                    assertThat(refund.getTransaction().getProviderMessage()).hasSize(255);
+                }));
     }
 
     @Test
@@ -427,6 +456,261 @@ class BookingOrderIntegrationTest {
                 .isFalse();
         assertThatThrownBy(() -> service.cancel(order.orderId(), TOKEN, new CancelBookingRequest("Hủy")))
                 .isInstanceOf(BookingCancellationNotAllowedException.class);
+    }
+
+    @Test
+    void simultaneousEqualRefundsConfirmTheirOwnTransactionsAndReconcileThePayment() throws Exception {
+        var order = createTwoEqualRefunds();
+        var ids = refundIds(order);
+        var executor = Executors.newFixedThreadPool(2);
+        CountDownLatch started = new CountDownLatch(2);
+        try (var connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try (var lock = connection.prepareStatement("select id from payments where id = ? for update")) {
+                lock.setObject(1, order.payment().paymentId());
+                lock.executeQuery().close();
+            }
+            var first = executor.submit(() -> {
+                started.countDown();
+                return refundManagement.confirmRefund(ids.get(0), new ConfirmRefundRequest("BANK-FIRST"));
+            });
+            var second = executor.submit(() -> {
+                started.countDown();
+                return refundManagement.confirmRefund(ids.get(1), new ConfirmRefundRequest("BANK-SECOND"));
+            });
+            assertThat(started.await(10, TimeUnit.SECONDS)).isTrue();
+            // Both calls must wait for the shared payment, even though refund ids differ.
+            assertThatThrownBy(() -> first.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            assertThatThrownBy(() -> second.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            connection.commit();
+            assertThat(first.get(20, TimeUnit.SECONDS).status()).isEqualTo(PaymentRefundStatus.SUCCESS);
+            assertThat(second.get(20, TimeUnit.SECONDS).status()).isEqualTo(PaymentRefundStatus.SUCCESS);
+        } finally {
+            executor.shutdownNow();
+        }
+        transaction.executeWithoutResult(status -> {
+            Payment payment = payments.findById(order.payment().paymentId()).orElseThrow();
+            assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
+            assertThat(payment.getRefunds()).hasSize(2).allSatisfy(refund -> {
+                assertThat(refund.getStatus()).isEqualTo(PaymentRefundStatus.SUCCESS);
+                assertThat(refund.getTransaction().getStatus()).isEqualTo(PaymentTransactionStatus.SUCCESS);
+                assertThat(refund.getTransaction().getTransactionRef()).isEqualTo(refund.getProviderRefundId());
+            });
+            assertThat(payment.getRefunds())
+                    .extracting(r -> r.getTransaction().getId())
+                    .doesNotHaveDuplicates();
+            assertThat(payment.getTransactions().stream().filter(t -> t.getType() == PaymentTransactionType.REFUND))
+                    .hasSize(2)
+                    .allSatisfy(t -> assertThat(t.getStatus()).isEqualTo(PaymentTransactionStatus.SUCCESS));
+        });
+    }
+
+    @Test
+    void repeatedConfirmationCannotCompleteAnotherEqualAmountRefund() {
+        var order = createTwoEqualRefunds();
+        var ids = refundIds(order);
+        refundManagement.confirmRefund(ids.get(1), new ConfirmRefundRequest("BANK-SECOND-FIRST"));
+        assertThatThrownBy(() -> refundManagement.confirmRefund(ids.get(1), new ConfirmRefundRequest("BANK-RETRY")))
+                .isInstanceOf(InvalidRefundStateException.class);
+        transaction.executeWithoutResult(status -> {
+            var untouched = refunds.findById(ids.get(0)).orElseThrow();
+            assertThat(untouched.getStatus()).isEqualTo(PaymentRefundStatus.PENDING);
+            assertThat(untouched.getTransaction().getStatus()).isEqualTo(PaymentTransactionStatus.PENDING);
+            assertThat(payments.findById(order.payment().paymentId())
+                            .orElseThrow()
+                            .getStatus())
+                    .isEqualTo(PaymentStatus.PARTIALLY_REFUNDED);
+        });
+        refundManagement.confirmRefund(ids.get(0), new ConfirmRefundRequest("BANK-FIRST-LAST"));
+        assertThat(payments.findById(order.payment().paymentId()).orElseThrow().getStatus())
+                .isEqualTo(PaymentStatus.REFUNDED);
+    }
+
+    @Test
+    void unlinkedHistoricalRefundRequiresReconciliationInsteadOfMatchingByAmount() {
+        var order = createTwoEqualRefunds();
+        var id = refundIds(order).get(0);
+        transaction.executeWithoutResult(status -> {
+            try (var connection = dataSource.getConnection();
+                    var statement = connection.prepareStatement(
+                            "update payment_refunds set transaction_id = null where id = ?")) {
+                statement.setObject(1, id);
+                statement.executeUpdate();
+            } catch (java.sql.SQLException exception) {
+                throw new IllegalStateException(exception);
+            }
+        });
+        assertThatThrownBy(() -> refundManagement.confirmRefund(id, new ConfirmRefundRequest("BANK-UNLINKED")))
+                .isInstanceOf(InvalidRefundStateException.class)
+                .hasMessageContaining("đối soát");
+        assertThat(refunds.findById(id).orElseThrow().getStatus()).isEqualTo(PaymentRefundStatus.PENDING);
+    }
+
+    @Test
+    void migrationLinksEqualPendingRefundsAndCompletedRefundsOneToOne() throws Exception {
+        var order = createTwoEqualRefunds();
+        var ids = refundIds(order);
+        clearRefundLinksAndRunBackfill(order);
+        transaction.executeWithoutResult(status -> {
+            var restored =
+                    payments.findById(order.payment().paymentId()).orElseThrow().getRefunds();
+            assertThat(restored).allSatisfy(r -> assertThat(r.getTransaction()).isNotNull());
+            assertThat(restored).extracting(r -> r.getTransaction().getId()).doesNotHaveDuplicates();
+        });
+        refundManagement.confirmRefund(ids.get(0), new ConfirmRefundRequest("MIGRATION-FIRST"));
+        refundManagement.confirmRefund(ids.get(1), new ConfirmRefundRequest("MIGRATION-SECOND"));
+        clearRefundLinksAndRunBackfill(order);
+        transaction.executeWithoutResult(status -> {
+            var restored =
+                    payments.findById(order.payment().paymentId()).orElseThrow().getRefunds();
+            assertThat(restored).allSatisfy(r -> assertThat(r.getTransaction().getTransactionRef())
+                    .isEqualTo(r.getProviderRefundId()));
+        });
+    }
+
+    @Test
+    void migrationLeavesAnInconsistentHistoricalLedgerForReconciliation() throws Exception {
+        var order = createTwoEqualRefunds();
+        var ids = refundIds(order);
+        try (var connection = dataSource.getConnection();
+                var statement = connection.prepareStatement(
+                        "update payment_refunds set status = 'SUCCESS', provider_refund_id = 'OLD-BANK-REF' where id = ?")) {
+            statement.setObject(1, ids.get(0));
+            statement.executeUpdate();
+        }
+        clearRefundLinksAndRunBackfill(order);
+        transaction.executeWithoutResult(status -> {
+            var historical = payments.findById(order.payment().paymentId()).orElseThrow();
+            assertThat(historical.getRefunds())
+                    .allSatisfy(r -> assertThat(r.getTransaction()).isNull());
+            assertThat(historical.getTransactions().stream().filter(t -> t.getType() == PaymentTransactionType.REFUND))
+                    .allSatisfy(t -> assertThat(t.getStatus()).isEqualTo(PaymentTransactionStatus.PENDING));
+        });
+        assertThatThrownBy(
+                        () -> refundManagement.confirmRefund(ids.get(1), new ConfirmRefundRequest("MIGRATION-RETRY")))
+                .isInstanceOf(InvalidRefundStateException.class);
+    }
+
+    private void clearRefundLinksAndRunBackfill(BookingOrderResponse order) throws Exception {
+        var resource = new org.springframework.core.io.ClassPathResource(
+                "db/migration/V202611061800__link_refund_transactions.sql");
+        String migration;
+        try (var stream = resource.getInputStream()) {
+            migration = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        // Flyway already created the column in this database. Re-run only the exact backfill SQL.
+        String backfill = migration.substring(migration.indexOf(';') + 1);
+        try (var connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try (var clear = connection.prepareStatement(
+                    "update payment_refunds set transaction_id = null where payment_id = ?")) {
+                clear.setObject(1, order.payment().paymentId());
+                clear.executeUpdate();
+            }
+            org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(
+                    connection,
+                    new org.springframework.core.io.ByteArrayResource(
+                            backfill.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            connection.commit();
+        }
+    }
+
+    @Test
+    void legacyStatusExpiresAtTheDeadlineOnPostgresWithoutOverwritingSuccessfulPayment() {
+        var booking = bookingService.createPendingBooking(
+                new CreatePendingBookingRequest(deluxe, CHECK_IN, CHECK_IN.plusDays(2), 1, 0, guest(), List.of()));
+        var payment = paymentService.createPaymentRequest(
+                new CreatePaymentRequest(booking.bookingId()), booking.bookingAccessToken());
+        when(clock.instant()).thenReturn(payment.expiredAt().minusNanos(1));
+        assertThat(paymentService
+                        .getPaymentStatus(payment.paymentId(), booking.bookingAccessToken())
+                        .paymentStatus())
+                .isEqualTo(PaymentStatus.PENDING);
+        when(clock.instant()).thenReturn(payment.expiredAt());
+        assertThat(paymentService
+                        .getPaymentStatus(payment.paymentId(), booking.bookingAccessToken())
+                        .paymentStatus())
+                .isEqualTo(PaymentStatus.EXPIRED);
+        assertThat(paymentService
+                        .getPaymentStatus(payment.paymentId(), booking.bookingAccessToken())
+                        .paymentStatus())
+                .isEqualTo(PaymentStatus.EXPIRED);
+        when(clock.instant()).thenReturn(NOW);
+        var paid = service.createPayment(create(suite).orderId(), TOKEN);
+        webhook(transfer(paid, 2000));
+        transaction.executeWithoutResult(
+                status -> assertThat(payments.markPendingExpired(paid.payment().paymentId(), NOW.plusSeconds(901)))
+                        .isZero());
+        assertThat(payments.findById(paid.payment().paymentId()).orElseThrow().getStatus())
+                .isEqualTo(PaymentStatus.SUCCESS);
+    }
+
+    @Test
+    void checkoutChargesUpdateActualOrderTotalWithoutChangingOriginalPaymentAllocations() {
+        var order = service.createPayment(create(deluxe, deluxe).orderId(), TOKEN);
+        webhook(transfer(order, 4000));
+        when(clock.instant())
+                .thenReturn(CHECK_IN.atTime(15, 0)
+                        .atZone(ZoneId.of("Asia/Ho_Chi_Minh"))
+                        .toInstant());
+        UUID receptionist = transaction.execute(
+                status -> users.saveAndFlush(User.builder().build()).getId());
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken(receptionist.toString(), null, "ROLE_RECEPTIONIST"));
+        for (var room : order.rooms()) {
+            var available = checkInService.getAvailableRooms(room.bookingCode());
+            checkInService.checkIn(
+                    room.bookingCode(), new CheckInGuestRequest(available.get(0).roomId(), null));
+        }
+        when(clock.instant())
+                .thenReturn(CHECK_IN.plusDays(2)
+                        .atTime(11, 0)
+                        .atZone(ZoneId.of("Asia/Ho_Chi_Minh"))
+                        .toInstant());
+        assertThatThrownBy(() -> checkOutService.checkOut(
+                        order.rooms().get(0).bookingId(),
+                        new CheckOutGuestRequest("Phí minibar", 200L, "Minibar", 100L)))
+                .isInstanceOf(CheckOutConflictException.class);
+        assertThat(service.get(order.orderId(), TOKEN).totalAmount()).isEqualTo(4000);
+        checkOutService.checkOut(
+                order.rooms().get(0).bookingId(), new CheckOutGuestRequest("Phí minibar", 200L, "Minibar", 200L));
+        var updated = service.get(order.orderId(), TOKEN);
+        assertThat(updated.bookedAmount()).isEqualTo(4000);
+        assertThat(updated.additionalChargeAmount()).isEqualTo(200);
+        assertThat(updated.totalAmount()).isEqualTo(4200);
+        assertThat(updated.paidAmount()).isEqualTo(4200);
+        assertThat(updated.rooms())
+                .extracting(BookingOrderResponse.Room::status)
+                .containsExactly(BookingStatus.CHECKED_OUT, BookingStatus.CHECKED_IN);
+        assertThat(updated.rooms())
+                .extracting(BookingOrderResponse.Room::totalAmount)
+                .containsExactly(2200L, 2000L);
+        transaction.executeWithoutResult(status -> {
+            assertThat(orders.findById(order.orderId()).orElseThrow().getTotalAmount())
+                    .isEqualTo(4000);
+            var payment = payments.findById(order.payment().paymentId()).orElseThrow();
+            assertThat(payment.getAmount()).isEqualTo(4000);
+            assertThat(payment.getAllocations())
+                    .extracting(PaymentAllocation::getAmount)
+                    .containsExactly(2000L, 2000L);
+        });
+    }
+
+    private BookingOrderResponse createTwoEqualRefunds() {
+        var order = service.createPayment(create(deluxe, suite).orderId(), TOKEN);
+        webhook(transfer(order, 500));
+        var bank = new RefundInformationRequest(RefundMethod.BANK_TRANSFER, "Test bank", "Guest", "12345678");
+        service.cancel(order.orderId(), TOKEN, new CancelBookingRequest("Hủy sau thanh toán thiếu", bank));
+        webhook(transfer(order, 500));
+        service.supplyRefundInformation(order.orderId(), TOKEN, bank);
+        return order;
+    }
+
+    private List<UUID> refundIds(BookingOrderResponse order) {
+        return transaction.execute(
+                status -> payments.findById(order.payment().paymentId()).orElseThrow().getRefunds().stream()
+                        .map(PaymentRefund::getId)
+                        .toList());
     }
 
     private BookingOrderResponse create(UUID... types) {

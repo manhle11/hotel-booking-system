@@ -158,7 +158,9 @@ public class PaymentServiceImpl implements PaymentService {
         Booking booking = payment.getBooking();
         var order = payment.getOrder();
         PaymentRefund refund = findRelevantRefund(payment);
-        SePayQrInfo qrInfo = sePayService.generateQr(payment.getAmount(), payment.getPaymentCode());
+        long receivedAmount = paymentTransactionRepository.sumSuccessfulPaymentAmount(payment.getId());
+        long remainingAmount = Math.max(0, payment.getAmount() - receivedAmount);
+        SePayQrInfo qrInfo = sePayService.generateQr(remainingAmount, payment.getPaymentCode());
         return new PaymentStatusResponse(
                 payment.getId(),
                 order == null ? booking.getId() : order.getId(),
@@ -187,7 +189,7 @@ public class PaymentServiceImpl implements PaymentService {
                                 .sum(),
                 java.time.temporal.ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate()),
                 payment.getAmount(),
-                paymentTransactionRepository.sumSuccessfulPaymentAmount(payment.getId()),
+                receivedAmount,
                 payment.getCurrency(),
                 refund == null ? null : refund.getStatus(),
                 refund == null ? null : refund.getAmount(),
@@ -198,7 +200,8 @@ public class PaymentServiceImpl implements PaymentService {
                 qrInfo.accountName(),
                 qrInfo.transferContent(),
                 payment.getExpiresAt(),
-                payment.getPaidAt());
+                payment.getPaidAt(),
+                remainingAmount);
     }
 
     private Payment findPayment(UUID paymentId) {

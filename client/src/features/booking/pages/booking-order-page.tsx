@@ -236,6 +236,7 @@ export function BookingOrderPage() {
                       )}
                       {order.payment ? (
                         <PaymentInstructions
+                          key={order.payment.paymentUrl}
                           payment={order.payment}
                           onCopy={async (value, success) => {
                             try {
@@ -321,8 +322,24 @@ export function BookingOrderPage() {
                     <Tag color={ORDER_STATUS[order.status].color}>
                       {ORDER_STATUS[order.status].label}
                     </Tag>
+                    <Descriptions column={1} size="small" style={{ marginTop: 24 }}>
+                      <Descriptions.Item label="Tiền đặt phòng ban đầu">
+                        {money(order.bookedAmount)}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Phí phát sinh">
+                        {money(order.additionalChargeAmount)}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Đã thanh toán">
+                        {money(order.paidAmount)}
+                      </Descriptions.Item>
+                      {(order.status === 'PENDING' || order.status === 'CONFIRMED') && (
+                        <Descriptions.Item label="Còn phải thanh toán">
+                          {money(Math.max(0, order.totalAmount - order.paidAmount))}
+                        </Descriptions.Item>
+                      )}
+                    </Descriptions>
                     <Statistic
-                      title="Tổng tiền toàn đơn"
+                      title="Tổng tiền thực tế"
                       value={order.totalAmount}
                       formatter={(value) => money(Number(value))}
                       style={{ marginTop: 24 }}

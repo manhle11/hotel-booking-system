@@ -33,4 +33,5 @@ public record PaymentStatusResponse(
         String accountName,
         String transferContent,
         Instant expiredAt,
-        Instant paidAt) {}
+        Instant paidAt,
+        long remainingAmount) {}

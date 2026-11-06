@@ -67,7 +67,8 @@ class BookingPaymentControllerTest {
                         "TESTBANK",
                         "0000000000",
                         "HANBAY HOTEL DEV",
-                        "PAY-20260813080000-ABC12345"));
+                        "PAY-20260813080000-ABC12345",
+                        2_450_000L));
 
         mockMvc.perform(
                         post("/api/v1/payments/requests")
@@ -133,7 +134,8 @@ class BookingPaymentControllerTest {
                         "HANBAY HOTEL",
                         "PAY-20260814070244-E02D78616064F1D9FA5F7DD96F876D",
                         expiredAt,
-                        null));
+                        null,
+                        2_450_000L));
 
         mockMvc.perform(get("/api/v1/payments/{paymentId}/status", paymentId)
                         .header("X-Booking-Access-Token", "booking-access-token"))

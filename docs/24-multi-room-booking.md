@@ -16,13 +16,15 @@
 2. `/bookings/new?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD` hiển thị phòng trống theo kỳ lưu trú. Có thể truyền `roomTypeId`, `adults`, `children` để chọn sẵn phòng đầu.
 3. Chọn số lượng từng loại phòng, số khách và dịch vụ của từng phòng; nhập thông tin người đặt một lần.
 4. Bấm giữ phòng. Backend kiểm tra lại giá, sức chứa và tổng số phòng; chuyển tới `/booking-orders/:orderId` sau khi giữ thành công.
-5. Đồng ý điều khoản và tạo QR. Mã QR dùng tổng tiền toàn đơn. Trang chi tiết tự cập nhật trạng thái thanh toán.
+5. Đồng ý điều khoản và tạo QR. Mã QR ban đầu dùng tổng tiền toàn đơn; sau thanh toán một phần, QR và hướng dẫn chuyển khoản dùng số còn thiếu. Trang chi tiết tự cập nhật trạng thái thanh toán.
 6. Tài khoản đã đăng nhập xem các đơn mới trong lịch sử đặt phòng; booking cũ tiếp tục được hiển thị riêng. Khách vãng lai xem lại đơn trên cùng tab/trình duyệt bằng token trong `sessionStorage`.
 7. Có thể hủy toàn đơn nếu tất cả phòng còn đủ điều kiện. Nếu có tiền hoàn, khách cung cấp tài khoản ngân hàng. Với tiền chuyển thừa/đến muộn, trang đơn cho phép bổ sung tài khoản nhận hoàn sau khi phát sinh yêu cầu.
 
 ## Dữ liệu và tương thích
 
 Migration: `V202611041000__add_multi_room_booking_orders.sql`. Flyway áp dụng khi backend khởi động hoặc chạy kiểm thử tích hợp. Không thay đổi hay xóa booking cũ.
+
+Migration bổ sung `V202611061800__link_refund_transactions.sql` liên kết một-một yêu cầu hoàn với giao dịch hoàn, bao gồm backfill có điều kiện cho dữ liệu cũ. API payment bổ sung `remainingAmount`; API đơn bổ sung `bookedAmount`, `additionalChargeAmount` và trả `totalAmount` theo tổng thực tế của các phòng.
 
 - `booking_orders`: mã đơn, người đặt, liên hệ, kỳ lưu trú, tổng tiền ban đầu, hạn giữ phòng, trạng thái, hash token và thông tin chống tạo trùng.
 - `bookings.order_id`, `bookings.order_room_number`: liên kết từng phòng với đơn chung; mỗi booking giữ nguyên giá theo đêm, dịch vụ, lịch sử trạng thái và phân phòng.
@@ -79,6 +81,8 @@ Ví dụ body tạo đơn, không nhận giá từ frontend:
 - Khi hủy đơn đã xác nhận, tính chính sách trên từng booking rồi cộng tiền hoàn. Nếu một phòng đã nhận/trả phòng hoặc không còn đủ điều kiện, từ chối hủy toàn đơn.
 
 ## Kiểm tra thủ công
+
+Hướng dẫn từng bước cho các lỗi đã sửa, dữ liệu mẫu và checklist happy/unhappy: [Kiểm tra hồi quy đặt nhiều phòng](testing/multi-room-booking-regression.md).
 
 1. Chọn 2 phòng cùng loại và 1 phòng loại khác; kiểm tra tiền phòng, dịch vụ và số khách của từng phòng.
 2. Hai khách cùng đặt phòng cuối cùng: chỉ một yêu cầu thành công.

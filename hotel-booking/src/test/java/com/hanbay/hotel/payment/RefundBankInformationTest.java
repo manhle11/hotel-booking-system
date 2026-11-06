@@ -20,6 +20,7 @@ class RefundBankInformationTest {
         var repository = mock(PaymentRefundRepository.class);
         var service = new RefundManagementServiceImpl(
                 repository,
+                mock(com.hanbay.hotel.payment.repository.PaymentRepository.class),
                 Clock.systemUTC(),
                 org.mockito.Mockito.mock(com.hanbay.hotel.common.query.DashboardTableQuery.class));
         var payment = Payment.builder()

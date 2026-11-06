@@ -44,6 +44,8 @@ export interface BookingOrder {
   checkOutDate: string;
   contactName: string;
   contactEmail: string;
+  bookedAmount: number;
+  additionalChargeAmount: number;
   totalAmount: number;
   paidAmount: number;
   currency: string;

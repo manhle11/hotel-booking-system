@@ -31,6 +31,10 @@ public class PaymentRefund extends BaseEntity {
     @JoinColumn(name = "payment_id", nullable = false)
     private Payment payment;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transaction_id", unique = true)
+    private PaymentTransaction transaction;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
@@ -82,6 +86,10 @@ public class PaymentRefund extends BaseEntity {
 
     void assignPayment(Payment payment) {
         this.payment = payment;
+    }
+
+    void assignTransaction(PaymentTransaction transaction) {
+        this.transaction = java.util.Objects.requireNonNull(transaction);
     }
 
     public void markSuccessful(String bankReference, Instant refundedAt) {

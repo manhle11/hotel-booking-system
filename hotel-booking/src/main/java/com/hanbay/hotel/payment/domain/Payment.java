@@ -111,6 +111,30 @@ public class Payment extends BaseEntity {
         refund.assignPayment(this);
     }
 
+    public void requestRefund(PaymentRefund refund) {
+        Objects.requireNonNull(refund, "Yêu cầu hoàn tiền không được để trống");
+        if (refund.getTransaction() != null || refund.getStatus() != PaymentRefundStatus.PENDING) {
+            throw new IllegalArgumentException("Yêu cầu hoàn tiền phải là yêu cầu mới đang chờ xử lý");
+        }
+        PaymentTransaction transaction = PaymentTransaction.builder()
+                .type(PaymentTransactionType.REFUND)
+                .status(PaymentTransactionStatus.PENDING)
+                .amount(refund.getAmount().longValueExact())
+                .currency(refund.getCurrency())
+                .providerMessage(
+                        refund.getReason() == null
+                                ? null
+                                : refund.getReason()
+                                        .substring(
+                                                0,
+                                                Math.min(255, refund.getReason().length())))
+                .receivedAt(refund.getRequestedAt())
+                .build();
+        addTransaction(transaction);
+        addRefund(refund);
+        refund.assignTransaction(transaction);
+    }
+
     public void cancelPending(Instant cancelledAt) {
         Objects.requireNonNull(cancelledAt, "Thời gian hủy không được để trống");
         if (status != PaymentStatus.PENDING) {

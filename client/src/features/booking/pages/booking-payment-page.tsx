@@ -314,7 +314,19 @@ export function BookingPaymentPage({
                     }
                   />
                 )}
-                <PaymentInstructions payment={payment} onCopy={copyText} />
+                <PaymentInstructions
+                  key={paymentStatus?.paymentUrl ?? payment.paymentUrl}
+                  payment={
+                    paymentStatus
+                      ? {
+                          ...payment,
+                          remainingAmount: paymentStatus.remainingAmount,
+                          paymentUrl: paymentStatus.paymentUrl,
+                        }
+                      : payment
+                  }
+                  onCopy={copyText}
+                />
               </Flex>
             ) : null}
           </Card>
@@ -468,7 +480,7 @@ export function PaymentInstructions({ payment, onCopy }: PaymentInstructionsProp
             </Descriptions.Item>
             <Descriptions.Item label="Tên tài khoản">{payment.accountName}</Descriptions.Item>
             <Descriptions.Item label="Số tiền">
-              <Typography.Text strong>{formatMoney(payment.amount)}</Typography.Text>
+              <Typography.Text strong>{formatMoney(payment.remainingAmount)}</Typography.Text>
             </Descriptions.Item>
             <Descriptions.Item label="Nội dung">
               <Flex wrap="wrap" gap={8} align="center">

@@ -23,18 +23,24 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     Optional<Payment> findByPaymentCode(String paymentCode);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select payment from Payment payment where payment.id = :paymentId")
+    Optional<Payment> findByIdForUpdate(@Param("paymentId") UUID paymentId);
+
     @Query("select payment.booking.id from Payment payment where payment.paymentCode = :paymentCode")
     Optional<UUID> findBookingIdByPaymentCode(@Param("paymentCode") String paymentCode);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
-            """
-            update Payment payment
-               set payment.status = com.hanbay.hotel.payment.domain.PaymentStatus.EXPIRED
-             where payment.id = :paymentId
-               and payment.status = com.hanbay.hotel.payment.domain.PaymentStatus.PENDING
-               and payment.expiresAt <= :now
-            """)
+            value =
+                    """
+            update payments
+               set status = cast('EXPIRED' as payment_status), updated_at = :now
+             where id = :paymentId
+               and status = cast('PENDING' as payment_status)
+               and expires_at <= :now
+            """,
+            nativeQuery = true)
     int markPendingExpired(@Param("paymentId") UUID paymentId, @Param("now") java.time.Instant now);
 
     boolean existsByPaymentCode(String paymentCode);

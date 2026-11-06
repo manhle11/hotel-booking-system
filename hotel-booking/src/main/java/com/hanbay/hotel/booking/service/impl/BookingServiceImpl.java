@@ -32,9 +32,6 @@ import com.hanbay.hotel.payment.domain.Payment;
 import com.hanbay.hotel.payment.domain.PaymentRefund;
 import com.hanbay.hotel.payment.domain.PaymentRefundStatus;
 import com.hanbay.hotel.payment.domain.PaymentStatus;
-import com.hanbay.hotel.payment.domain.PaymentTransaction;
-import com.hanbay.hotel.payment.domain.PaymentTransactionStatus;
-import com.hanbay.hotel.payment.domain.PaymentTransactionType;
 import com.hanbay.hotel.payment.repository.PaymentRepository;
 import com.hanbay.hotel.pricing.dto.result.PricingResult;
 import com.hanbay.hotel.pricing.service.PricingService;
@@ -234,7 +231,7 @@ public class BookingServiceImpl implements BookingService {
         if (payment != null && payment.getStatus() == PaymentStatus.PENDING) {
             payment.cancelPending(now);
         } else if (payment != null && payment.getStatus() == PaymentStatus.SUCCESS && decision.refundAmount() > 0) {
-            payment.addRefund(PaymentRefund.builder()
+            payment.requestRefund(PaymentRefund.builder()
                     .amount(BigDecimal.valueOf(decision.refundAmount()))
                     .currency(CURRENCY)
                     .status(PaymentRefundStatus.PENDING)
@@ -245,13 +242,6 @@ public class BookingServiceImpl implements BookingService {
                     .accountHolderName(request.refundInformation().normalizedAccountHolderName())
                     .accountNumber(request.refundInformation().normalizedAccountNumber())
                     .requestedAt(now)
-                    .build());
-            payment.addTransaction(PaymentTransaction.builder()
-                    .type(PaymentTransactionType.REFUND)
-                    .status(PaymentTransactionStatus.PENDING)
-                    .amount(decision.refundAmount())
-                    .currency(CURRENCY)
-                    .receivedAt(now)
                     .build());
         }
 

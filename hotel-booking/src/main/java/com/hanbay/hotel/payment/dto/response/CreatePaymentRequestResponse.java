@@ -19,9 +19,14 @@ public record CreatePaymentRequestResponse(
         String bankCode,
         String accountNumber,
         String accountName,
-        String transferContent) {
+        String transferContent,
+        long remainingAmount) {
 
     public static CreatePaymentRequestResponse from(Payment payment, SePayQrInfo qrInfo) {
+        return from(payment, qrInfo, payment.getAmount());
+    }
+
+    public static CreatePaymentRequestResponse from(Payment payment, SePayQrInfo qrInfo, long remainingAmount) {
         return new CreatePaymentRequestResponse(
                 payment.getId(),
                 payment.getOrder() == null
@@ -37,6 +42,7 @@ public record CreatePaymentRequestResponse(
                 qrInfo.bankCode(),
                 qrInfo.accountNumber(),
                 qrInfo.accountName(),
-                qrInfo.transferContent());
+                qrInfo.transferContent(),
+                remainingAmount);
     }
 }

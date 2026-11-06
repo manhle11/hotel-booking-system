@@ -42,6 +42,7 @@ const successResponse: PaymentStatusResponse = {
   childCount: 1,
   totalNights: 4,
   amount: 2_450_000,
+  remainingAmount: 0,
   paidAmount: 2_450_000,
   currency: 'VND',
   refundStatus: null,
@@ -87,6 +88,24 @@ afterEach(() => {
 });
 
 describe('PaymentResultPage', () => {
+  it('hiển thị số tiền còn thiếu và QR mới sau khi nhận thanh toán một phần', async () => {
+    vi.mocked(getPaymentStatus).mockResolvedValue({
+      ...successResponse,
+      paymentStatus: 'PENDING',
+      bookingStatus: 'PENDING',
+      paidAmount: 100_000,
+      remainingAmount: 2_350_000,
+      paymentUrl: 'https://qr.example/payment.png?amount=2350000',
+      paidAt: null,
+    });
+    renderPaymentResultPage();
+    expect(await screen.findByText('Đang chờ xác nhận thanh toán')).toBeTruthy();
+    expect(screen.getByText(/2\.350\.000/)).toBeTruthy();
+    expect(screen.getByAltText('Mã QR thanh toán PAY-202608140001').getAttribute('src')).toContain(
+      'amount=2350000',
+    );
+  });
+
   it('hiển thị kết quả thành công và chi tiết giao dịch', async () => {
     storePaymentResultToken('payment-id', 'booking-access-token');
     vi.mocked(getPaymentStatus).mockResolvedValue(successResponse);
@@ -146,6 +165,7 @@ describe('PaymentResultPage', () => {
       ...successResponse,
       paymentStatus: 'PENDING',
       bookingStatus: 'PENDING',
+      remainingAmount: 2_450_000,
       paidAmount: 0,
       paidAt: null,
     });
