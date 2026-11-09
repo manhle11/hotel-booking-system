@@ -10,6 +10,12 @@ public class RoomStateConflictException extends DomainException {
         super(errorCode, message, HttpStatus.CONFLICT);
     }
 
+    public static RoomStateConflictException bookingHistory() {
+        return new RoomStateConflictException(
+                "ROOM_HAS_BOOKING_HISTORY",
+                "Phòng đã có lịch sử lưu trú. Không thể xóa để bảo toàn thông tin phòng trên các đơn cũ.");
+    }
+
     public static RoomStateConflictException activeMaintenanceRequest() {
         return new RoomStateConflictException(
                 "ROOM_HAS_ACTIVE_MAINTENANCE_REQUEST",

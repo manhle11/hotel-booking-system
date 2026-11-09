@@ -3,6 +3,8 @@ package com.hanbay.hotel.room.repository;
 import com.hanbay.hotel.room.domain.RoomType;
 import com.hanbay.hotel.room.domain.RoomTypeStatus;
 import jakarta.persistence.LockModeType;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,6 +16,29 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RoomTypeRepository extends JpaRepository<RoomType, UUID> {
+
+    // All statuses count: completed/cancelled bookings also carry historical room information.
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM bookings WHERE room_type_id = :id)", nativeQuery = true)
+    boolean hasBookingHistory(@Param("id") UUID id);
+
+    @Query(
+            value =
+                    """
+            SELECT EXISTS (SELECT 1 FROM bookings b WHERE b.room_type_id = :id
+              AND (b.status = 'CHECKED_IN' OR (b.check_out_date >= :today
+                AND (b.status = 'CONFIRMED' OR (b.status = 'PENDING'
+                  AND (b.expired_at IS NULL OR b.expired_at > :now)))))
+              AND (b.adult_count > :adults OR b.child_count > :children
+                OR b.adult_count + b.child_count > :total))
+            """,
+            nativeQuery = true)
+    boolean hasBookingsExceedingCapacity(
+            @Param("id") UUID id,
+            @Param("adults") int adults,
+            @Param("children") int children,
+            @Param("total") int total,
+            @Param("today") LocalDate today,
+            @Param("now") Instant now);
 
     /*
      * develop / HAN-21

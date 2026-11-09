@@ -34,7 +34,10 @@ public class StayPolicyController {
                         settings.getLateArrivalCutoff(),
                         paymentHoldMinutes,
                         now.toLocalDate(),
-                        now.toInstant()));
+                        now.toInstant(),
+                        settings.getYoungChildUnderAge(),
+                        settings.getAdultFromAge(),
+                        true));
     }
 
     public record StayPolicyResponse(
@@ -45,5 +48,8 @@ public class StayPolicyController {
             LocalTime lateArrivalCutoff,
             int paymentHoldMinutes,
             LocalDate hotelToday,
-            Instant serverNow) {}
+            Instant serverNow,
+            int youngChildUnderAge,
+            int adultFromAge,
+            boolean childrenShareExistingBeds) {}
 }

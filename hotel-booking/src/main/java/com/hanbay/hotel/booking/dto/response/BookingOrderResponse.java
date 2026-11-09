@@ -41,5 +41,31 @@ public record BookingOrderResponse(
             long totalAmount,
             long paidAmount,
             BookingStatus status,
-            String roomNumber) {}
+            String roomNumber,
+            List<Integer> childAges) {
+        public Room(
+                UUID bookingId,
+                String bookingCode,
+                UUID roomTypeId,
+                String roomTypeName,
+                int adults,
+                int children,
+                long totalAmount,
+                long paidAmount,
+                BookingStatus status,
+                String roomNumber) {
+            this(
+                    bookingId,
+                    bookingCode,
+                    roomTypeId,
+                    roomTypeName,
+                    adults,
+                    children,
+                    totalAmount,
+                    paidAmount,
+                    status,
+                    roomNumber,
+                    null);
+        }
+    }
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App, Form } from 'antd';
 import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -133,6 +133,18 @@ function renderPage(
 }
 
 describe('RoomSearchPage inventory synchronization', () => {
+  it('keeps explicit false feature filters when submitting URL search criteria', async () => {
+    respondWithCount(3);
+    renderPage(
+      '/rooms/search?checkIn=2026-11-05&checkOut=2026-11-08&adults=2&children=0&viewType=CITY&hasBalcony=false&highFloor=false',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
+    await waitFor(() =>
+      expect(searchAvailableRoomTypes).toHaveBeenLastCalledWith(
+        expect.objectContaining({ viewType: 'CITY', hasBalcony: false, highFloor: false }),
+      ),
+    );
+  });
   it('counts calendar nights when selected dates contain different times of day', async () => {
     respondWithCount(12, 3);
     renderPage(

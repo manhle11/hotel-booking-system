@@ -90,6 +90,9 @@ payment:
   expiration-minutes: ${PAYMENT_EXPIRATION_MINUTES:15}
 
 hotel:
+  demo-catalog:
+    # The initializer itself is restricted to the local profile.
+    enabled: ${HOTEL_DEMO_CATALOG_ENABLED:true}
   stay:
     zone: ${HOTEL_TIME_ZONE:Asia/Ho_Chi_Minh}
     check-in-time: ${BOOKING_CHECK_IN_TIME:14:00}

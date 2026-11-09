@@ -1,6 +1,7 @@
 package com.hanbay.hotel.booking.policy;
 
 import com.hanbay.hotel.booking.config.HotelStayProperties;
+import com.hanbay.hotel.booking.exception.BookingValidationException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
@@ -22,6 +23,16 @@ public class HotelStayPolicy {
 
     public LocalDate today() {
         return now().toLocalDate();
+    }
+
+    public void validateChildAges(int children, java.util.List<Integer> ages) {
+        // Legacy callers may only know the declared counts. Never fabricate ages.
+        if (ages == null) return;
+        if (ages.size() != children
+                || ages.stream().anyMatch(age -> age == null || age < 0 || age >= properties.getAdultFromAge())) {
+            throw new BookingValidationException("Nhập tuổi tại ngày nhận phòng cho từng trẻ em; từ "
+                    + properties.getAdultFromAge() + " tuổi phải tính vào số người lớn.");
+        }
     }
 
     public boolean bookingClosed(LocalDate checkIn) {

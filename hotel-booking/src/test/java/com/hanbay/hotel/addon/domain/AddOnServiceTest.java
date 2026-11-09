@@ -29,6 +29,18 @@ class AddOnServiceTest {
     }
 
     @Test
+    void catalogUnitChangesDoNotRewriteBookingUnitsOrPrices() {
+        var service = AddOnService.create("BREAKFAST", "Breakfast", null, 250000);
+        service.updateQuantityUnit(AddOnQuantityUnit.SERVING);
+        var booked = BookingAddOn.builder().addOnService(service).build();
+        booked.updateSnapshot(6, service.getPrice(), service.getQuantityUnit());
+        service.updateQuantityUnit(AddOnQuantityUnit.PACKAGE);
+        service.updateDetails("Breakfast package", null, 1000000);
+        assertThat(booked.getQuantityUnit()).isEqualTo(AddOnQuantityUnit.SERVING);
+        assertThat(booked.getTotalPrice()).isEqualTo(1500000);
+    }
+
+    @Test
     void catalogPriceChangeShouldNotChangeBookingSnapshot() {
         AddOnService addOn = AddOnService.create("CITY_TOUR", "City tour", null, 650_000);
         BookingAddOn bookingAddOn = BookingAddOn.builder().addOnService(addOn).build();

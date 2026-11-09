@@ -35,6 +35,15 @@ public class AddOnService extends BaseEntity {
     @Column(name = "active", nullable = false)
     private boolean active = true;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "quantity_unit", nullable = false, length = 20)
+    private AddOnQuantityUnit quantityUnit = AddOnQuantityUnit.UNIT;
+
+    public void updateQuantityUnit(AddOnQuantityUnit unit) {
+        if (unit != null) this.quantityUnit = unit;
+    }
+
     public static AddOnService create(String code, String name, String description, long price) {
         return AddOnService.builder()
                 .code(code)

@@ -14,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -22,6 +23,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -30,6 +32,7 @@ import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -74,8 +77,27 @@ public class RoomType extends BaseEntity {
     @Column(name = "bed_type", length = 100)
     private String bedType;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private RoomCategory category;
+
+    @Builder.Default
+    @BatchSize(size = 100)
+    @OneToMany(mappedBy = "roomType", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RoomTypeBed> beds = new ArrayList<>();
+
     @Column(name = "area_m2", precision = 6, scale = 2)
     private BigDecimal areaM2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "view_type", length = 30)
+    private RoomViewType viewType;
+
+    @Column(name = "has_balcony")
+    private Boolean hasBalcony;
+
+    @Column(name = "high_floor")
+    private Boolean highFloor;
 
     @Column(name = "thumbnail_url", columnDefinition = "TEXT")
     private String thumbnailUrl;
@@ -177,5 +199,50 @@ public class RoomType extends BaseEntity {
     public boolean canAccommodate(int adults, int children) {
         if (adults < 0 || children < 0) return false;
         return adults <= capacityAdults && children <= capacityChildren && adults + children <= maxGuests;
+    }
+
+    public void assignCategory(RoomCategory category) {
+        this.category = category;
+    }
+
+    public void updateFeatures(RoomViewType viewType, Boolean hasBalcony, Boolean highFloor) {
+        if (viewType != null) this.viewType = viewType;
+        if (hasBalcony != null) this.hasBalcony = hasBalcony;
+        if (highFloor != null) this.highFloor = highFloor;
+    }
+
+    public BedConfigurationStatus getBedConfigurationStatus() {
+        return beds.isEmpty() ? BedConfigurationStatus.UNCONFIGURED : BedConfigurationStatus.CONFIGURED;
+    }
+
+    public Map<BedType, Integer> bedConfiguration() {
+        return beds.stream()
+                .collect(java.util.stream.Collectors.toMap(RoomTypeBed::getBedType, RoomTypeBed::getQuantity));
+    }
+
+    /** Caller must lock this RoomType and reject changes once any booking references it. */
+    public void replaceBeds(Map<BedType, Integer> configuration) {
+        if (configuration.isEmpty()
+                || configuration.entrySet().stream()
+                        .anyMatch(
+                                entry -> entry.getKey() == null || entry.getValue() == null || entry.getValue() <= 0)) {
+            throw new RoomValidationException("Cấu hình giường phải có ít nhất một loại giường với số lượng dương.");
+        }
+        // Reuse existing rows so a quantity update cannot violate the unique (type, bed) constraint.
+        beds.removeIf(bed -> !configuration.containsKey(bed.getBedType()));
+        configuration.forEach((bed, quantity) -> beds.stream()
+                .filter(existing -> existing.getBedType() == bed)
+                .findFirst()
+                .ifPresentOrElse(
+                        existing -> existing.updateQuantity(quantity),
+                        () -> beds.add(new RoomTypeBed(this, bed, quantity))));
+        this.bedType = configuration.entrySet().stream()
+                .sorted(java.util.Comparator.comparing(entry -> entry.getKey().name()))
+                .map(entry -> entry.getValue() + " " + entry.getKey().name())
+                .collect(java.util.stream.Collectors.joining(" + "));
+    }
+
+    public void deactivate() {
+        this.status = RoomTypeStatus.INACTIVE;
     }
 }

@@ -13,6 +13,7 @@ export interface OrderRoomSelection {
   roomTypeId: string;
   adults: number;
   children: number;
+  childAges?: number[];
   addOns: AddOnSelection[];
 }
 
@@ -34,6 +35,7 @@ export interface BookingOrderRoom {
   paidAmount: number;
   status: BookingStatus;
   roomNumber: string | null;
+  childAges?: number[] | null;
 }
 
 export interface BookingOrder {

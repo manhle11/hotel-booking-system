@@ -15,5 +15,10 @@ public record CreateBookingOrderRequest(
             @NotNull UUID roomTypeId,
             @Min(1) @Max(20) int adults,
             @Min(0) @Max(20) int children,
-            @Size(max = 20) List<@NotNull @Valid AddOnSelectionRequest> addOns) {}
+            @Size(max = 20) List<@NotNull @Valid AddOnSelectionRequest> addOns,
+            @Size(max = 20) List<@NotNull @Min(0) Integer> childAges) {
+        public RoomSelection(UUID roomTypeId, int adults, int children, List<AddOnSelectionRequest> addOns) {
+            this(roomTypeId, adults, children, addOns, null);
+        }
+    }
 }

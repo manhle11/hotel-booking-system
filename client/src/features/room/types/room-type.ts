@@ -1,3 +1,5 @@
+import type { RoomCategory, RoomTypeBed } from './room-configuration';
+
 export interface RoomTypeCatalogItem {
   id: string;
   name: string;
@@ -6,6 +8,8 @@ export interface RoomTypeCatalogItem {
   capacityChildren: number;
   basePrice: number;
   thumbnailUrl: string | null;
+  category?: RoomCategory | null;
+  beds?: RoomTypeBed[];
 }
 
 export interface RoomTypeCatalogPage {

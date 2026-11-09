@@ -18,7 +18,13 @@ public record RoomTypeManagementResponse(
         BigDecimal areaM2,
         RoomTypeStatus status,
         List<String> images,
-        Set<UUID> amenityIds) {
+        Set<UUID> amenityIds,
+        RoomCategoryResponse category,
+        List<RoomTypeBedResponse> beds,
+        BedConfigurationStatus bedConfigurationStatus,
+        RoomViewType viewType,
+        Boolean hasBalcony,
+        Boolean highFloor) {
     public static RoomTypeManagementResponse from(RoomType r) {
         return new RoomTypeManagementResponse(
                 r.getId(),
@@ -37,6 +43,12 @@ public record RoomTypeManagementResponse(
                         .sorted(Comparator.comparingInt(RoomTypeImage::getSortOrder))
                         .map(RoomTypeImage::getImageUrl)
                         .toList(),
-                r.getAmenities().stream().map(Amenity::getId).collect(java.util.stream.Collectors.toSet()));
+                r.getAmenities().stream().map(Amenity::getId).collect(java.util.stream.Collectors.toSet()),
+                RoomCategoryResponse.from(r.getCategory()),
+                RoomTypeBedResponse.from(r.getBeds()),
+                r.getBedConfigurationStatus(),
+                r.getViewType(),
+                r.getHasBalcony(),
+                r.getHighFloor());
     }
 }

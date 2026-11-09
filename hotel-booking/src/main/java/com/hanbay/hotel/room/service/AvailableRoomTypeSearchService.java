@@ -6,11 +6,11 @@ import com.hanbay.hotel.common.validation.PaginationValidator;
 import com.hanbay.hotel.pricing.service.PricingService;
 import com.hanbay.hotel.room.domain.RoomType;
 import com.hanbay.hotel.room.domain.RoomTypeStatus;
+import com.hanbay.hotel.room.domain.RoomViewType;
 import com.hanbay.hotel.room.dto.response.AvailableRoomTypeResponse;
 import com.hanbay.hotel.room.exception.RoomValidationException;
 import com.hanbay.hotel.room.mapper.RoomTypeMapper;
 import com.hanbay.hotel.room.repository.RoomTypeRepository;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +27,6 @@ public class AvailableRoomTypeSearchService {
 
     private final RoomTypeRepository roomTypeRepository;
     private final RoomAvailabilityCalculator roomAvailabilityCalculator;
-    private final Clock clock;
     private final HotelStayPolicy stayPolicy;
     private final PricingService pricingService;
     private final RoomTypeMapper roomTypeMapper;
@@ -35,12 +34,30 @@ public class AvailableRoomTypeSearchService {
     @Transactional(readOnly = true)
     public PageResponse<AvailableRoomTypeResponse> search(
             LocalDate checkIn, LocalDate checkOut, int adults, int children, UUID roomTypeId, int page, int size) {
+        return search(checkIn, checkOut, adults, children, roomTypeId, page, size, null, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AvailableRoomTypeResponse> search(
+            LocalDate checkIn,
+            LocalDate checkOut,
+            int adults,
+            int children,
+            UUID roomTypeId,
+            int page,
+            int size,
+            RoomViewType viewType,
+            Boolean hasBalcony,
+            Boolean highFloor) {
         validateSearchCriteria(checkIn, checkOut, adults, children);
         PaginationValidator.validate(page, size, MAX_PAGE_SIZE);
 
         List<RoomType> candidateRoomTypes =
                 roomTypeRepository.findAllByStatusOrderByNameAsc(RoomTypeStatus.ACTIVE).stream()
                         .filter(roomType -> roomType.canAccommodate(adults, children))
+                        .filter(roomType -> viewType == null || viewType == roomType.getViewType())
+                        .filter(roomType -> hasBalcony == null || hasBalcony.equals(roomType.getHasBalcony()))
+                        .filter(roomType -> highFloor == null || highFloor.equals(roomType.getHighFloor()))
                         .filter(roomType ->
                                 roomTypeId == null || roomType.getId().equals(roomTypeId))
                         .toList();

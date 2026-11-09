@@ -1,3 +1,4 @@
+import type { RoomViewType } from '../types/room-configuration';
 import dayjs, { type Dayjs } from 'dayjs';
 import { hotelToday } from '../../../utils/hotel-time';
 
@@ -5,6 +6,9 @@ export interface SearchFormValues {
   stayDates: [Dayjs, Dayjs];
   adults: number;
   children: number;
+  viewType?: RoomViewType;
+  hasBalcony?: boolean;
+  highFloor?: boolean;
 }
 
 export const fallbackRoomImageUrl =
@@ -18,7 +22,17 @@ export function getInitialSearchValues(searchParams: URLSearchParams): SearchFor
     stayDates: [checkIn, checkOut.isAfter(checkIn) ? checkOut : checkIn.add(1, 'day')],
     adults: parseInteger(searchParams.get('adults'), 2, 1, 12),
     children: parseInteger(searchParams.get('children'), 0, 0, 8),
+    ...(['CITY', 'SEA', 'COURTYARD'].includes(searchParams.get('viewType') ?? '')
+      ? { viewType: searchParams.get('viewType') as RoomViewType }
+      : {}),
+    ...parseBooleanFilter(searchParams, 'hasBalcony'),
+    ...parseBooleanFilter(searchParams, 'highFloor'),
   };
+}
+
+function parseBooleanFilter(params: URLSearchParams, key: 'hasBalcony' | 'highFloor') {
+  const value = params.get(key);
+  return value === 'true' || value === 'false' ? { [key]: value === 'true' } : {};
 }
 
 export function formatCurrency(value: number) {

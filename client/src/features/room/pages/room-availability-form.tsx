@@ -1,7 +1,8 @@
-import { Button, Card, Col, DatePicker, Form, InputNumber, Row, Typography } from 'antd';
+import { Button, Card, Col, DatePicker, Form, InputNumber, Row, Select, Typography } from 'antd';
 import type { FormInstance } from 'antd';
 import { useStayPolicy } from '../../../hooks/use-stay-policy';
 import { countStayNights } from '../../../utils/hotel-time';
+import { ChildPolicyNote } from '../../../components/room/ChildPolicyNote';
 import { StayPolicyNote } from '../../../components/room/StayPolicyNote';
 
 import { BookingSteps } from '@components/booking/BookingSteps';
@@ -83,6 +84,60 @@ export function RoomAvailabilityForm({
             </Form.Item>
           </Col>
         </Row>
+        <Row gutter={14}>
+          <Col xs={24} md={8}>
+            <Form.Item name="viewType" label="Hướng nhìn">
+              <Select
+                allowClear
+                placeholder="Tất cả hướng nhìn"
+                options={[
+                  { value: 'COURTYARD', label: 'Hướng sân trong' },
+                  { value: 'CITY', label: 'Hướng thành phố' },
+                  { value: 'SEA', label: 'Hướng biển' },
+                ]}
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={12} md={8}>
+            <Form.Item
+              name="hasBalcony"
+              label="Ban công"
+              getValueProps={(value) => ({
+                value: value === undefined ? undefined : String(value),
+              })}
+              normalize={(value) => (value === undefined ? undefined : value === 'true')}
+            >
+              <Select
+                allowClear
+                placeholder="Tất cả"
+                options={[
+                  { value: 'true', label: 'Có ban công' },
+                  { value: 'false', label: 'Không có ban công' },
+                ]}
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={12} md={8}>
+            <Form.Item
+              name="highFloor"
+              label="Vị trí tầng"
+              getValueProps={(value) => ({
+                value: value === undefined ? undefined : String(value),
+              })}
+              normalize={(value) => (value === undefined ? undefined : value === 'true')}
+            >
+              <Select
+                allowClear
+                placeholder="Tất cả"
+                options={[
+                  { value: 'true', label: 'Tầng cao' },
+                  { value: 'false', label: 'Không ở tầng cao' },
+                ]}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        <ChildPolicyNote />
         <StayPolicyNote />
       </Form>
     </Card>

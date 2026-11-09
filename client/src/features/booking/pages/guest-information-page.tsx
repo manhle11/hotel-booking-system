@@ -21,7 +21,12 @@ import {
   Typography,
 } from 'antd';
 import type { Dayjs } from 'dayjs';
+import { useHotelPolicy } from '../../../hooks/use-stay-policy';
 
+import { addOnUnitLabel } from '../types/addon-unit';
+import { MealQuantityCalculator } from '../components/meal-quantity-calculator';
+import type { MealQuantityInput } from '../utils/meal-quantity';
+import { ChildAgesFields } from '../components/child-ages-fields';
 import { BookingSummary } from '../components/booking-summary';
 import type { AddOnCatalogItem, RoomTypeCatalogItem, SelectedAddOn } from '../types/booking';
 
@@ -33,6 +38,8 @@ interface GuestInformationPageProps {
   addOns?: AddOnCatalogItem[];
   selectedAddOns: SelectedAddOn[];
   addOnQuantities: Record<string, number>;
+  mealInputs: Record<string, MealQuantityInput>;
+  onMealChange: (addOn: AddOnCatalogItem, input: MealQuantityInput) => void;
   addOnsLoading: boolean;
   addOnsError: boolean;
   submitting: boolean;
@@ -43,6 +50,7 @@ interface GuestInformationPageProps {
 }
 
 export function GuestInformationPage(props: GuestInformationPageProps) {
+  const policy = useHotelPolicy();
   const { token } = theme.useToken();
   const { roomType, stayDates, adults, children, addOns, selectedAddOns, addOnQuantities } = props;
 
@@ -125,7 +133,7 @@ export function GuestInformationPage(props: GuestInformationPageProps) {
                 <div className="guest-counter">
                   <div>
                     <strong>Người lớn</strong>
-                    <span>Trên 12 tuổi</span>
+                    <span>Từ {policy.adultFromAge ?? 12} tuổi trở lên</span>
                   </div>
                   <Form.Item name="adults" noStyle rules={[{ required: true }]}>
                     <InputNumber min={1} max={20} controls />
@@ -136,7 +144,7 @@ export function GuestInformationPage(props: GuestInformationPageProps) {
                 <div className="guest-counter">
                   <div>
                     <strong>Trẻ em</strong>
-                    <span>Từ 12 tuổi trở xuống · miễn phí tiền phòng</span>
+                    <span>Dưới {policy.adultFromAge ?? 12} tuổi · tính cả trẻ nhỏ</span>
                   </div>
                   <Form.Item name="children" noStyle rules={[{ required: true }]}>
                     <InputNumber min={0} max={20} controls />
@@ -146,6 +154,7 @@ export function GuestInformationPage(props: GuestInformationPageProps) {
             </Row>
           </Card>
 
+          <ChildAgesFields count={children ?? 0} />
           <Space orientation="vertical" size={2} style={{ marginBottom: 20 }}>
             <Typography.Text strong>Nâng tầm kỳ nghỉ của bạn</Typography.Text>
             <Typography.Text type="secondary">Chọn dịch vụ bổ sung nếu cần.</Typography.Text>
@@ -181,9 +190,16 @@ export function GuestInformationPage(props: GuestInformationPageProps) {
                           <InputNumber
                             aria-label={`Số lượng ${addOn.name}`}
                             min={0}
-                            max={20}
+                            max={1000}
+                            precision={0}
                             value={quantity}
-                            onChange={(value) => props.onQuantityChange(addOn, value ?? 0)}
+                            readOnly={addOn.quantityUnit === 'SERVING'}
+                            controls={addOn.quantityUnit !== 'SERVING'}
+                            onChange={
+                              addOn.quantityUnit === 'SERVING'
+                                ? undefined
+                                : (value) => props.onQuantityChange(addOn, value ?? 0)
+                            }
                           />
                         </Flex>
                         <Typography.Paragraph
@@ -195,8 +211,21 @@ export function GuestInformationPage(props: GuestInformationPageProps) {
                         </Typography.Paragraph>
                         <Space size={4} style={{ marginTop: 'auto' }}>
                           <Typography.Text strong>{formatMoney(addOn.price)}</Typography.Text>
-                          <Typography.Text type="secondary">/ đơn vị</Typography.Text>
+                          <Typography.Text type="secondary">
+                            / {addOnUnitLabel(addOn.quantityUnit)}
+                          </Typography.Text>
                         </Space>
+                        <Typography.Text type="secondary">
+                          Tổng số {addOnUnitLabel(addOn.quantityUnit)} cho cả kỳ lưu trú.
+                        </Typography.Text>
+                        {addOn.quantityUnit === 'SERVING' && (
+                          <MealQuantityCalculator
+                            nights={stayDates ? stayDates[1].diff(stayDates[0], 'day') : 1}
+                            value={props.mealInputs[addOn.id]}
+                            disabled={props.submitting}
+                            onChange={(input) => props.onMealChange(addOn, input)}
+                          />
+                        )}
                       </Flex>
                     </Card>
                   </Col>

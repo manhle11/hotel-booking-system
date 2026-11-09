@@ -11,6 +11,7 @@ export interface CreatePendingBookingRequest {
   checkOutDate: string;
   adults: number;
   children: number;
+  childAges?: number[];
   guestInfo: GuestInfo;
   addOns: AddOnSelection[];
 }
@@ -197,6 +198,7 @@ export interface RoomTypeCatalogItem {
 }
 
 export interface AddOnCatalogItem {
+  quantityUnit?: import('./addon-unit').AddOnQuantityUnit;
   id: string;
   code: string;
   name: string;

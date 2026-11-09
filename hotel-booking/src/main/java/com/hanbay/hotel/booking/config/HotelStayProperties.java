@@ -27,6 +27,14 @@ public class HotelStayProperties {
 
     @NotNull private LocalTime lateArrivalCutoff = LocalTime.of(6, 0);
 
+    @jakarta.validation.constraints.Min(1) private int youngChildUnderAge = 6;
+
+    @jakarta.validation.constraints.Min(1) private int adultFromAge = 12;
+
+    @AssertTrue(message = "Ngưỡng tuổi trẻ nhỏ phải thấp hơn tuổi người lớn") public boolean isValidChildAges() {
+        return youngChildUnderAge < adultFromAge;
+    }
+
     public ZoneId zoneId() {
         return ZoneId.of(zone);
     }

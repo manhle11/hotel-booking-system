@@ -127,7 +127,12 @@ public class BookingServiceImpl implements BookingService {
                         "Loại phòng đã hết phòng trống trong khoảng thời gian này.");
             }
             booking.updatePendingDetails(
-                    roomType, request.checkInDate(), request.checkOutDate(), request.adults(), request.children());
+                    roomType,
+                    request.checkInDate(),
+                    request.checkOutDate(),
+                    request.adults(),
+                    request.children(),
+                    request.childAges());
             bookingRepository.flush();
             populateBooking(booking, request);
             cancelPendingPaymentsWithStaleAmount(booking, clock.instant());
@@ -348,6 +353,7 @@ public class BookingServiceImpl implements BookingService {
 
         String bookingAccessToken = bookingAccessTokenService.generate();
         booking.assignAccessTokenHash(bookingAccessTokenService.hash(bookingAccessToken));
+        booking.recordChildAges(request.childAges());
 
         populateBooking(booking, request);
 
@@ -400,6 +406,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private RoomType getValidatedRoomType(CreatePendingBookingRequest request) {
+        stayPolicy.validateChildAges(request.children(), request.childAges());
         RoomType roomType = roomTypeRepository
                 .findByIdForUpdate(request.roomTypeId())
                 .orElseThrow(() -> new RoomTypeNotFoundException("Không tìm thấy loại phòng này"));
@@ -451,7 +458,7 @@ public class BookingServiceImpl implements BookingService {
                     .addOnService(service)
                     .quantity(quantity)
                     .build();
-            bookingAddOn.updateSnapshot(quantity, service.getPrice());
+            bookingAddOn.updateSnapshot(quantity, service.getPrice(), service.getQuantityUnit());
 
             booking.addAddOn(bookingAddOn);
         }

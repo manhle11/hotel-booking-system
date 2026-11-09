@@ -5,9 +5,13 @@ import com.hanbay.hotel.booking.domain.pricing.BookingNightPriceRule;
 import com.hanbay.hotel.common.mapper.MapperConfig;
 import com.hanbay.hotel.pricing.dto.result.RoomPricingResult;
 import com.hanbay.hotel.room.domain.Amenity;
+import com.hanbay.hotel.room.domain.RoomCategory;
 import com.hanbay.hotel.room.domain.RoomType;
+import com.hanbay.hotel.room.domain.RoomTypeBed;
 import com.hanbay.hotel.room.domain.RoomTypeImage;
 import com.hanbay.hotel.room.dto.AmenityDto;
+import com.hanbay.hotel.room.dto.RoomCategoryResponse;
+import com.hanbay.hotel.room.dto.RoomTypeBedResponse;
 import com.hanbay.hotel.room.dto.RoomTypeCatalogItemResponse;
 import com.hanbay.hotel.room.dto.RoomTypeDetailResponse;
 import com.hanbay.hotel.room.dto.response.AvailableRoomTypeResponse;
@@ -24,10 +28,12 @@ import org.mapstruct.Named;
 public interface RoomTypeMapper {
 
     @Mapping(target = "description", source = ".", qualifiedByName = "displayDescription")
+    @Mapping(target = "beds", source = "beds", qualifiedByName = "sortedBeds")
     RoomTypeCatalogItemResponse toCatalogResponse(RoomType roomType);
 
     @Mapping(target = "images", source = "roomTypeImages", qualifiedByName = "sortedImageUrls")
     @Mapping(target = "amenities", source = "amenities", qualifiedByName = "sortedAmenities")
+    @Mapping(target = "beds", source = "beds", qualifiedByName = "sortedBeds")
     RoomTypeDetailResponse toDetailResponse(RoomType roomType);
 
     @Mapping(target = "id", source = "roomType.id")
@@ -48,6 +54,12 @@ public interface RoomTypeMapper {
     @Mapping(target = "roomDiscount", source = "pricing.roomDiscount")
     @Mapping(target = "roomTotal", source = "pricing.finalRoomAmount")
     @Mapping(target = "nightlyPrices", source = "pricing.nights")
+    @Mapping(target = "category", source = "roomType.category")
+    @Mapping(target = "beds", source = "roomType.beds", qualifiedByName = "sortedBeds")
+    @Mapping(target = "bedConfigurationStatus", source = "roomType.bedConfigurationStatus")
+    @Mapping(target = "viewType", source = "roomType.viewType")
+    @Mapping(target = "hasBalcony", source = "roomType.hasBalcony")
+    @Mapping(target = "highFloor", source = "roomType.highFloor")
     AvailableRoomTypeResponse toAvailableResponse(
             RoomType roomType, long availableRooms, long readyRooms, RoomPricingResult pricing);
 
@@ -64,6 +76,15 @@ public interface RoomTypeMapper {
     NightlyPriceAdjustmentResponse toNightlyPriceAdjustmentResponse(BookingNightPriceRule appliedRule);
 
     AmenityDto toAmenityDto(Amenity amenity);
+
+    default RoomCategoryResponse toCategoryResponse(RoomCategory category) {
+        return RoomCategoryResponse.from(category);
+    }
+
+    @Named("sortedBeds")
+    default List<RoomTypeBedResponse> sortedBeds(Collection<RoomTypeBed> beds) {
+        return RoomTypeBedResponse.from(beds);
+    }
 
     @Named("displayDescription")
     default String displayDescription(RoomType roomType) {

@@ -1,3 +1,4 @@
+import type { RoomViewType } from './room-configuration';
 import type { ApiResponse, PageResponse } from '../../../types/api';
 
 export interface AvailableRoomType {
@@ -42,6 +43,9 @@ export interface AvailableRoomTypeSearchParams {
   adults: number;
   children: number;
   roomTypeId?: string;
+  viewType?: RoomViewType;
+  hasBalcony?: boolean;
+  highFloor?: boolean;
   page: number;
   size: number;
 }

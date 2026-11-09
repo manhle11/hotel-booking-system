@@ -11,6 +11,7 @@ import com.hanbay.hotel.common.config.SecurityConfig;
 import com.hanbay.hotel.common.response.PageResponse;
 import com.hanbay.hotel.common.security.JwtAccessDeniedHandler;
 import com.hanbay.hotel.common.security.JwtAuthenticationEntryPoint;
+import com.hanbay.hotel.room.service.RoomCategoryManagementService;
 import com.hanbay.hotel.room.service.RoomTypeManagementService;
 import java.util.List;
 import java.util.Optional;
@@ -24,7 +25,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(controllers = RoomTypeManagementController.class)
+@WebMvcTest(controllers = {RoomTypeManagementController.class, RoomCategoryManagementController.class})
 @Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class})
 @TestPropertySource(properties = "app.cors.allowed-origins=http://localhost:5173")
 class RoomTypeManagementSecurityTest {
@@ -37,6 +38,9 @@ class RoomTypeManagementSecurityTest {
 
     @MockitoBean
     private RoomTypeManagementService roomService;
+
+    @MockitoBean
+    private RoomCategoryManagementService categoryService;
 
     @MockitoBean(name = "jpaMappingContext")
     private JpaMetamodelMappingContext jpaMappingContext;
@@ -75,6 +79,27 @@ class RoomTypeManagementSecurityTest {
                         .header("Authorization", "Bearer denied-token"))
                 .andExpect(status().isForbidden());
         org.mockito.Mockito.verifyNoInteractions(roomService);
+    }
+
+    @Test
+    void categoryManagementRequiresManager() throws Exception {
+        mockMvc.perform(get("/api/v1/management/room-categories")).andExpect(status().isUnauthorized());
+        authenticate("denied-token", "RECEPTIONIST");
+        mockMvc.perform(get("/api/v1/management/room-categories").header("Authorization", "Bearer denied-token"))
+                .andExpect(status().isForbidden());
+        authenticate("admin-token", "ADMIN");
+        mockMvc.perform(get("/api/v1/management/room-categories").header("Authorization", "Bearer admin-token"))
+                .andExpect(status().isForbidden());
+        org.mockito.Mockito.verifyNoInteractions(categoryService);
+    }
+
+    @Test
+    void managerCanReadCategories() throws Exception {
+        authenticate("manager-token", "MANAGER");
+        when(categoryService.list()).thenReturn(List.of());
+        mockMvc.perform(get("/api/v1/management/room-categories").header("Authorization", "Bearer manager-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     private void authenticate(String token, String role) {

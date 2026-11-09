@@ -59,7 +59,6 @@ class AvailableRoomTypeSearchServiceTest {
         service = new AvailableRoomTypeSearchService(
                 roomTypeRepository,
                 roomAvailabilityCalculator,
-                CLOCK,
                 new com.hanbay.hotel.booking.policy.HotelStayPolicy(
                         CLOCK, new com.hanbay.hotel.booking.config.HotelStayProperties()),
                 pricingService,

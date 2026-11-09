@@ -163,6 +163,47 @@ class BookingServiceIntegrationTest {
     }
 
     @Test
+    void persistsExplicitAgeAndServiceUnitSnapshotsWithoutImplicitStayMultiplication() {
+        var meal = AddOnService.create("MEAL-" + UUID.randomUUID(), "Meal", null, 250000);
+        meal.updateQuantityUnit(com.hanbay.hotel.addon.domain.AddOnQuantityUnit.SERVING);
+        meal = addOnServiceRepository.saveAndFlush(meal);
+        var r = validRequest(List.of());
+        var response = bookingService.createPendingBooking(new CreatePendingBookingRequest(
+                r.roomTypeId(),
+                r.checkInDate(),
+                r.checkOutDate(),
+                2,
+                1,
+                r.guestInfo(),
+                List.of(new AddOnSelectionRequest(meal.getId(), 6)),
+                List.of(5)));
+        bookingRepository.flush();
+        var b = bookingRepository.findById(response.bookingId()).orElseThrow();
+        assertEquals(List.of(5), b.getChildAges());
+        assertEquals(6, b.getAddOns().get(0).getQuantity());
+        assertEquals(1500000, b.getAddOns().get(0).getTotalPrice());
+        assertEquals(
+                com.hanbay.hotel.addon.domain.AddOnQuantityUnit.SERVING,
+                b.getAddOns().get(0).getQuantityUnit());
+    }
+
+    @Test
+    void refusesAdultAgesDeclaredAsChildren() {
+        var r = validRequest(List.of());
+        assertThrows(
+                BookingValidationException.class,
+                () -> bookingService.createPendingBooking(new CreatePendingBookingRequest(
+                        r.roomTypeId(),
+                        r.checkInDate(),
+                        r.checkOutDate(),
+                        2,
+                        1,
+                        r.guestInfo(),
+                        r.addOns(),
+                        List.of(12))));
+    }
+
+    @Test
     void persistsAuthenticatedUserAsBookingOwner() {
         User user = userRepository.saveAndFlush(User.builder().build());
         SecurityContextHolder.getContext()
@@ -234,6 +275,52 @@ class BookingServiceIntegrationTest {
         assertEquals(1, updated.getAddOns().size());
         assertEquals(2, updated.getAddOns().get(0).getQuantity());
         assertEquals(400, updated.getAddOns().get(0).getTotalPrice());
+    }
+
+    @Test
+    void updatesChildCountAndAgesTogetherBeforeFlushingPendingBooking() {
+        var r = validRequest(List.of());
+        var created = bookingService.createPendingBooking(new CreatePendingBookingRequest(
+                r.roomTypeId(), r.checkInDate(), r.checkOutDate(), 2, 1, r.guestInfo(), r.addOns(), List.of(5)));
+        var changed = new CreatePendingBookingRequest(
+                r.roomTypeId(), r.checkInDate(), r.checkOutDate(), 2, 0, r.guestInfo(), r.addOns(), List.of());
+        bookingService.updatePendingBooking(created.bookingId(), changed, created.bookingAccessToken());
+        bookingRepository.flush();
+        var saved = bookingRepository.findById(created.bookingId()).orElseThrow();
+        assertEquals(0, saved.getChildCount());
+        assertEquals(List.of(), saved.getChildAges());
+    }
+
+    @Test
+    void legacyUpdatePreservesKnownAgesWhenChildCountAndArrivalDateAreUnchanged() {
+        var r = validRequest(List.of());
+        var created = bookingService.createPendingBooking(new CreatePendingBookingRequest(
+                r.roomTypeId(), r.checkInDate(), r.checkOutDate(), 2, 1, r.guestInfo(), r.addOns(), List.of(5)));
+        bookingService.updatePendingBooking(created.bookingId(), r, created.bookingAccessToken());
+        bookingRepository.flush();
+        assertEquals(
+                List.of(5),
+                bookingRepository.findById(created.bookingId()).orElseThrow().getChildAges());
+    }
+
+    @Test
+    void legacyUpdateDoesNotGuessAgesForANewArrivalDate() {
+        var r = validRequest(List.of());
+        var created = bookingService.createPendingBooking(new CreatePendingBookingRequest(
+                r.roomTypeId(), r.checkInDate(), r.checkOutDate(), 2, 1, r.guestInfo(), r.addOns(), List.of(5)));
+        var changed = new CreatePendingBookingRequest(
+                r.roomTypeId(),
+                r.checkInDate().plusDays(1),
+                r.checkOutDate().plusDays(1),
+                2,
+                1,
+                r.guestInfo(),
+                r.addOns());
+        bookingService.updatePendingBooking(created.bookingId(), changed, created.bookingAccessToken());
+        bookingRepository.flush();
+        assertEquals(
+                null,
+                bookingRepository.findById(created.bookingId()).orElseThrow().getChildAges());
     }
 
     @Test

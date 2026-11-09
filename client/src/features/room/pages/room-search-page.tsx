@@ -31,6 +31,9 @@ function getSearchParams({
     checkOut: checkOut.format('YYYY-MM-DD'),
     adults: values.adults,
     children: values.children,
+    ...(values.viewType ? { viewType: values.viewType } : {}),
+    ...(values.hasBalcony !== undefined ? { hasBalcony: values.hasBalcony } : {}),
+    ...(values.highFloor !== undefined ? { highFloor: values.highFloor } : {}),
     page,
     size: PAGE_SIZE,
   };

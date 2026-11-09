@@ -15,6 +15,9 @@ export interface StayPolicy {
   paymentHoldMinutes: number;
   hotelToday?: string;
   serverNow?: string;
+  youngChildUnderAge?: number;
+  adultFromAge?: number;
+  childrenShareExistingBeds?: boolean;
 }
 
 export const DEFAULT_STAY_POLICY: StayPolicy = {
@@ -24,17 +27,29 @@ export const DEFAULT_STAY_POLICY: StayPolicy = {
   sameDayBookingCutoff: '23:59:59',
   lateArrivalCutoff: '06:00:00',
   paymentHoldMinutes: 15,
+  youngChildUnderAge: 6,
+  adultFromAge: 12,
+  childrenShareExistingBeds: true,
 };
 
-export function useStayPolicy() {
-  const query = useQuery({
+export function useHotelPolicy() {
+  const query = useHotelPolicyQuery();
+  return query.data ?? DEFAULT_STAY_POLICY;
+}
+
+function useHotelPolicyQuery(refetchInterval: number | false = false) {
+  return useQuery({
     queryKey: ['stay-policy'],
     queryFn: async () => (await apiClient.get<ApiResponse<StayPolicy>>('/stay-policy')).data.data,
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    refetchInterval,
     refetchOnWindowFocus: 'always',
     placeholderData: DEFAULT_STAY_POLICY,
   });
+}
+
+export function useStayPolicy() {
+  const query = useHotelPolicyQuery(60_000);
   const policy = query.data ?? DEFAULT_STAY_POLICY;
   const [clientNow, setClientNow] = useState(() => Date.now());
   useEffect(() => {
