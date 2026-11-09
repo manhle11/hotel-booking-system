@@ -1,6 +1,8 @@
 package com.hanbay.hotel.room.dto.request;
 
 import com.hanbay.hotel.room.domain.RoomTypeStatus;
+import com.hanbay.hotel.room.domain.RoomViewType;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.util.List;
@@ -20,4 +22,9 @@ public record RoomTypeWriteRequest(
         @DecimalMin("0.01") @DecimalMax("9999.99") BigDecimal areaM2,
         @NotNull RoomTypeStatus status,
         @NotNull @Size(max = 20) List<@NotBlank @Size(max = 1000) String> images,
-        @NotNull @Size(max = 100) Set<UUID> amenityIds) {}
+        @NotNull @Size(max = 100) Set<UUID> amenityIds,
+        UUID categoryId,
+        @Valid @Size(min = 1, max = 50) List<@NotNull @Valid RoomTypeBedRequest> beds,
+        RoomViewType viewType,
+        Boolean hasBalcony,
+        Boolean highFloor) {}

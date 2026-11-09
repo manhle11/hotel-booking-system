@@ -17,24 +17,36 @@ import {
 } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import dayjs from 'dayjs';
+import { addOnUnitLabel } from '../types/addon-unit';
+import { MealQuantityCalculator } from '../components/meal-quantity-calculator';
+import { ChildPolicyNote } from '../../../components/room/ChildPolicyNote';
+import { useHotelPolicy } from '../../../hooks/use-stay-policy';
 import { MainHeader } from '@components/layout/MainHeader';
 import { MainFooter } from '@components/layout/MainFooter';
 import { BookingSteps } from '@components/booking/BookingSteps';
 import { useAuth } from '@features/authentication/providers/auth-context';
 import { searchAvailableRoomTypes } from '@features/room';
+import { roomTypeCheckoutKeys } from '../../room/api/room-type-query-keys';
 import { createBookingOrder } from '../api/booking-order-api';
 import { getAddOns } from '../api/catalog-api';
 import type { GuestInfo } from '../types/booking';
 import type { CreateBookingOrderRequest, OrderRoomSelection } from '../types/booking-order';
 import { changeRoomQuantity, MAX_ORDER_ROOMS } from '../utils/order-room-selection';
+import { calculateMealQuantity, type MealQuantityInput } from '../utils/meal-quantity';
 import './create-booking-page.css';
 import './booking-order.css';
 
 const money = (value: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 
+interface CheckoutRoom extends OrderRoomSelection {
+  mealInputs?: Record<string, MealQuantityInput>;
+}
+
 export function MultiRoomBookingPage() {
   const [params] = useSearchParams();
+  const policy = useHotelPolicy();
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { session } = useAuth();
@@ -50,7 +62,7 @@ export function MultiRoomBookingPage() {
       phone: current.phone || session.user.phone || undefined,
     });
   }, [form, session?.user]);
-  const [rooms, setRooms] = useState<OrderRoomSelection[]>(() => {
+  const [rooms, setRooms] = useState<CheckoutRoom[]>(() => {
     const roomTypeId = params.get('roomTypeId');
     return roomTypeId
       ? [
@@ -64,7 +76,7 @@ export function MultiRoomBookingPage() {
       : [];
   });
   const availability = useQuery({
-    queryKey: ['order-room-types', checkIn, checkOut],
+    queryKey: roomTypeCheckoutKeys.available(checkIn, checkOut),
     queryFn: () =>
       searchAvailableRoomTypes({ checkIn, checkOut, adults: 1, children: 0, page: 0, size: 100 }),
     enabled: Boolean(checkIn && checkOut),
@@ -79,6 +91,12 @@ export function MultiRoomBookingPage() {
     },
   });
   const types = availability.data?.content ?? [];
+  const nights = dayjs(checkOut).diff(dayjs(checkIn), 'day');
+  const invalidMeals = rooms.some((room) =>
+    Object.values(room.mealInputs ?? {}).some(
+      (input) => calculateMealQuantity(input, nights).error,
+    ),
+  );
   const total = rooms.reduce(
     (sum, room) =>
       sum +
@@ -97,13 +115,22 @@ export function MultiRoomBookingPage() {
       !type ||
       room.adults < 1 ||
       room.children < 0 ||
+      (room.children > 0 &&
+        ((room.childAges?.length ?? 0) !== room.children ||
+          Array.from({ length: room.children }, (_, i) => room.childAges?.[i]).some(
+            (age) =>
+              age === undefined ||
+              !Number.isInteger(age) ||
+              age < 0 ||
+              age >= (policy.adultFromAge ?? 12),
+          ))) ||
       room.adults > type.adultCapacity ||
       room.children > type.childCapacity ||
       room.adults + room.children > type.maxGuests ||
       rooms.filter((item) => item.roomTypeId === room.roomTypeId).length > type.availableRooms
     );
   });
-  const updateRoom = (index: number, patch: Partial<OrderRoomSelection>) =>
+  const updateRoom = (index: number, patch: Partial<CheckoutRoom>) =>
     setRooms((current) => current.map((room, i) => (i === index ? { ...room, ...patch } : room)));
 
   if (!checkIn || !checkOut) return <Navigate to="/rooms/search" replace />;
@@ -185,11 +212,17 @@ export function MultiRoomBookingPage() {
                   phone: session?.user?.phone ?? undefined,
                 }}
                 onFinish={(guestInfo) => {
-                  if (!rooms.length || invalidRoom || create.isPending) return;
+                  if (!rooms.length || invalidRoom || invalidMeals || create.isPending) return;
                   const request: CreateBookingOrderRequest = {
                     checkInDate: checkIn,
                     checkOutDate: checkOut,
-                    rooms,
+                    rooms: rooms.map(({ roomTypeId, adults, children, childAges, addOns }) => ({
+                      roomTypeId,
+                      adults,
+                      children,
+                      addOns,
+                      ...(childAges ? { childAges } : {}),
+                    })),
                     guestInfo: {
                       fullName: guestInfo.fullName.trim(),
                       email: guestInfo.email.trim(),
@@ -231,10 +264,37 @@ export function MultiRoomBookingPage() {
                                 precision={0}
                                 value={room.children}
                                 disabled={create.isPending}
-                                onChange={(value) => updateRoom(index, { children: value ?? 0 })}
+                                onChange={(value) =>
+                                  updateRoom(index, {
+                                    children: value ?? 0,
+                                    childAges: room.childAges?.slice(0, value ?? 0),
+                                  })
+                                }
                               />
                             </Space>
                           </Flex>
+                          <ChildPolicyNote />
+                          <Space wrap>
+                            {Array.from(
+                              { length: Math.min(room.children, 20) },
+                              (_, childIndex) => (
+                                <label key={childIndex}>
+                                  Tuổi trẻ em {childIndex + 1} tại ngày nhận phòng{' '}
+                                  <InputNumber
+                                    aria-label={`Tuổi trẻ em ${childIndex + 1} phòng ${index + 1}`}
+                                    precision={0}
+                                    disabled={create.isPending}
+                                    value={room.childAges?.[childIndex]}
+                                    onChange={(value) => {
+                                      const ages = [...(room.childAges ?? [])];
+                                      ages[childIndex] = value ?? Number.NaN;
+                                      updateRoom(index, { childAges: ages });
+                                    }}
+                                  />
+                                </label>
+                              ),
+                            )}
+                          </Space>
                           {type && (
                             <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
                               Tổng số khách tối đa: {type.maxGuests} người. Mỗi phòng cần ít nhất
@@ -252,30 +312,59 @@ export function MultiRoomBookingPage() {
                                   gap={12}
                                   style={{ marginTop: 12 }}
                                 >
-                                  <span>
-                                    {addOn.name} · {money(addOn.price)}
-                                  </span>
+                                  <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                                    {addOn.name} · {money(addOn.price)}/
+                                    {addOnUnitLabel(addOn.quantityUnit)}
+                                    <br />
+                                    Tổng số {addOnUnitLabel(addOn.quantityUnit)} cho cả kỳ lưu trú
+                                    {addOn.quantityUnit === 'SERVING' && (
+                                      <MealQuantityCalculator
+                                        nights={nights}
+                                        value={room.mealInputs?.[addOn.id]}
+                                        disabled={create.isPending}
+                                        onChange={(input) => {
+                                          const { quantity } = calculateMealQuantity(input, nights);
+                                          updateRoom(index, {
+                                            mealInputs: { ...room.mealInputs, [addOn.id]: input },
+                                            addOns: [
+                                              ...room.addOns.filter(
+                                                (item) => item.addOnServiceId !== addOn.id,
+                                              ),
+                                              ...(quantity > 0
+                                                ? [{ addOnServiceId: addOn.id, quantity }]
+                                                : []),
+                                            ],
+                                          });
+                                        }}
+                                      />
+                                    )}
+                                  </div>
                                   <InputNumber
                                     aria-label={`${addOn.name} phòng ${index + 1}`}
                                     min={0}
-                                    max={20}
+                                    max={1000}
                                     precision={0}
+                                    readOnly={addOn.quantityUnit === 'SERVING'}
+                                    controls={addOn.quantityUnit !== 'SERVING'}
                                     value={
                                       room.addOns.find((item) => item.addOnServiceId === addOn.id)
                                         ?.quantity ?? 0
                                     }
                                     disabled={create.isPending}
-                                    onChange={(value) =>
-                                      updateRoom(index, {
-                                        addOns: [
-                                          ...room.addOns.filter(
-                                            (item) => item.addOnServiceId !== addOn.id,
-                                          ),
-                                          ...(value
-                                            ? [{ addOnServiceId: addOn.id, quantity: value }]
-                                            : []),
-                                        ],
-                                      })
+                                    onChange={
+                                      addOn.quantityUnit === 'SERVING'
+                                        ? undefined
+                                        : (value) =>
+                                            updateRoom(index, {
+                                              addOns: [
+                                                ...room.addOns.filter(
+                                                  (item) => item.addOnServiceId !== addOn.id,
+                                                ),
+                                                ...(value
+                                                  ? [{ addOnServiceId: addOn.id, quantity: value }]
+                                                  : []),
+                                              ],
+                                            })
                                     }
                                   />
                                 </Flex>
@@ -374,11 +463,15 @@ export function MultiRoomBookingPage() {
                   Giá tạm tính gồm tiền phòng và dịch vụ đã chọn. Tổng tiền sẽ được kiểm tra lại
                   trước khi giữ phòng.
                 </Typography.Paragraph>
-                {invalidRoom && (
+                {(invalidRoom || invalidMeals) && (
                   <Alert
                     type="warning"
                     showIcon
-                    title="Vui lòng kiểm tra sức chứa và số phòng còn trống"
+                    title={
+                      invalidMeals
+                        ? 'Vui lòng kiểm tra số người và số ngày dùng bữa'
+                        : 'Vui lòng kiểm tra sức chứa, tuổi trẻ em và số phòng còn trống'
+                    }
                     style={{ marginBottom: 16 }}
                   />
                 )}
@@ -395,7 +488,7 @@ export function MultiRoomBookingPage() {
                   size="large"
                   block
                   loading={create.isPending}
-                  disabled={!rooms.length || invalidRoom || availability.isFetching}
+                  disabled={!rooms.length || invalidRoom || invalidMeals || availability.isFetching}
                   onClick={() => form.submit()}
                 >
                   Giữ {rooms.length || ''} phòng và tiếp tục

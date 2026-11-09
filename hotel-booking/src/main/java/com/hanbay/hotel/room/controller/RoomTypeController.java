@@ -3,6 +3,7 @@ package com.hanbay.hotel.room.controller;
 import com.hanbay.hotel.common.response.ApiErrorResponse;
 import com.hanbay.hotel.common.response.ApiResponse;
 import com.hanbay.hotel.common.response.PageResponse;
+import com.hanbay.hotel.room.domain.RoomViewType;
 import com.hanbay.hotel.room.dto.RoomTypeCatalogItemResponse;
 import com.hanbay.hotel.room.dto.RoomTypeDetailResponse;
 import com.hanbay.hotel.room.dto.response.AvailableRoomTypeResponse;
@@ -131,9 +132,12 @@ public class RoomTypeController {
                     int page,
             @Parameter(description = "Số loại phòng mỗi trang, từ 1 đến 100", example = "6")
                     @RequestParam(defaultValue = "6")
-                    int size) {
+                    int size,
+            @RequestParam(required = false) RoomViewType viewType,
+            @RequestParam(required = false) Boolean hasBalcony,
+            @RequestParam(required = false) Boolean highFloor) {
 
-        return ResponseEntity.ok(ApiResponse.success(
-                availableRoomTypeSearchService.search(checkIn, checkOut, adults, children, roomTypeId, page, size)));
+        return ResponseEntity.ok(ApiResponse.success(availableRoomTypeSearchService.search(
+                checkIn, checkOut, adults, children, roomTypeId, page, size, viewType, hasBalcony, highFloor)));
     }
 }

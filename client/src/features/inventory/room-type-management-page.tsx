@@ -11,6 +11,7 @@ import {
   InputNumber,
   Modal,
   Popconfirm,
+  Radio,
   Select,
   Space,
   Table,
@@ -20,6 +21,14 @@ import {
 } from 'antd';
 import { apiClient } from '../../lib/axios';
 import type { ApiResponse, PageResponse } from '../../types/api';
+import { roomTypeCatalogKeys, roomTypeCheckoutKeys } from '../room/api/room-type-query-keys';
+import {
+  BED_TYPE_LABELS,
+  ROOM_VIEW_LABELS,
+  type RoomCategory,
+  type RoomTypeBed,
+  type RoomViewType,
+} from '../room/types/room-configuration';
 
 export interface ManagedRoomType {
   id: string;
@@ -31,12 +40,29 @@ export interface ManagedRoomType {
   maxGuests: number;
   capacityAdults: number;
   capacityChildren: number;
-  bedType: string;
+  bedType: string | null;
   areaM2: number | null;
   status: 'ACTIVE' | 'INACTIVE';
   images: string[];
   amenityIds: string[];
+  category: RoomCategory | null;
+  beds: RoomTypeBed[];
+  bedConfigurationStatus: 'CONFIGURED' | 'UNCONFIGURED';
+  viewType?: RoomViewType | null;
+  hasBalcony?: boolean | null;
+  highFloor?: boolean | null;
 }
+
+type RoomTypeFormValues = Omit<
+  ManagedRoomType,
+  'id' | 'bedType' | 'category' | 'bedConfigurationStatus'
+> & { categoryId?: string };
+
+const bedOptions = (['SINGLE', 'DOUBLE', 'QUEEN', 'KING'] as const).map((value) => ({
+  value,
+  label: `${BED_TYPE_LABELS[value]} (${value})`,
+}));
+
 const endpoint = '/management/room-types';
 export function RoomTypeManagementPage() {
   const { message } = App.useApp();
@@ -45,8 +71,9 @@ export function RoomTypeManagementPage() {
   const sorting = useTableSorting<ManagedRoomType>(() => setPage(0));
   const [editing, setEditing] = useState<ManagedRoomType | null | undefined>();
   const [uploading, setUploading] = useState(false);
-  const [form] = Form.useForm<ManagedRoomType>();
+  const [form] = Form.useForm<RoomTypeFormValues>();
   const images = Form.useWatch('images', form) ?? [];
+  const beds: RoomTypeBed[] = Form.useWatch('beds', form) ?? [];
   const query = useQuery({
     queryKey: ['managed-room-types', page, sorting.sort],
     queryFn: async () =>
@@ -62,15 +89,33 @@ export function RoomTypeManagementPage() {
       (await apiClient.get<ApiResponse<{ id: string; name: string }[]>>(`${endpoint}/amenities`))
         .data.data,
   });
+  const categories = useQuery({
+    queryKey: ['managed-room-categories'],
+    queryFn: async () =>
+      (await apiClient.get<ApiResponse<RoomCategory[]>>('/management/room-categories')).data.data,
+    enabled: editing !== undefined,
+  });
   const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['managed-room-types'] });
-    await queryClient.invalidateQueries({ queryKey: ['room-types'] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['managed-room-types'] }),
+      queryClient.invalidateQueries({ queryKey: ['room-types'] }),
+      queryClient.invalidateQueries({ queryKey: ['managed-room-type-options'] }),
+      queryClient.invalidateQueries({ queryKey: ['available-room-types'] }),
+      queryClient.invalidateQueries({ queryKey: roomTypeCatalogKeys.all }),
+      queryClient.invalidateQueries({ queryKey: roomTypeCheckoutKeys.all }),
+    ]);
   };
   const save = useMutation({
-    mutationFn: async (values: ManagedRoomType) =>
-      editing
-        ? apiClient.put(`${endpoint}/${editing.id}`, values)
-        : apiClient.post(endpoint, values),
+    mutationFn: async (values: RoomTypeFormValues) => {
+      const payload = {
+        ...values,
+        // An empty legacy configuration stays unknown until the manager explicitly adds beds.
+        beds: editing && !values.beds?.length ? undefined : values.beds,
+      };
+      return editing
+        ? apiClient.put(`${endpoint}/${editing.id}`, payload)
+        : apiClient.post(endpoint, payload);
+    },
     onSuccess: async () => {
       setEditing(undefined);
       await refresh();
@@ -82,24 +127,47 @@ export function RoomTypeManagementPage() {
     mutationFn: (id: string) => apiClient.delete(`${endpoint}/${id}`),
     onSuccess: async () => {
       await refresh();
-      message.success('Đã xóa loại phòng');
+      message.success('Đã ngừng kinh doanh loại phòng');
     },
     onError: (error) => message.error(error.message),
   });
   const open = (record: ManagedRoomType | null) => {
     form.resetFields();
     form.setFieldsValue(
-      record ?? {
-        code: '',
-        name: '',
-        basePrice: 0,
-        maxGuests: 2,
-        capacityAdults: 2,
-        capacityChildren: 0,
-        status: 'ACTIVE',
-        images: [],
-        amenityIds: [],
-      },
+      record
+        ? {
+            code: record.code,
+            name: record.name,
+            description: record.description,
+            shortDescription: record.shortDescription,
+            basePrice: record.basePrice,
+            maxGuests: record.maxGuests,
+            capacityAdults: record.capacityAdults,
+            capacityChildren: record.capacityChildren,
+            areaM2: record.areaM2,
+            status: record.status,
+            images: record.images,
+            amenityIds: record.amenityIds,
+            categoryId: record.category?.id,
+            beds: record.beds?.map((bed) => ({ ...bed })) ?? [],
+            viewType: record.viewType ?? undefined,
+            hasBalcony: record.hasBalcony ?? undefined,
+            highFloor: record.highFloor ?? undefined,
+          }
+        : {
+            code: '',
+            name: '',
+            basePrice: 0,
+            maxGuests: 2,
+            capacityAdults: 2,
+            capacityChildren: 0,
+            status: 'ACTIVE',
+            images: [],
+            amenityIds: [],
+            beds: [{ quantity: 1 }],
+            hasBalcony: false,
+            highFloor: false,
+          },
     );
     setEditing(record);
   };
@@ -143,6 +211,16 @@ export function RoomTypeManagementPage() {
           },
           { title: 'Mã', ...sorting.column('code'), dataIndex: 'code' },
           { title: 'Tên loại phòng', ...sorting.column('name'), dataIndex: 'name' },
+          { title: 'Nhóm phòng', render: (_, room) => room.category?.name ?? 'Chưa phân nhóm' },
+          {
+            title: 'Giường',
+            render: (_, room) =>
+              room.beds?.length
+                ? room.beds
+                    .map((bed) => `${bed.quantity} ${BED_TYPE_LABELS[bed.bedType]}`)
+                    .join(' + ')
+                : room.bedType || 'Chưa xác minh',
+          },
           {
             title: 'Giá / đêm',
             ...sorting.column('basePrice'),
@@ -166,12 +244,12 @@ export function RoomTypeManagementPage() {
               <Space>
                 <Button onClick={() => open(r)}>Chi tiết / Sửa</Button>
                 <Popconfirm
-                  title="Xóa loại phòng này?"
-                  description="Chỉ xóa được loại phòng chưa có dữ liệu tham chiếu."
+                  title="Ngừng kinh doanh loại phòng này?"
+                  description="Các phòng vật lý và lịch sử đặt phòng được giữ nguyên."
                   onConfirm={() => remove.mutateAsync(r.id)}
                 >
-                  <Button danger loading={remove.isPending}>
-                    Xóa
+                  <Button danger disabled={r.status === 'INACTIVE'} loading={remove.isPending}>
+                    Ngừng kinh doanh
                   </Button>
                 </Popconfirm>
               </Space>
@@ -212,6 +290,30 @@ export function RoomTypeManagementPage() {
           >
             <Input maxLength={150} />
           </Form.Item>
+          {categories.isError && (
+            <Alert
+              type="error"
+              title="Không tải được nhóm phòng"
+              action={<Button onClick={() => categories.refetch()}>Thử lại</Button>}
+              style={{ marginBottom: 16 }}
+            />
+          )}
+          <Form.Item
+            name="categoryId"
+            label="Nhóm phòng"
+            rules={[{ required: !editing, message: 'Vui lòng chọn nhóm phòng.' }]}
+          >
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="Chọn nhóm phòng"
+              loading={categories.isLoading}
+              options={categories.data?.map((category) => ({
+                value: category.id,
+                label: category.name,
+              }))}
+            />
+          </Form.Item>
           <Form.Item name="shortDescription" label="Mô tả ngắn">
             <Input.TextArea maxLength={500} />
           </Form.Item>
@@ -235,9 +337,137 @@ export function RoomTypeManagementPage() {
               <InputNumber min={0.01} max={9999.99} precision={2} />
             </Form.Item>
           </Space>
-          <Form.Item name="bedType" label="Loại giường">
-            <Input maxLength={100} />
+          <Typography.Paragraph strong>Đặc điểm phòng</Typography.Paragraph>
+          <Form.Item name="viewType" label="Hướng nhìn">
+            <Select
+              placeholder="Chọn hướng nhìn"
+              options={Object.entries(ROOM_VIEW_LABELS).map(([value, label]) => ({ value, label }))}
+            />
           </Form.Item>
+          <Space wrap align="start">
+            <Form.Item name="hasBalcony" label="Ban công riêng">
+              <Radio.Group
+                aria-label="Ban công riêng"
+                options={[
+                  { label: 'Có', value: true },
+                  { label: 'Không', value: false },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="highFloor" label="Tầng cao">
+              <Radio.Group
+                aria-label="Tầng cao"
+                options={[
+                  { label: 'Có', value: true },
+                  { label: 'Không', value: false },
+                ]}
+              />
+            </Form.Item>
+          </Space>
+          <div>
+            <Typography.Text strong>Cấu hình giường</Typography.Text>
+          </div>
+          <Typography.Paragraph type="secondary">
+            Chọn loại giường và số lượng. Loại phòng đã có đặt phòng sẽ giữ nguyên cấu hình giường.
+          </Typography.Paragraph>
+          {editing && !editing.beds?.length && (
+            <Alert
+              type="info"
+              title="Chưa xác minh cấu hình giường"
+              description={
+                <>
+                  <div>Thông tin hiện có: {editing.bedType || 'Chưa có thông tin giường'}.</div>
+                  <div>
+                    Chỉ thêm cấu hình sau khi xác minh thực tế. Có thể giữ nguyên để cập nhật thông
+                    tin khác.
+                  </div>
+                </>
+              }
+              style={{ marginBottom: 16 }}
+            />
+          )}
+          <Form.List
+            name="beds"
+            rules={[
+              {
+                validator: async (_, value: RoomTypeBed[] | undefined) => {
+                  if ((!editing || editing.beds?.length) && !value?.length) {
+                    throw new Error('Vui lòng thêm ít nhất một loại giường.');
+                  }
+                  const kinds = value?.map((bed) => bed?.bedType).filter(Boolean) ?? [];
+                  if (new Set(kinds).size !== kinds.length) {
+                    throw new Error('Mỗi loại giường chỉ được chọn một lần.');
+                  }
+                },
+              },
+            ]}
+          >
+            {(fields, { add, remove }, { errors }) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <div
+                    key={key}
+                    style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start' }}
+                  >
+                    <Form.Item
+                      {...restField}
+                      name={[name, 'bedType']}
+                      label="Loại giường"
+                      rules={[{ required: true, message: 'Vui lòng chọn loại giường.' }]}
+                      style={{ flex: '1 1 240px', minWidth: 0 }}
+                    >
+                      <Select
+                        aria-label={`Loại giường ${name + 1}`}
+                        placeholder="Chọn loại giường"
+                        options={bedOptions.map((option) => ({
+                          ...option,
+                          disabled: beds.some(
+                            (bed, index) => index !== name && bed?.bedType === option.value,
+                          ),
+                        }))}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      {...restField}
+                      name={[name, 'quantity']}
+                      label="Số lượng"
+                      rules={[
+                        { required: true, message: 'Vui lòng nhập số lượng.' },
+                        {
+                          type: 'integer',
+                          min: 1,
+                          message: 'Số lượng phải là số nguyên lớn hơn 0.',
+                        },
+                      ]}
+                    >
+                      <InputNumber
+                        min={1}
+                        precision={0}
+                        aria-label={`Số lượng giường ${name + 1}`}
+                      />
+                    </Form.Item>
+                    <Button
+                      danger
+                      aria-label={`Bỏ loại giường ${name + 1}`}
+                      onClick={() => remove(name)}
+                      style={{ marginTop: 30 }}
+                    >
+                      Bỏ
+                    </Button>
+                  </div>
+                ))}
+                <Form.ErrorList errors={errors} />
+                <Button
+                  type="dashed"
+                  onClick={() => add({ quantity: 1 })}
+                  disabled={fields.length >= bedOptions.length}
+                  style={{ marginBottom: 24 }}
+                >
+                  Thêm loại giường
+                </Button>
+              </>
+            )}
+          </Form.List>
           <Form.Item name="status" label="Trạng thái" rules={[{ required: true }]}>
             <Select
               options={[
@@ -253,6 +483,10 @@ export function RoomTypeManagementPage() {
               options={amenities.data?.map((a) => ({ value: a.id, label: a.name }))}
             />
           </Form.Item>
+          <Typography.Paragraph type="secondary">
+            Tiện nghi có sẵn như Wi-Fi, TV, điều hòa được quản lý tại đây. Dịch vụ đưa đón, trang
+            trí phòng và bữa ăn mua thêm được quản lý tại Dịch vụ bổ sung.
+          </Typography.Paragraph>
           <Form.Item name="images" hidden>
             <Input />
           </Form.Item>

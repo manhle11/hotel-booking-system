@@ -12,6 +12,7 @@ import {
   Select,
   Skeleton,
   Space,
+  Tag,
   theme,
   Typography,
 } from 'antd';
@@ -22,6 +23,7 @@ import { ApiClientError } from '../../../types/api';
 import { useRoomTypeCatalog } from '../api/room-type-query';
 import type { RoomTypeSortField, SortDirection } from '../types/room-type';
 import { ROOM_FALLBACK_IMAGE, roomPriceFormatter } from '../utils/room-presentation';
+import { BED_TYPE_LABELS } from '../types/room-configuration';
 
 import './room-type-catalog.css';
 
@@ -157,6 +159,14 @@ export function RoomTypeCatalog() {
                       >
                         {room.name}
                       </Typography.Title>
+                      <Space wrap>
+                        {room.category && <Tag>{room.category.name}</Tag>}
+                        {room.beds?.map((bed) => (
+                          <Tag key={bed.bedType}>
+                            {bed.quantity} {BED_TYPE_LABELS[bed.bedType]}
+                          </Tag>
+                        ))}
+                      </Space>
                       <Typography.Paragraph type="secondary" ellipsis={{ rows: 3 }}>
                         {room.description || 'Không gian nghỉ dưỡng tiện nghi và thoải mái.'}
                       </Typography.Paragraph>

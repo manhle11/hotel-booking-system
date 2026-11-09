@@ -3,7 +3,7 @@ documentId: HANBAY-ROOM-POLICY
 title: Room Policy
 category: ROOM
 source: docs/knowledge-base/room-policy.md
-version: 1.3
+version: 1.6
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -24,6 +24,25 @@ Phân biệt room type, phòng vật lý, availability và trạng thái vận h
 
 Room type mô tả hạng phòng, giá cơ sở, sức chứa và tiện nghi. Phòng vật lý có số phòng, tầng,
 room type và trạng thái vận hành riêng.
+
+Room Category là nhóm hiển thị; Room Type là lựa chọn đặt riêng có cấu hình giường cố định;
+Room là phòng vật lý thuộc đúng một Room Type. Cấu hình demo hiện hành gồm 6 nhóm,
+8 Room Type và 35 phòng vật lý: Standard Queen (6), Superior Queen (5), Superior Twin (5),
+Deluxe King (5), Deluxe Twin (5), Triple Mixed (3), Family Double Queen (4), Suite King (2).
+Triple Mixed có 1 QUEEN + 1 SINGLE; Family Double Queen có 2 QUEEN. Twin có 2 SINGLE.
+
+Giường và số lượng lưu trong room_type_beds. Người lớn, trẻ em và tổng tối đa được khai báo
+riêng trên Room Type, không suy từ giường. Diện tích, hướng nhìn, ban công, tầng cao là
+thuộc tính riêng. Wi-Fi, TV, điều hòa, tủ lạnh, minibar là tiện nghi; đưa đón, trang trí phòng
+và bữa ăn mua thêm thuộc add_on_services. Không có nghiệp vụ giường phụ.
+
+Giảm sức chứa bị chặn khi có booking CONFIRMED sắp tới, PENDING còn hạn hoặc CHECKED_IN
+kể cả quá hạn trả đang vượt giới hạn mới. Giường của Room Type có lịch sử booking vẫn
+khóa; tạo loại mới để thay cấu hình an toàn. Family Double Queen cho tổng 4 khách với
+giới hạn 4 người lớn/2 trẻ em; không cộng hai giới hạn thành 6 khách.
+
+Tìm phòng hỗ trợ lọc hướng sân trong/thành phố/biển, có/không ban công và tầng cao.
+Dữ liệu đặc điểm chưa xác minh không được coi là không có. Các bộ lọc không thay cách tính tồn.
 
 ### 3.2 Availability theo khoảng ngày
 
@@ -59,6 +78,19 @@ Quản lý tạo phiếu bảo trì cho phòng trống. Phiếu đi qua `PENDING
 ngay khi tạo phiếu và chỉ trở lại trống khi hoàn tất phiếu. Mỗi phòng chỉ có một phiếu mở.
 API đổi trạng thái phòng trực tiếp không được đóng bảo trì nếu phòng còn phiếu chưa hoàn tất.
 
+### 3.5 Xóa phòng vật lý và bảo toàn lịch sử
+
+Chỉ phòng AVAILABLE chưa được booking nào tham chiếu qua phòng được gán mới có thể xóa.
+Phòng đã có liên kết booking được giữ lại để đơn cũ không mất số phòng đã ở; API xóa trả
+409 `ROOM_HAS_BOOKING_HISTORY`. Quy tắc này áp dụng cho mọi trạng thái booking tham chiếu
+phòng đó, không chỉ booking đang ở. Phòng khác chưa được dùng trong cùng Room Type vẫn
+có thể xóa nếu không còn nhu cầu đặt phòng chưa hoàn tất.
+
+Đổi Room Type hoặc xóa phòng làm giảm nguồn phòng bị chặn khi loại cũ còn CONFIRMED có
+ngày trả từ hôm nay, PENDING có ngày trả từ hôm nay và expiredAt > now, hoặc CHECKED_IN
+kể cả quá ngày trả. Đúng expiredAt, PENDING không còn chặn thao tác; không cần chờ scheduler
+đổi nhãn. Ngày và giờ lấy từ policy khách sạn, cùng khóa Room Type/phòng vật lý như trước.
+
 ## 4. Quy trình
 
 1. Search tính availability theo room type, ngày và occupancy.
@@ -92,6 +124,7 @@ hôm nay; availability đặt phòng được tính theo overlap của khoảng 
 Nhấn tên hạng ở kết quả mở /room-types/{id}; nhãn Còn…phòng dùng availableRooms của kỳ đã tìm.
 Ví dụ2 phòng, A ở05→06/11, B ở06→07/11 vẫn còn 1 cho05→07/11. Không trừ cảA vàB như
 hai phòng bận đồng thời. Đúng expiredAt pending không giữ tồn; MAINTENANCE/OOS không bán.
-Khách ở quá hạn không tự nhả phòng. Số phòng demo không tự thêm vào hạng Ocean Suite
-đã có inventory khi restart. Nguồn: RoomAvailabilityCalculator, BookingRepository,
-RoomDataInitializer; [tài liệu23](../23-stay-time-and-inventory.md).
+Khách ở quá hạn không tự nhả phòng. Bộ demo 35 phòng giữ nguyên số lượng khi restart;
+reset dữ liệu chỉ chạy chủ động theo yêu cầu, không tự chạy lúc khởi động.
+Nguồn: RoomAvailabilityCalculator, BookingRepository, scripts/reset-room-catalog.sql;
+[danh mục phòng](../data/room-type-catalog.md), [tài liệu23](../23-stay-time-and-inventory.md).

@@ -76,6 +76,7 @@ public class AddOnManagementServiceImpl implements AddOnManagementService {
         }
 
         AddOnService addOn = AddOnService.create(code, name, description, price);
+        addOn.updateQuantityUnit(command.quantityUnit());
         try {
             return toResult(addOnServiceRepository.saveAndFlush(addOn));
         } catch (DataIntegrityViolationException exception) {
@@ -97,6 +98,7 @@ public class AddOnManagementServiceImpl implements AddOnManagementService {
                 normalizeName(command.name()),
                 normalizeDescription(command.description()),
                 validatePrice(command.price()));
+        addOn.updateQuantityUnit(command.quantityUnit());
         addOnServiceRepository.saveAndFlush(addOn);
         return toResult(addOn);
     }
@@ -207,6 +209,7 @@ public class AddOnManagementServiceImpl implements AddOnManagementService {
                 addOn.getPrice(),
                 addOn.isActive(),
                 addOn.getCreatedAt(),
-                addOn.getUpdatedAt());
+                addOn.getUpdatedAt(),
+                addOn.getQuantityUnit());
     }
 }

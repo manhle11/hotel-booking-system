@@ -3,7 +3,7 @@ documentId: HANBAY-BOOKING-POLICY
 title: Booking Policy
 category: BOOKING
 source: docs/knowledge-base/booking-policy.md
-version: 1.3
+version: 1.4
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -31,8 +31,12 @@ Booking phải có ít nhất một người lớn. Số trẻ em không đượ
 số người lớn không vượt `capacityAdults`, số trẻ em không vượt `capacityChildren`, và
 tổng số khách không vượt `maxGuests`.
 
-API hiện nhận số người lớn và số trẻ em, không nhận tuổi/ngày sinh từng khách để tự phân loại.
-Knowledge base không suy diễn ngưỡng tuổi, miễn phí dịch vụ, ăn sáng hoặc phụ thu cho trẻ em.
+Chính sách mẫu được chủ dự án duyệt: tuổi tại ngày nhận phòng dưới 6 là trẻ nhỏ, từ 6 đến
+dưới 12 là trẻ em, từ 12 là người lớn. Trẻ nhỏ và trẻ em đều tính vào giới hạn trẻ em và tổng
+khách, dùng giường có sẵn. Checkout yêu cầu tuổi từng trẻ em; backend kiểm tra và lưu
+`childAges` nếu được gửi. Booking/API cũ chưa có tuổi giữ trạng thái chưa xác định, không đoán.
+Family Double Queen cho tối đa 4 người lớn, 2 trẻ em nhưng tổng không quá 4 khách.
+Không tự miễn phí, thêm phụ thu hoặc suất ăn dựa trên tuổi; dịch vụ theo số lượng đã chọn.
 
 ### 3.3 Availability
 

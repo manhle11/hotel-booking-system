@@ -17,6 +17,19 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+    boolean existsByAssignedRoomId(UUID roomId);
+
+    @Query(
+            value =
+                    """
+            SELECT EXISTS (SELECT 1 FROM bookings b WHERE b.room_type_id = :roomTypeId
+              AND (b.status = 'CHECKED_IN' OR (b.check_out_date >= :today
+                AND (b.status = 'CONFIRMED' OR (b.status = 'PENDING' AND b.expired_at > :now)))))
+            """,
+            nativeQuery = true)
+    boolean hasOutstandingDemandForRoomType(
+            @Param("roomTypeId") UUID roomTypeId, @Param("today") LocalDate today, @Param("now") Instant now);
+
     @Query("select b.id from Booking b where b.order.id = :orderId order by b.id")
     java.util.List<UUID> findIdsByOrderId(@Param("orderId") UUID orderId);
 

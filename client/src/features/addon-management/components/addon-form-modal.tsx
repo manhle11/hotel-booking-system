@@ -1,4 +1,4 @@
-import { Form, Input, InputNumber, Modal, type FormInstance } from 'antd';
+import { Form, Input, InputNumber, Select, Modal, type FormInstance } from 'antd';
 import { useEffect } from 'react';
 
 import type { AddOnFormValues, AddOnManagementItem } from '../types/addon-management';
@@ -28,6 +28,7 @@ export function AddOnFormModal({
         name: editing.name,
         description: editing.description ?? undefined,
         price: editing.price,
+        quantityUnit: editing.quantityUnit ?? 'UNIT',
       });
     } else {
       form.resetFields();
@@ -77,6 +78,22 @@ export function AddOnFormModal({
           rules={[{ max: 2000, message: 'Mô tả không được vượt quá 2000 ký tự' }]}
         >
           <Input.TextArea rows={4} maxLength={2000} showCount />
+        </Form.Item>
+        <Form.Item
+          name="quantityUnit"
+          label="Đơn vị bán"
+          initialValue="UNIT"
+          rules={[{ required: true }]}
+          extra="Giá áp dụng cho một đơn vị; số lượng là tổng cho cả kỳ lưu trú."
+        >
+          <Select
+            options={[
+              { value: 'UNIT', label: 'Đơn vị' },
+              { value: 'SERVING', label: 'Suất' },
+              { value: 'TRIP', label: 'Lượt' },
+              { value: 'PACKAGE', label: 'Gói' },
+            ]}
+          />
         </Form.Item>
         <Form.Item
           name="price"

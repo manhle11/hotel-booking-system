@@ -3,6 +3,7 @@ import { Button, Card, Divider, Flex, Grid, Tag, theme, Typography } from 'antd'
 import type { Dayjs } from 'dayjs';
 import { countStayNights } from '../../../utils/hotel-time';
 import { StayPolicyNote } from '../../../components/room/StayPolicyNote';
+import { addOnUnitLabel } from '../types/addon-unit';
 import type { ReactNode } from 'react';
 
 import type { RoomTypeCatalogItem, SelectedAddOn } from '../types/booking';
@@ -115,7 +116,7 @@ export function BookingSummary({
         addOns.map((addOn) => (
           <SummaryLine
             key={addOn.id}
-            label={`${addOn.name} × ${addOn.quantity}`}
+            label={`${addOn.name} × ${addOn.quantity} ${addOnUnitLabel(addOn.quantityUnit)}`}
             value={formatMoney(addOn.price * addOn.quantity)}
           />
         ))

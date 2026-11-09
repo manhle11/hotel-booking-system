@@ -1,5 +1,6 @@
 package com.hanbay.hotel.booking.domain.addon;
 
+import com.hanbay.hotel.addon.domain.AddOnQuantityUnit;
 import com.hanbay.hotel.addon.domain.AddOnService;
 import com.hanbay.hotel.booking.domain.Booking;
 import com.hanbay.hotel.common.domain.BaseEntity;
@@ -40,6 +41,16 @@ public class BookingAddOn extends BaseEntity {
 
     @Column(name = "total_price", nullable = false)
     private long totalPrice;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "quantity_unit", nullable = false, length = 20)
+    private AddOnQuantityUnit quantityUnit = AddOnQuantityUnit.UNIT;
+
+    public void updateSnapshot(int quantity, long unitPrice, AddOnQuantityUnit unit) {
+        updateSnapshot(quantity, unitPrice);
+        this.quantityUnit = java.util.Objects.requireNonNull(unit);
+    }
 
     public void assignBooking(Booking booking) {
         this.booking = booking;

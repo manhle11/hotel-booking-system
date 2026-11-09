@@ -3,20 +3,27 @@ package com.hanbay.hotel.room.service;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.hanbay.hotel.booking.config.HotelStayProperties;
+import com.hanbay.hotel.booking.policy.HotelStayPolicy;
+import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.room.domain.*;
 import com.hanbay.hotel.room.dto.request.RoomWriteRequest;
 import com.hanbay.hotel.room.exception.RoomValidationException;
 import com.hanbay.hotel.room.repository.*;
+import java.time.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 class RoomManagementServiceTest {
     private final RoomRepository rooms = mock(RoomRepository.class);
     private final RoomTypeRepository types = mock(RoomTypeRepository.class);
-    private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
+    private final BookingRepository bookings = mock(BookingRepository.class);
     private final RoomManagementService service = new RoomManagementService(
-            rooms, types, jdbc, org.mockito.Mockito.mock(com.hanbay.hotel.common.query.DashboardTableQuery.class));
+            rooms,
+            types,
+            bookings,
+            org.mockito.Mockito.mock(com.hanbay.hotel.common.query.DashboardTableQuery.class),
+            new HotelStayPolicy(Clock.systemUTC(), new HotelStayProperties()));
 
     @Test
     void cannotDeleteInventoryWithOutstandingBookings() {
@@ -30,7 +37,8 @@ class RoomManagementServiceTest {
         when(rooms.findRoomTypeId(id)).thenReturn(Optional.of(typeId));
         when(types.findByIdForUpdate(typeId)).thenReturn(Optional.of(type));
         when(rooms.findByIdForUpdate(id)).thenReturn(Optional.of(room));
-        when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(typeId))).thenReturn(1);
+        when(bookings.hasOutstandingDemandForRoomType(eq(typeId), any(LocalDate.class), any(Instant.class)))
+                .thenReturn(true);
         assertThatThrownBy(() -> service.delete(id)).isInstanceOf(RoomValidationException.class);
         verify(rooms, never()).delete(any());
     }

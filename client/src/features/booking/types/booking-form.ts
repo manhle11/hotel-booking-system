@@ -5,6 +5,7 @@ export interface BookingFormValues {
   stayDates: [Dayjs, Dayjs];
   adults: number;
   children: number;
+  childAges?: number[];
   fullName: string;
   email: string;
   phone?: string;

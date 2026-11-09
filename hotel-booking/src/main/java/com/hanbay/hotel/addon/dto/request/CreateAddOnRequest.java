@@ -1,6 +1,7 @@
 package com.hanbay.hotel.addon.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.hanbay.hotel.addon.domain.AddOnQuantityUnit;
 import com.hanbay.hotel.addon.service.model.CreateAddOnCommand;
 import com.hanbay.hotel.common.exception.RequestValidationException;
 import jakarta.validation.constraints.NotBlank;
@@ -23,6 +24,8 @@ public class CreateAddOnRequest {
 
     @NotNull(message = "Giá dịch vụ không được để trống") @PositiveOrZero(message = "Giá dịch vụ phải lớn hơn hoặc bằng 0") private Long price;
 
+    private AddOnQuantityUnit quantityUnit;
+
     private final Set<String> unsupportedFields = new LinkedHashSet<>();
 
     public CreateAddOnRequest() {}
@@ -41,7 +44,7 @@ public class CreateAddOnRequest {
 
     public CreateAddOnCommand toCommand() {
         rejectUnsupportedFields();
-        return new CreateAddOnCommand(code, name, description, price);
+        return new CreateAddOnCommand(code, name, description, price, quantityUnit);
     }
 
     private void rejectUnsupportedFields() {

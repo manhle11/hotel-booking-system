@@ -11,6 +11,19 @@ import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 
 class HotelStayPolicyTest {
+    @Test
+    void validatesChildAgesWithoutInventingLegacyAgesOrWaivingCapacity() {
+        var policy = at("2026-11-07T00:00:00Z");
+        policy.validateChildAges(4, java.util.List.of(0, 5, 6, 11));
+        policy.validateChildAges(2, null);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> policy.validateChildAges(1, java.util.List.of(12)))
+                .isInstanceOf(com.hanbay.hotel.booking.exception.BookingValidationException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> policy.validateChildAges(2, java.util.List.of(5)))
+                .isInstanceOf(com.hanbay.hotel.booking.exception.BookingValidationException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> policy.validateChildAges(1, java.util.List.of(-1)))
+                .isInstanceOf(com.hanbay.hotel.booking.exception.BookingValidationException.class);
+    }
+
     private static final LocalDate ARRIVAL = LocalDate.of(2026, 11, 5);
 
     private HotelStayPolicy at(String instant) {

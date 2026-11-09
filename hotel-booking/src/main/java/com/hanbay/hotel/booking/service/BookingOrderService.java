@@ -32,6 +32,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 @Service
 @RequiredArgsConstructor
@@ -60,7 +61,7 @@ public class BookingOrderService {
                 orderRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
         if (previous != null) {
             if (!tokens.matches(accessToken, previous.getAccessTokenHash())) throw notFound();
-            if (!previous.getRequestHash().equals(fingerprint)) {
+            if (!matchesRequestHash(previous.getRequestHash(), fingerprint, request)) {
                 throw new BookingConflictException("Yêu cầu đã được sử dụng cho đơn khác. Vui lòng tạo yêu cầu mới.");
             }
             return get(previous.getId(), accessToken);
@@ -99,7 +100,8 @@ public class BookingOrderService {
                     room.adults(),
                     room.children(),
                     guest,
-                    room.addOns()));
+                    room.addOns(),
+                    room.childAges()));
             Booking booking = bookingRepository.findById(created.bookingId()).orElseThrow();
             if (order == null) {
                 order = orderRepository.save(BookingOrder.builder()
@@ -282,6 +284,18 @@ public class BookingOrderService {
                 "Hủy toàn bộ phòng trong đơn; hoàn " + percent + "% tiền phòng theo chính sách khách sạn.");
     }
 
+    private boolean matchesRequestHash(String previousHash, String currentHash, CreateBookingOrderRequest request) {
+        if (previousHash.equals(currentHash)) return true;
+        if (request.rooms().stream().anyMatch(room -> room.childAges() != null)) return false;
+        // Before childAges existed, the persisted signature contained no such key.
+        // Ignore only absent legacy age data; all other fields still participate.
+        ObjectNode legacy = objectMapper.valueToTree(request);
+        for (var room : legacy.withArray("rooms")) {
+            ((ObjectNode) room).remove("childAges");
+        }
+        return previousHash.equals(tokens.hash(objectMapper.writeValueAsString(legacy)));
+    }
+
     private void ensureAccess(BookingOrder order, String token) {
         UUID userId = currentUser.currentUserId().orElse(null);
         boolean owner = userId != null
@@ -354,7 +368,8 @@ public class BookingOrderService {
                                 b.getStatus(),
                                 b.getAssignedRoom() == null
                                         ? null
-                                        : b.getAssignedRoom().getRoomNumber()))
+                                        : b.getAssignedRoom().getRoomNumber(),
+                                b.getChildAges()))
                         .toList(),
                 payment == null
                         ? null

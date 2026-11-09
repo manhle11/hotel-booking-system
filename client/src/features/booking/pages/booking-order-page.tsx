@@ -212,7 +212,7 @@ export function BookingOrderPage() {
                           title: 'Khách',
                           key: 'guests',
                           render: (_, room) =>
-                            `${room.adults} người lớn${room.children ? `, ${room.children} trẻ em` : ''}`,
+                            `${room.adults} người lớn${room.children ? `, ${room.children} trẻ em (${room.childAges ? room.childAges.map((age) => `${age} tuổi`).join(', ') : 'chưa có dữ liệu tuổi'})` : ''}`,
                         },
                         { title: 'Thành tiền', dataIndex: 'totalAmount', render: money },
                         {

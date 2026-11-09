@@ -15,8 +15,6 @@ public interface AddOnServiceRepository extends JpaRepository<AddOnService, UUID
 
     List<AddOnService> findAllByIdInAndActiveTrue(Collection<UUID> ids);
 
-    List<AddOnService> findAllByCodeIn(Collection<String> codes);
-
     boolean existsByCodeIgnoreCase(String code);
 
     @Query(

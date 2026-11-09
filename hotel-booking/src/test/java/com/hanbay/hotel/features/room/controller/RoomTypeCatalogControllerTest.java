@@ -29,6 +29,29 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 @ExtendWith(MockitoExtension.class)
 class RoomTypeCatalogControllerTest {
+    @Test
+    void passesExplicitFalseFiltersAndRejectsUnknownView() throws Exception {
+        var from = LocalDate.of(2026, 11, 10);
+        var to = from.plusDays(1);
+        when(availableRoomTypeSearchService.search(
+                        from, to, 2, 0, null, 0, 6, com.hanbay.hotel.room.domain.RoomViewType.CITY, false, false))
+                .thenReturn(new PageResponse<>(List.of(), 0, 6, 0, 0, true, true));
+        mockMvc.perform(get("/api/v1/room-types/available")
+                        .param("checkIn", from.toString())
+                        .param("checkOut", to.toString())
+                        .param("adults", "2")
+                        .param("viewType", "CITY")
+                        .param("hasBalcony", "false")
+                        .param("highFloor", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(0));
+        mockMvc.perform(get("/api/v1/room-types/available")
+                        .param("checkIn", from.toString())
+                        .param("checkOut", to.toString())
+                        .param("adults", "2")
+                        .param("viewType", "OCEAN"))
+                .andExpect(status().isBadRequest());
+    }
 
     @Mock
     private RoomTypeService roomTypeService;
@@ -50,7 +73,20 @@ class RoomTypeCatalogControllerTest {
     void getCatalogReturnsSuccessResponse() throws Exception {
         UUID id = UUID.randomUUID();
         RoomTypeCatalogItemResponse item = new RoomTypeCatalogItemResponse(
-                id, "Deluxe Room", "Spacious room", 2, 1, new BigDecimal("1500000"), null);
+                id,
+                "Deluxe Room",
+                "Spacious room",
+                2,
+                1,
+                new BigDecimal("1500000"),
+                null,
+                null,
+                null,
+                List.of(),
+                com.hanbay.hotel.room.domain.BedConfigurationStatus.UNCONFIGURED,
+                null,
+                null,
+                null);
         PageResponse<RoomTypeCatalogItemResponse> catalog = new PageResponse<>(List.of(item), 0, 6, 1, 1, true, true);
         when(roomTypeService.getCatalog(0, 6, "deluxe", "name", "asc")).thenReturn(catalog);
 
@@ -115,9 +151,15 @@ class RoomTypeCatalogControllerTest {
                 List.of(
                         new NightlyPriceResponse(LocalDate.of(2026, 8, 12), 2_450_000, List.of()),
                         new NightlyPriceResponse(LocalDate.of(2026, 8, 13), 2_450_000, List.of()),
-                        new NightlyPriceResponse(LocalDate.of(2026, 8, 14), 2_450_000, List.of())));
+                        new NightlyPriceResponse(LocalDate.of(2026, 8, 14), 2_450_000, List.of())),
+                null,
+                List.of(),
+                com.hanbay.hotel.room.domain.BedConfigurationStatus.UNCONFIGURED,
+                null,
+                null,
+                null);
         PageResponse<AvailableRoomTypeResponse> page = new PageResponse<>(List.of(item), 0, 1, 1, 1, true, true);
-        when(availableRoomTypeSearchService.search(checkIn, checkOut, 2, 1, roomTypeId, 0, 1))
+        when(availableRoomTypeSearchService.search(checkIn, checkOut, 2, 1, roomTypeId, 0, 1, null, null, null))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/room-types/available")
@@ -145,6 +187,6 @@ class RoomTypeCatalogControllerTest {
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.totalPages").value(1));
 
-        verify(availableRoomTypeSearchService).search(checkIn, checkOut, 2, 1, roomTypeId, 0, 1);
+        verify(availableRoomTypeSearchService).search(checkIn, checkOut, 2, 1, roomTypeId, 0, 1, null, null, null);
     }
 }

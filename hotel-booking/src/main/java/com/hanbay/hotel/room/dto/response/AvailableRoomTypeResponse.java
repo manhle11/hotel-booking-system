@@ -1,5 +1,9 @@
 package com.hanbay.hotel.room.dto.response;
 
+import com.hanbay.hotel.room.domain.BedConfigurationStatus;
+import com.hanbay.hotel.room.domain.RoomViewType;
+import com.hanbay.hotel.room.dto.RoomCategoryResponse;
+import com.hanbay.hotel.room.dto.RoomTypeBedResponse;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -22,4 +26,10 @@ public record AvailableRoomTypeResponse(
         long roomSubtotal,
         long roomDiscount,
         long roomTotal,
-        List<NightlyPriceResponse> nightlyPrices) {}
+        List<NightlyPriceResponse> nightlyPrices,
+        RoomCategoryResponse category,
+        List<RoomTypeBedResponse> beds,
+        BedConfigurationStatus bedConfigurationStatus,
+        RoomViewType viewType,
+        Boolean hasBalcony,
+        Boolean highFloor) {}

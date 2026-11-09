@@ -25,6 +25,7 @@ import { useAddOnMutations, useManagedAddOns } from '../hooks/use-addon-manageme
 import type { AddOnFormValues, AddOnManagementItem } from '../types/addon-management';
 import { getAddOnErrorMessage, getAddOnFieldErrors } from '../utils/addon-error-mapper';
 import './addon-management-page.css';
+import { addOnUnitLabel } from '../../booking/types/addon-unit';
 
 const PAGE_SIZE = 10;
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
@@ -77,7 +78,12 @@ export function AddOnManagementPage() {
       updateMutation.mutate(
         {
           id: editing.id,
-          payload: { name: values.name.trim(), description, price: values.price },
+          payload: {
+            name: values.name.trim(),
+            description,
+            price: values.price,
+            quantityUnit: values.quantityUnit,
+          },
         },
         {
           onSuccess: () => {
@@ -95,6 +101,7 @@ export function AddOnManagementPage() {
         name: values.name.trim(),
         description,
         price: values.price,
+        quantityUnit: values.quantityUnit,
       },
       {
         onSuccess: () => {
@@ -140,7 +147,8 @@ export function AddOnManagementPage() {
       sorter: true,
       align: 'right',
       width: 160,
-      render: (value: number) => money.format(value),
+      render: (value: number, item) =>
+        `${money.format(value)}/${addOnUnitLabel(item.quantityUnit)}`,
     },
     {
       title: 'Trạng thái',

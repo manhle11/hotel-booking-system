@@ -84,6 +84,15 @@ class BookingOrderIntegrationTest {
     BookingOrderService service;
 
     @Autowired
+    org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Autowired
+    tools.jackson.databind.ObjectMapper objectMapper;
+
+    @Autowired
+    BookingAccessTokenService accessTokens;
+
+    @Autowired
     BookingOrderRepository orders;
 
     @Autowired
@@ -191,6 +200,34 @@ class BookingOrderIntegrationTest {
                 .isInstanceOf(BookingConflictException.class);
         assertThatThrownBy(() -> service.create(request, key, "wrong-token"))
                 .isInstanceOf(BookingNotFoundException.class);
+    }
+
+    @Test
+    void retriesOrdersCreatedBeforeTheChildAgesFieldWasIntroduced() {
+        String key = UUID.randomUUID().toString();
+        var request = new CreateBookingOrderRequest(
+                CHECK_IN,
+                CHECK_IN.plusDays(2),
+                guest(),
+                List.of(new CreateBookingOrderRequest.RoomSelection(deluxe, 1, 1, List.of())));
+        var first = service.create(request, key, TOKEN);
+        tools.jackson.databind.node.ObjectNode legacy = objectMapper.valueToTree(request);
+        for (var room : legacy.withArray("rooms")) {
+            ((tools.jackson.databind.node.ObjectNode) room).remove("childAges");
+        }
+        jdbc.update(
+                "UPDATE booking_orders SET request_hash=? WHERE id=?",
+                accessTokens.hash(objectMapper.writeValueAsString(legacy)),
+                first.orderId());
+        long count = bookings.count();
+        assertThat(service.create(request, key, TOKEN).orderId()).isEqualTo(first.orderId());
+        assertThat(bookings.count()).isEqualTo(count);
+        var changed = new CreateBookingOrderRequest(
+                request.checkInDate(),
+                request.checkOutDate(),
+                guest(),
+                List.of(new CreateBookingOrderRequest.RoomSelection(deluxe, 1, 1, List.of(), List.of(5))));
+        assertThatThrownBy(() -> service.create(changed, key, TOKEN)).isInstanceOf(BookingConflictException.class);
     }
 
     @Test

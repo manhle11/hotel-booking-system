@@ -50,6 +50,6 @@ public class RoomTypeManagementController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable UUID id) {
         service.delete(id);
-        return ApiResponse.success("Đã xóa loại phòng", null);
+        return ApiResponse.success("Đã vô hiệu hóa loại phòng", null);
     }
 }

@@ -1,5 +1,7 @@
 package com.hanbay.hotel.room.service;
 
+import com.hanbay.hotel.booking.policy.HotelStayPolicy;
+import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.common.query.DashboardTableQuery;
 import com.hanbay.hotel.common.response.PageResponse;
 import com.hanbay.hotel.room.domain.*;
@@ -10,7 +12,6 @@ import com.hanbay.hotel.room.repository.*;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class RoomManagementService {
     private final RoomRepository rooms;
     private final RoomTypeRepository types;
-    private final JdbcTemplate jdbc;
+    private final BookingRepository bookings;
     private final DashboardTableQuery tableQuery;
+    private final HotelStayPolicy stayPolicy;
 
     public PageResponse<RoomManagementResponse> list(int page, int size) {
         if (page < 0 || size < 1 || size > 100) throw new RoomValidationException("Phân trang không hợp lệ.");
@@ -78,17 +80,16 @@ public class RoomManagementService {
         if (!room.getRoomType().getId().equals(oldType))
             throw new RoomValidationException("Phòng vừa thay đổi. Vui lòng tải lại.");
         if (room.getStatus() != RoomStatus.AVAILABLE) throw new RoomValidationException("Chỉ xóa phòng đang sẵn sàng.");
+        // Keep the room lock while checking history so a concurrent check-in cannot lose its assignment.
+        if (bookings.existsByAssignedRoomId(id)) throw RoomStateConflictException.bookingHistory();
         requireNoDemand(oldType);
         rooms.delete(room);
         rooms.flush();
     }
 
     private void requireNoDemand(UUID typeId) {
-        Integer count = jdbc.queryForObject(
-                "SELECT count(*) FROM bookings WHERE room_type_id=? AND status IN ('PENDING','CONFIRMED','CHECKED_IN') AND check_out_date>=CURRENT_DATE",
-                Integer.class,
-                typeId);
-        if (count != null && count > 0)
+        var now = stayPolicy.now();
+        if (bookings.hasOutstandingDemandForRoomType(typeId, now.toLocalDate(), now.toInstant()))
             throw new RoomValidationException(
                     "Loại phòng còn đặt phòng chưa hoàn tất. Không thể giảm số phòng hoặc đổi loại lúc này.");
     }

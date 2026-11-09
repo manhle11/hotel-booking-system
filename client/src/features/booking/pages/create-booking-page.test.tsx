@@ -139,6 +139,7 @@ describe('CreateBookingPage', () => {
       checkOutDate: '2026-08-12',
       adults: 2,
       children: 0,
+      childAges: [],
       guestInfo: {
         fullName: 'Nguyễn Văn A',
         email: 'guest@example.com',

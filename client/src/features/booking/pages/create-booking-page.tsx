@@ -19,6 +19,7 @@ import type {
   PendingBookingSummary,
 } from '../types/booking';
 import type { BookingFormValues } from '../types/booking-form';
+import { calculateMealQuantity, type MealQuantityInput } from '../utils/meal-quantity';
 import { BookingPaymentPage } from './booking-payment-page';
 import { GuestInformationPage } from './guest-information-page';
 import './create-booking-page.css';
@@ -26,6 +27,7 @@ import './create-booking-page.css';
 const guestStepFields: (keyof BookingFormValues)[] = [
   'adults',
   'children',
+  'childAges',
   'fullName',
   'email',
   'phone',
@@ -80,6 +82,7 @@ export function CreateBookingPage() {
   const initialBookingValues = getInitialBookingValues(searchParams);
   const [currentStep, setCurrentStep] = useState<0 | 1 | 2>(1);
   const [addOnQuantities, setAddOnQuantities] = useState<Record<string, number>>({});
+  const [mealInputs, setMealInputs] = useState<Record<string, MealQuantityInput>>({});
   const [booking, setBooking] = useState<PendingBookingSummary>();
   const [submittedRequest, setSubmittedRequest] = useState<CreatePendingBookingRequest>();
   const roomSelection = getInitialRoomSelection(initialBookingValues);
@@ -168,9 +171,15 @@ export function CreateBookingPage() {
       return;
     }
 
+    const nights = roomSelection.stayDates[1].diff(roomSelection.stayDates[0], 'day');
+    if (Object.values(mealInputs).some((input) => calculateMealQuantity(input, nights).error)) {
+      void message.warning('Vui lòng kiểm tra số người và số ngày dùng bữa.');
+      return;
+    }
+
     let values: BookingFormValues;
     try {
-      values = await form.validateFields(guestStepFields);
+      values = await form.validateFields(guestStepFields, { recursive: true });
     } catch (error) {
       if (isOutdatedValidationWithoutErrors<BookingFormValues>(error)) {
         values = error.values;
@@ -186,6 +195,7 @@ export function CreateBookingPage() {
       checkOutDate: roomSelection.stayDates[1].format('YYYY-MM-DD'),
       adults: values.adults,
       children: values.children,
+      childAges: (values.childAges ?? []).slice(0, values.children),
       guestInfo: {
         fullName: values.fullName.trim(),
         email: values.email.trim(),
@@ -257,6 +267,17 @@ export function CreateBookingPage() {
                 addOns={addOnsQuery.data}
                 selectedAddOns={selectedAddOns}
                 addOnQuantities={addOnQuantities}
+                mealInputs={mealInputs}
+                onMealChange={(addOn, input) => {
+                  setMealInputs((current) => ({ ...current, [addOn.id]: input }));
+                  updateAddOnQuantity(
+                    addOn,
+                    calculateMealQuantity(
+                      input,
+                      roomSelection.stayDates[1].diff(roomSelection.stayDates[0], 'day'),
+                    ).quantity,
+                  );
+                }}
                 addOnsLoading={addOnsQuery.isLoading}
                 addOnsError={addOnsQuery.isError}
                 submitting={createBookingMutation.isPending || availabilityQuery.isLoading}

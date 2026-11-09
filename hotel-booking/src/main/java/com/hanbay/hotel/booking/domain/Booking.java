@@ -75,6 +75,14 @@ public class Booking extends BaseEntity {
     @Column(name = "child_count", nullable = false)
     private int childCount = 0;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "child_ages", columnDefinition = "jsonb")
+    private List<Integer> childAges;
+
+    public void recordChildAges(List<Integer> ages) {
+        this.childAges = ages == null ? null : List.copyOf(ages);
+    }
+
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
@@ -358,14 +366,27 @@ public class Booking extends BaseEntity {
 
     public void updatePendingDetails(
             RoomType roomType, LocalDate checkIn, LocalDate checkOut, int adults, int children) {
+        updatePendingDetails(roomType, checkIn, checkOut, adults, children, null);
+    }
+
+    public void updatePendingDetails(
+            RoomType roomType, LocalDate checkIn, LocalDate checkOut, int adults, int children, List<Integer> ages) {
         if (status != BookingStatus.PENDING) {
             throw new InvalidBookingStateException("Chỉ đặt phòng đang chờ thanh toán mới được chỉnh sửa.");
+        }
+        // Ages refer to the arrival date. Omitted legacy data may preserve a known
+        // snapshot only while the child count and arrival date remain unchanged.
+        List<Integer> updatedAges =
+                ages != null ? ages : children == childCount && Objects.equals(checkIn, checkInDate) ? childAges : null;
+        if (updatedAges != null && updatedAges.size() != children) {
+            throw new BookingValidationException("Số tuổi trẻ em phải khớp số trẻ em trong phòng.");
         }
         this.roomType = Objects.requireNonNull(roomType);
         this.checkInDate = Objects.requireNonNull(checkIn);
         this.checkOutDate = Objects.requireNonNull(checkOut);
         this.adultCount = adults;
         this.childCount = children;
+        recordChildAges(updatedAges);
         this.guests.clear();
         this.addOns.clear();
         this.nights.clear();

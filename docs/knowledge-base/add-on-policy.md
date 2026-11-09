@@ -3,7 +3,7 @@ documentId: HANBAY-ADD-ON-POLICY
 title: Add-on Policy
 category: ADD_ON
 source: docs/knowledge-base/add-on-policy.md
-version: 1.0
+version: 1.3
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -25,14 +25,23 @@ Mô tả dịch vụ bổ sung được chọn cùng booking và cách bảo to�
 Chỉ add-on đang active được chọn cho booking mới. Add-on inactive không được chọn mới nhưng
 không làm thay đổi dữ liệu đã snapshot trong booking cũ.
 
+Danh mục mẫu hiện hành có đón sân bay, tiễn sân bay, trang trí phòng, buffet sáng và bữa ăn
+thêm. Wi-Fi, TV, điều hòa và tủ lạnh là tiện nghi có sẵn trong phòng, không bán lại như
+add-on. Không có dịch vụ giường phụ hoặc tự tăng sức chứa theo add-on.
+
 ### 3.2 Quantity
 
-Quantity cho mỗi add-on phải từ 1 đến 20. Cùng một add-on không được lặp thành nhiều selection
-trong một request booking.
+Quantity cho mỗi add-on phải từ 1 đến 1000. Cùng một add-on không được lặp thành nhiều selection
+trong một request booking. Quantity là tổng số đơn vị trong cả kỳ lưu trú; không tự nhân
+thêm theo số khách hoặc đêm. Đơn vị được khai báo riêng: suất (SERVING), lượt (TRIP), gói
+(PACKAGE), đơn vị chung (UNIT). Ví dụ 2 người ăn 3 ngày: chọn 6 suất. Khi khách nhập số người và ngày dùng bữa hợp lệ, giao diện tự cập nhật số suất và tiền dịch vụ,
+không cần bấm Áp dụng. Khi chưa chọn người thì không tự thêm dịch vụ. Xóa số người đưa số
+suất về 0; ngày không hợp lệ khi đã chọn người sẽ chặn tiếp tục. Số ngày tối đa là số đêm
+lưu trú + 1. Không tự miễn phí trẻ em hay thêm phụ thu tuổi.
 
 ### 3.3 Giá
 
-Backend lấy giá catalog hiện hành và snapshot `quantity`, `unitPrice`, `totalPrice` vào
+Backend lấy giá catalog hiện hành và snapshot `quantity`, `quantityUnit`, `unitPrice`, `totalPrice` vào
 booking. Thay đổi giá catalog sau đó không sửa snapshot của booking cũ.
 
 ## 4. Quy trình
@@ -45,7 +54,7 @@ booking. Thay đổi giá catalog sau đó không sửa snapshot của booking c
 ## 5. Các trường hợp không hợp lệ
 
 - Add-on không tồn tại hoặc inactive.
-- Quantity nhỏ hơn 1 hoặc lớn hơn 20.
+- Quantity nhỏ hơn 1 hoặc lớn hơn 1000.
 - Cùng add-on xuất hiện lặp trong request.
 - Client tự quyết định giá thay cho catalog backend.
 

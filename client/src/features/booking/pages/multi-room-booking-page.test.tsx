@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBookingOrder } from '../api/booking-order-api';
+import { getAddOns } from '../api/catalog-api';
 import { MultiRoomBookingPage } from './multi-room-booking-page';
 
 vi.mock('@components/layout/MainHeader', () => ({ MainHeader: () => null }));
@@ -83,6 +84,76 @@ function mount() {
 }
 
 describe('multi-room checkout', () => {
+  it('automatically prices meal quantities, blocks invalid days and sends only booking data', async () => {
+    vi.mocked(getAddOns).mockResolvedValueOnce([
+      {
+        id: 'breakfast',
+        code: 'BREAKFAST_BUFFET',
+        name: 'Buffet sáng',
+        price: 250000,
+        quantityUnit: 'SERVING',
+      },
+    ]);
+    vi.mocked(createBookingOrder).mockResolvedValue({ orderId: 'meal-order' } as Awaited<
+      ReturnType<typeof createBookingOrder>
+    >);
+    mount();
+    fireEvent.change(await screen.findByRole('spinbutton', { name: 'Số phòng Deluxe' }), {
+      target: { value: '1' },
+    });
+    await screen.findByText('Dịch vụ bổ sung cho phòng 1');
+    fireEvent.click(screen.getByText('Dịch vụ bổ sung cho phòng 1'));
+    const total = screen.getByRole('spinbutton', { name: 'Buffet sáng phòng 1' });
+    expect(total).toHaveValue('0');
+    expect(total).toHaveAttribute('readonly');
+    expect(screen.queryByRole('button', { name: 'Áp dụng số suất' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Số người dùng bữa' }), {
+      target: { value: '2' },
+    });
+    expect(total).toHaveValue('4');
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Số ngày dùng bữa' }), {
+      target: { value: '4' },
+    });
+    expect(total).toHaveValue('0');
+    expect(screen.getByRole('button', { name: 'Giữ 1 phòng và tiếp tục' })).toBeDisabled();
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Số ngày dùng bữa' }), {
+      target: { value: '3' },
+    });
+    expect(total).toHaveValue('6');
+    expect(screen.getByRole('heading', { name: /1\.502\.000/ })).toBeInTheDocument();
+    // Reordering room groups must preserve each room's meal inputs and quantity.
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Số phòng Suite' }), {
+      target: { value: '1' },
+    });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Số phòng Deluxe' }), {
+      target: { value: '2' },
+    });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Số phòng Deluxe' }), {
+      target: { value: '1' },
+    });
+    fireEvent.click(screen.getByText('Dịch vụ bổ sung cho phòng 1'));
+    fireEvent.click(screen.getByText('Dịch vụ bổ sung cho phòng 2'));
+    expect(screen.getByRole('spinbutton', { name: 'Buffet sáng phòng 1' })).toHaveValue('0');
+    expect(screen.getByRole('spinbutton', { name: 'Buffet sáng phòng 2' })).toHaveValue('6');
+    expect(screen.getAllByRole('spinbutton', { name: 'Số người dùng bữa' })[1]).toHaveValue('2');
+    fireEvent.change(screen.getByLabelText('Họ và tên'), { target: { value: 'Khách UAT' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'uat@example.test' } });
+    fireEvent.change(screen.getByLabelText('CCCD / giấy tờ tùy thân'), {
+      target: { value: 'UAT-01' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Giữ 2 phòng và tiếp tục' }));
+    await waitFor(() => expect(createBookingOrder).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(createBookingOrder).mock.calls[0][0].rooms).toEqual([
+      { roomTypeId: 'suite', adults: 1, children: 0, addOns: [] },
+      {
+        roomTypeId: 'deluxe',
+        adults: 1,
+        children: 0,
+        addOns: [{ addOnServiceId: 'breakfast', quantity: 6 }],
+      },
+    ]);
+  });
+
   it('submits two Deluxe rooms and one Suite with one contact and individual occupancies', async () => {
     vi.mocked(createBookingOrder).mockResolvedValue({ orderId: 'created-order' } as Awaited<
       ReturnType<typeof createBookingOrder>
@@ -121,6 +192,24 @@ describe('multi-room checkout', () => {
       ],
     });
     expect(await screen.findByText('Chi tiết đơn đã tạo')).toBeInTheDocument();
+  });
+
+  it('requires an age per child and accepts age zero before allowing checkout', async () => {
+    mount();
+    fireEvent.change(await screen.findByRole('spinbutton', { name: 'Số phòng Deluxe' }), {
+      target: { value: '1' },
+    });
+    const childCount = screen.getByRole('spinbutton', { name: 'Trẻ em phòng 1' });
+    fireEvent.change(childCount, { target: { value: '1' } });
+    expect(screen.getByRole('button', { name: /Giữ 1 phòng/ })).toBeDisabled();
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Tuổi trẻ em 1 phòng 1' }), {
+      target: { value: '0' },
+    });
+    expect(screen.getByRole('button', { name: /Giữ 1 phòng/ })).toBeEnabled();
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Tuổi trẻ em 1 phòng 1' }), {
+      target: { value: '12' },
+    });
+    expect(screen.getByRole('button', { name: /Giữ 1 phòng/ })).toBeDisabled();
   });
 
   it('does not allow an order without any selected room', async () => {
