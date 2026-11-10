@@ -19,6 +19,10 @@ import org.springframework.data.repository.query.Param;
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
     boolean existsByAssignedRoomId(UUID roomId);
 
+    @Query("select max(b.checkedOutAt) from Booking b where b.order.id = :orderId "
+            + "and b.roomType.id = :roomTypeId and b.status = 'CHECKED_OUT'")
+    Instant findLatestCheckOutForReview(@Param("orderId") UUID orderId, @Param("roomTypeId") UUID roomTypeId);
+
     @Query(
             value =
                     """

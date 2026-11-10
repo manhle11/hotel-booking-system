@@ -274,6 +274,14 @@ export const router = createBrowserRouter([
                 },
               },
               {
+                path: ROUTE_PATHS.reviews,
+                lazy: async () => {
+                  const { ReviewManagementPage } =
+                    await import('@features/review/review-management-page');
+                  return { Component: ReviewManagementPage };
+                },
+              },
+              {
                 path: ROUTE_PATHS.addOnServices,
                 lazy: async () => {
                   const { AddOnManagementPage } = await import('@features/addon-management');

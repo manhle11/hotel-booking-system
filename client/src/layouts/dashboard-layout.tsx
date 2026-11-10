@@ -14,6 +14,7 @@ import {
   UserOutlined,
   TeamOutlined,
   SafetyCertificateOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import { HomeOutlined, LoginOutlined } from '@ant-design/icons';
 import { Avatar, Button, Dropdown, Layout, Menu, Space, Typography, type MenuProps } from 'antd';
@@ -102,6 +103,11 @@ export function DashboardLayout() {
             key: '/management/room-types',
             icon: <HomeOutlined />,
             label: 'Quản lý loại phòng',
+          },
+          {
+            key: ROUTE_PATHS.reviews,
+            icon: <StarOutlined />,
+            label: 'Đánh giá hạng phòng',
           },
           {
             key: '/add-on-services',

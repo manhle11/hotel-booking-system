@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { refreshAccessToken } from '../refresh-token';
 import { API_CLIENT_EVENTS } from '../../../lib/axios';
@@ -6,6 +7,7 @@ import { authStorage, tokenStorage, type StoredAuthSession } from '../../../lib/
 import { AuthContext, type AuthContextValue } from './auth-context';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const client = useQueryClient();
   const [session, setSession] = useState<StoredAuthSession | null>(() => authStorage.getSession());
   const [isInitializing, setIsInitializing] = useState(
     () => !session && authStorage.hasRefreshToken(),
@@ -13,9 +15,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshStarted = useRef(false);
 
   const logout = useCallback(() => {
+    // Clearing also cancels pending queries so an old response cannot restore cached data.
+    client.clear();
     authStorage.clearSession();
     setSession(null);
-  }, []);
+  }, [client]);
 
   const updateUser = useCallback((user: StoredAuthSession['user']) => {
     if (!user) return;
@@ -48,13 +52,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInitializing,
       roles: session?.roles ?? [],
       startSession: (accessToken, refreshToken, roles, expiresInSeconds, remember, user) => {
+        client.clear();
         authStorage.setSession(accessToken, roles, expiresInSeconds, remember, refreshToken, user);
         setSession(authStorage.getSession());
       },
       logout,
       updateUser,
     }),
-    [isInitializing, logout, session, updateUser],
+    [client, isInitializing, logout, session, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -28,6 +28,14 @@ Flyway trong `hotel-booking/src/main/resources/db/migration` là nguồn sự th
 
 Booking status hiện có: `PENDING`, `CONFIRMED`, `CANCELLED`, `CHECKED_IN`, `CHECKED_OUT`, `EXPIRED`.
 
+### Đánh giá hạng phòng
+
+`room_type_reviews` gắn booking làm bằng chứng lưu trú, hạng phòng và đơn chung nếu có. Ràng buộc unique trên booking, và unique `(order_id, room_type_id)` khi có đơn, vẫn giữ sau khi xóa. `rating` từ 1–5, nhận xét tối đa 1.000 ký tự. `deleted_at`, `deleted_by`, `delete_reason` giữ dấu vết xóa; `hotel_reply`, `replied_at`, `replied_by` lưu phản hồi hiện tại của khách sạn. Các truy vấn công khai chỉ tính bản ghi chưa xóa.
+
+Quyền tạo đánh giá dựa trên JWT của tài khoản đang đăng nhập và `booked_by` của booking/đơn, cùng trạng thái trả phòng. Booking vãng lai không được đánh giá; không nhận quyền sở hữu qua email hoặc token.
+
+Migration: `V202611091900__add_room_type_reviews.sql`, `V202611092000__extend_review_management_and_guest_access.sql`, `V202611092100__remove_review_guest_access.sql`. Migration cuối xóa bảng xác thực vãng lai cũ; giữ nguyên checksum các migration trước. Chi tiết: [Đánh giá hạng phòng](26-room-type-reviews.md).
+
 ## Business constraints
 
 - `check_out_date > check_in_date`.
