@@ -10,6 +10,7 @@ import { RoomDetailSkeleton } from '../../../components/room/RoomDetailSkeleton'
 import { RoomGallery } from '../../../components/room/RoomGallery';
 import { RoomInfo } from '../../../components/room/RoomInfo';
 import { getRoomTypeDetail } from '../api/room-detail-api';
+import { RoomReviewSummary, RoomReviewsSection } from '../../review/room-reviews';
 import './room-detail-page.css';
 
 export function RoomDetailPage() {
@@ -64,12 +65,13 @@ export function RoomDetailPage() {
           </Link>
           <div>
             <Typography.Title>{roomType.name}</Typography.Title>
+            <RoomReviewSummary roomTypeId={roomType.id} />
             <Typography.Paragraph type="secondary" className="room-detail-lead">
               {roomType.shortDescription || roomType.description}
             </Typography.Paragraph>
           </div>
           <RoomGallery images={roomType.images} roomName={roomType.name} />
-          <Row gutter={[32, 32]} align="top">
+          <Row gutter={[{ xs: 16, md: 32 }, 32]} align="top">
             <Col xs={24} lg={16}>
               <RoomInfo roomType={roomType} />
             </Col>
@@ -77,6 +79,7 @@ export function RoomDetailPage() {
               <BookingCard roomType={roomType} />
             </Col>
           </Row>
+          <RoomReviewsSection roomTypeId={roomType.id} />
         </Space>
       </main>
       <MainFooter />

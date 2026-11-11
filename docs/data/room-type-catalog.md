@@ -62,7 +62,7 @@ Khi chạy profile `local`, `RoomCatalogInitializer` gọi `initialize_hanbay_ro
 Đã bỏ `RoomDataInitializer` tự sinh 5 phòng cho mỗi loại và `AmenityDataInitializer` cũ. Tests nghiệp vụ dùng fixture migration lịch sử với `hotel.demo-catalog.enabled=false`; tests bootstrap riêng bật cấu hình này và xác minh dữ liệu thực tế.
 
 1. Sao lưu database bằng `pg_dump --format=custom`; đặt bản sao trong `.local-backups/` được gitignore và giới hạn quyền đọc.
-2. Áp dụng Flyway đến `202611071800` để bổ sung tuổi trẻ em, đơn vị dịch vụ và hàm danh mục chuẩn.
+2. Áp dụng Flyway đến `202611092100`, gồm hàm danh mục chuẩn và các migration đánh giá hạng phòng. Reset xóa cả đánh giá, phản hồi và lịch sử xóa gắn với các booking bị xóa.
 3. Chạy script bằng psql với `ON_ERROR_STOP=1` trên `hotelbooking_db`.
 4. Kiểm tra lại đúng 6 nhóm, 8 loại, 35 phòng, 9 dòng giường và 5 dịch vụ mua thêm.
 

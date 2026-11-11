@@ -1,5 +1,6 @@
 import { useTableSorting } from '../../hooks/use-table-sorting';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -243,6 +244,9 @@ export function RoomTypeManagementPage() {
             render: (_, r) => (
               <Space>
                 <Button onClick={() => open(r)}>Chi tiết / Sửa</Button>
+                <Link to={`/management/reviews?roomTypeId=${r.id}`}>
+                  <Button>Đánh giá</Button>
+                </Link>
                 <Popconfirm
                   title="Ngừng kinh doanh loại phòng này?"
                   description="Các phòng vật lý và lịch sử đặt phòng được giữ nguyên."

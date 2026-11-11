@@ -24,6 +24,7 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
+import { ReviewAction } from '../../review/review-action';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RefundInformationForm } from '../../payment/components/refund-information-form';
 import type { RefundInformation } from '../../payment/types/refund';
@@ -291,6 +292,12 @@ export function BookingHistorySection({
                   <Col xs={24} sm={6} md={6} className="booking-history-page__actions">
                     <Tag color={bookingStatus.color}>{bookingStatus.label}</Tag>
                     <Typography.Text strong>{money.format(booking.totalAmount)}</Typography.Text>
+                    {booking.bookingStatus === 'CHECKED_OUT' && (
+                      <ReviewAction
+                        bookingId={booking.bookingId}
+                        roomTypeName={booking.roomType.name}
+                      />
+                    )}
                     {booking.bookingStatus === 'PENDING' && (
                       <Button
                         type="primary"

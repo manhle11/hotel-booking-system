@@ -20,4 +20,5 @@ export const ROUTE_PATHS = {
   priceRules: '/price-rules',
   maintenance: '/maintenance',
   roomMaintenance: '/rooms/maintenance',
+  reviews: '/management/reviews',
 } as const;

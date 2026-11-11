@@ -1,0 +1,459 @@
+.review-eyebrow {
+  display: block;
+  color: #8a6a32;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1.6;
+}
+.review-muted {
+  color: #64748b;
+  font-size: 13px;
+}
+.review-body {
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.85;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 16px 0 0;
+}
+.review-inline-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.review-inline-score > .anticon {
+  color: #bd9145;
+}
+.review-inline-score strong {
+  color: #334155;
+  font-weight: 600;
+}
+.review-inline-score__divider {
+  margin-inline: 8px;
+  color: #cbd5e1;
+}
+.room-reviews {
+  margin-top: 24px;
+  padding: 36px;
+  background: #fff;
+  border: 1px solid #e5e9ee;
+  border-radius: 18px;
+}
+.room-reviews__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+.room-reviews__header h2 {
+  color: #0f172a;
+  font-size: clamp(22px, 2.8vw, 30px);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  margin: 7px 0;
+}
+.room-reviews__header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.review-verified-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid #dbe8e4;
+  border-radius: 30px;
+  color: #347063;
+  background: #f5faf8;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.room-reviews__overview {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 30px;
+  padding: 24px;
+  border-radius: 14px;
+  background: #f6f8fa;
+  border: 1px solid #eaf0f4;
+}
+.review-score-tile {
+  background: #102439;
+  border-radius: 12px;
+  padding: 22px 18px;
+  color: #c3cdd8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.review-score-tile > .anticon {
+  color: #d4b172;
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+.review-score-tile__number {
+  color: #fff;
+  font-size: 46px;
+  font-weight: 650;
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+}
+.review-score-tile__outof {
+  color: #b4c2d0;
+  font-size: 17px;
+}
+.room-reviews__context {
+  align-self: center;
+  max-width: 590px;
+}
+.room-reviews__context h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 10px;
+}
+.room-reviews__context p {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.8;
+  margin-bottom: 16px;
+}
+.review-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #285771;
+}
+.room-reviews__toolbar {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  margin: 30px 0 18px;
+}
+.room-reviews__toolbar h3 {
+  margin: 0;
+  color: #334155;
+  font-size: 16px;
+  font-weight: 600;
+}
+.room-reviews__toolbar .ant-select {
+  min-width: 155px;
+}
+.room-reviews__list {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.guest-review {
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e5eaf0;
+  border-radius: 12px;
+}
+.guest-review__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+.guest-review__identity {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+.guest-review__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #edf2f6;
+  color: #40586c;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 16px;
+  font-weight: 600;
+}
+.guest-review__identity strong {
+  color: #243548;
+  font-size: 14px;
+}
+.guest-review__verified {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  color: #5f7f72;
+  font-size: 11px;
+}
+.guest-review time {
+  color: #94a3b8;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.guest-review__rating {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 18px;
+}
+.guest-review__rating > span:last-child {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8b6d38;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #fbf5e9;
+}
+.guest-review .ant-rate,
+.review-compose .ant-rate {
+  color: #c79c4e;
+}
+.hotel-review-reply {
+  margin-top: 22px;
+  padding: 18px 20px;
+  background: #f6f8fa;
+  border-left: 3px solid #b4c4ce;
+  border-radius: 0 8px 8px 0;
+}
+.hotel-review-reply > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.hotel-review-reply strong {
+  color: #415970;
+  font-size: 12px;
+}
+.hotel-review-reply .review-body {
+  margin-top: 8px;
+  font-size: 14px;
+}
+.review-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 42px 20px;
+  border: 1px dashed #dce4ea;
+  border-radius: 12px;
+  background: #fcfdfe;
+}
+.review-empty > span {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  background: #edf2f6;
+  border-radius: 50%;
+  color: #637e92;
+  font-size: 25px;
+  margin-bottom: 16px;
+}
+.review-empty h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #334155;
+}
+.review-empty p {
+  color: #94a3b8;
+  line-height: 1.8;
+  font-size: 13px;
+  max-width: 390px;
+}
+.review-write-button.ant-btn {
+  border-color: #cad7e0;
+  color: #26465f;
+  border-radius: 8px;
+}
+.review-compose .ant-modal-container {
+  padding: 28px;
+  border-radius: 16px;
+}
+.review-compose .ant-modal-title {
+  padding-right: 20px;
+  font-size: 17px;
+}
+.review-compose__intro {
+  display: flex;
+  gap: 16px;
+  padding: 22px 0;
+  margin-bottom: 4px;
+}
+.review-compose__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  color: #b8914d;
+  background: #fbf5e8;
+  font-size: 22px;
+}
+.review-compose__intro h3 {
+  font-size: 18px;
+  color: #1e293b;
+  margin: 5px 0 6px;
+}
+.review-compose__intro p {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 0;
+}
+.review-rating-input {
+  padding: 22px;
+  border-radius: 12px;
+  background: #f6f8fa;
+  margin-bottom: 24px;
+  text-align: center;
+}
+.review-rating-input .ant-form-item {
+  margin-bottom: 8px;
+}
+.review-rating-input .ant-form-item-label {
+  text-align: center;
+}
+.review-rating-input .ant-rate {
+  font-size: 34px;
+}
+.review-rating-input__label {
+  color: #8a6a32;
+  font-size: 12px;
+}
+.review-compose .ant-input {
+  border-radius: 8px;
+  line-height: 1.8;
+}
+.review-compose .ant-form-item-label label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.review-compose .ant-form-item-extra {
+  font-size: 12px;
+  margin-top: 6px;
+  color: #94a3b8;
+}
+.review-compose__note {
+  display: flex;
+  gap: 9px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #64748b;
+  margin: 20px 0 8px;
+}
+.review-compose__note .anticon {
+  color: #6b8f7e;
+  margin-top: 4px;
+}
+.review-compose .ant-modal-footer {
+  padding-top: 20px;
+  border-top: 1px solid #edf1f5;
+  margin-top: 22px;
+}
+.review-compose .ant-modal-footer .ant-btn {
+  border-radius: 8px;
+}
+.review-submitted {
+  text-align: center;
+  padding: 18px 6px 24px;
+}
+.review-submitted__check {
+  color: #4b8b73;
+  font-size: 36px;
+}
+.review-submitted h3 {
+  color: #243548;
+  margin: 14px 0;
+}
+.review-submitted .review-body {
+  margin-bottom: 16px;
+}
+@media (max-width: 767px) {
+  .room-reviews {
+    padding: 22px 16px;
+    border-radius: 12px;
+  }
+  .room-reviews__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .room-reviews__overview {
+    grid-template-columns: 1fr;
+    padding: 16px;
+    gap: 18px;
+  }
+  .review-score-tile {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    padding: 18px 12px;
+  }
+  .review-score-tile > .anticon {
+    margin: 0;
+  }
+  .review-score-tile__number {
+    font-size: 36px;
+  }
+  .review-score-tile > span:last-child {
+    width: 100%;
+    text-align: center;
+  }
+  .room-reviews__context h3 {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .room-reviews__toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .room-reviews__toolbar .ant-select {
+    width: 100%;
+  }
+  .guest-review {
+    padding: 18px 14px;
+  }
+  .guest-review__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .guest-review__header > time {
+    margin-left: 56px;
+  }
+  .hotel-review-reply {
+    padding: 14px;
+  }
+  .review-compose .ant-modal-container {
+    padding: 22px 18px;
+  }
+  .review-compose__intro {
+    gap: 12px;
+  }
+  .review-compose__intro h3 {
+    font-size: 16px;
+  }
+  .review-rating-input {
+    padding: 18px 10px;
+  }
+}

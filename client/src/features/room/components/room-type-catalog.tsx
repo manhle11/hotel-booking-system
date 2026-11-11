@@ -17,6 +17,7 @@ import {
   Typography,
 } from 'antd';
 import { useState } from 'react';
+import { RoomReviewSummary } from '../../review/room-reviews';
 import { Link } from 'react-router-dom';
 
 import { ApiClientError } from '../../../types/api';
@@ -159,6 +160,7 @@ export function RoomTypeCatalog() {
                       >
                         {room.name}
                       </Typography.Title>
+                      <RoomReviewSummary roomTypeId={room.id} />
                       <Space wrap>
                         {room.category && <Tag>{room.category.name}</Tag>}
                         {room.beds?.map((bed) => (

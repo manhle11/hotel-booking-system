@@ -1,5 +1,5 @@
 -- Explicit local demo reset requested by the owner. Never run automatically on startup.
--- Run Flyway through 202611071800 and take a database backup before executing this file.
+-- Run Flyway through 202611092100 and take a database backup before executing this file.
 -- Accounts, authentication, Flyway history, holidays and AI knowledge are preserved.
 BEGIN;
 SET LOCAL lock_timeout = '10s';
@@ -13,11 +13,15 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM flyway_schema_history WHERE version = '202611071800' AND success) THEN
         RAISE EXCEPTION 'Apply Flyway migration 202611071800 before resetting the room catalog';
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM flyway_schema_history WHERE version = '202611092100' AND success) THEN
+        RAISE EXCEPTION 'Apply Flyway migrations through 202611092100 before resetting the room catalog';
+    END IF;
 END $$;
 
 -- List every dependent table explicitly. An unexpected FK stops the transaction;
 -- do not use CASCADE to silently delete additional datasets.
 TRUNCATE TABLE
+    room_type_reviews,
     payment_allocations, payment_refunds, payment_webhook_events, payment_transactions, payments,
     booking_night_price_rules, booking_nights, booking_add_ons, booking_guests,
     booking_status_histories, bookings, booking_orders,

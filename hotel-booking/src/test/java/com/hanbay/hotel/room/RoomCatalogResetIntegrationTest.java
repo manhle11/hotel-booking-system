@@ -9,6 +9,7 @@ import com.hanbay.hotel.seed.config.RoomCatalogInitializer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.*;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -224,6 +225,13 @@ class RoomCatalogResetIntegrationTest {
                 "INSERT INTO maintenance_cost_history(request_id,amount,expense_date,note,revision,recorded_by,recorded_at) VALUES (?,100,CURRENT_DATE,'Fixture',1,?,CURRENT_TIMESTAMP)",
                 request,
                 owner);
+        insertReviewFixture(owner, type, false);
+        insertReviewFixture(owner, type, true);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM room_type_reviews", Integer.class))
+                .isEqualTo(2);
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM room_type_reviews WHERE deleted_at IS NOT NULL", Integer.class))
+                .isEqualTo(1);
         var protectedBefore = snapshots(
                 List.of("users", "roles", "user_roles", "refresh_tokens", "flyway_schema_history", "holiday_calendar"));
 
@@ -231,6 +239,7 @@ class RoomCatalogResetIntegrationTest {
 
         assertThat(snapshots(protectedBefore.keySet())).isEqualTo(protectedBefore);
         for (String table : List.of(
+                "room_type_reviews",
                 "bookings",
                 "booking_orders",
                 "payments",
@@ -273,11 +282,50 @@ class RoomCatalogResetIntegrationTest {
 
     @Test
     void invalidReplacementRollsBackTheEntireReset() {
-        var before = snapshots(List.of("room_types", "room_type_beds", "rooms", "amenities"));
+        UUID owner = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO users(id,email,full_name,status) VALUES (?,?,'Rollback fixture','ACTIVE')",
+                owner,
+                owner + "@example.test");
+        UUID type = jdbc.queryForObject("SELECT id FROM room_types WHERE code='SUITE_KING'", UUID.class);
+        insertReviewFixture(owner, type, false);
+        insertReviewFixture(owner, type, true);
+        var before = snapshots(List.of(
+                "room_types", "room_type_beds", "rooms", "amenities", "bookings", "room_type_reviews", "users"));
         String invalid = script.replace(
                 "SELECT seed_hanbay_room_demo_catalog();", "SELECT seed_hanbay_room_demo_catalog(); SELECT 1/0;");
         assertThatThrownBy(() -> execute(invalid)).isInstanceOf(SQLException.class);
         assertThat(snapshots(before.keySet())).isEqualTo(before);
+    }
+
+    private void insertReviewFixture(UUID owner, UUID type, boolean deleted) {
+        UUID booking = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO bookings(id,booking_code,booked_by,room_type_id,check_in_date,check_out_date,
+                    total_amount,paid_amount,status,checked_in_at,checked_out_at,created_at)
+                VALUES (?,?,?,?,CURRENT_DATE-3,CURRENT_DATE-1,1000000,1000000,'CHECKED_OUT',
+                    CURRENT_TIMESTAMP-INTERVAL '3 days',CURRENT_TIMESTAMP-INTERVAL '1 day',CURRENT_TIMESTAMP)
+                """,
+                booking,
+                "RESET-REVIEW-" + booking,
+                owner,
+                type);
+        jdbc.update(
+                """
+                INSERT INTO room_type_reviews(id,booking_id,room_type_id,reviewer_id,reviewer_name,rating,
+                    comment,hotel_reply,replied_at,replied_by,deleted_at,deleted_by,delete_reason)
+                VALUES (?,?,?,?,'Reset fixture',?,'Review fixture','Reply fixture',CURRENT_TIMESTAMP,?,?,?,?)
+                """,
+                UUID.randomUUID(),
+                booking,
+                type,
+                owner,
+                deleted ? 1 : 5,
+                owner,
+                deleted ? Timestamp.from(Instant.now()) : null,
+                deleted ? owner : null,
+                deleted ? "Deleted fixture" : null);
     }
 
     private Map<String, List<String>> snapshots(Collection<String> tables) {

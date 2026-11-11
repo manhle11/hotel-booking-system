@@ -12,6 +12,14 @@ import { BookingOrderPage } from './booking-order-page';
 import { BookingPaymentPage } from './booking-payment-page';
 import { createPaymentRequest, getPaymentStatus } from '../api/booking-api';
 
+let accountId: string | null = null;
+vi.mock('../../authentication/providers/auth-context', () => ({
+  useAuth: () => ({
+    session: accountId ? { user: { id: accountId } } : null,
+    isAuthenticated: accountId !== null,
+  }),
+}));
+
 vi.mock('@components/layout/MainHeader', () => ({ MainHeader: () => null }));
 vi.mock('@components/layout/MainFooter', () => ({ MainFooter: () => null }));
 vi.mock('@components/booking/BookingSteps', () => ({ BookingSteps: () => null }));
@@ -92,11 +100,16 @@ beforeAll(() => {
     })),
   });
 });
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  accountId = null;
+});
 afterEach(cleanup);
 
-function mount(page = <BookingOrderPage />) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function mount(
+  page = <BookingOrderPage />,
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   render(
     <QueryClientProvider client={client}>
       <ConfigProvider>
@@ -114,6 +127,39 @@ function mount(page = <BookingOrderPage />) {
 }
 
 describe('BookingOrderPage regression flows', () => {
+  it('never reuses another account or guest review ownership from a fresh order cache', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { staleTime: 60_000, retry: false } },
+    });
+    const completed = {
+      ...order,
+      status: 'CONFIRMED' as const,
+      payment: null,
+      reviewOwner: true,
+      rooms: order.rooms.map((room) => ({ ...room, status: 'CHECKED_OUT' as const })),
+    };
+    accountId = 'owner-account';
+    vi.mocked(getBookingOrder).mockResolvedValue(completed);
+    mount(<BookingOrderPage />, client);
+    expect(await screen.findByText('Đánh giá sau lưu trú')).toBeInTheDocument();
+    cleanup();
+
+    accountId = 'other-account';
+    vi.mocked(getBookingOrder).mockRejectedValue(new Error('Không có quyền xem đơn'));
+    mount(<BookingOrderPage />, client);
+    expect(await screen.findByText('Không thể xem đơn đặt phòng')).toBeInTheDocument();
+    expect(screen.queryByText('Đánh giá sau lưu trú')).not.toBeInTheDocument();
+    cleanup();
+
+    accountId = null;
+    vi.mocked(getBookingOrder).mockResolvedValue({ ...completed, reviewOwner: false });
+    mount(<BookingOrderPage />, client);
+    await screen.findByText('Đã xác nhận 2 phòng');
+    expect(screen.queryByText('Đánh giá sau lưu trú')).not.toBeInTheDocument();
+    expect(getBookingOrder).toHaveBeenCalledTimes(3);
+    client.clear();
+  });
+
   it('also refreshes the legacy booking payment screen from the polled remaining amount', async () => {
     vi.mocked(createPaymentRequest).mockResolvedValue({
       ...order.payment!,
@@ -187,7 +233,7 @@ describe('BookingOrderPage regression flows', () => {
     fireEvent.error(image);
     expect(screen.getByText('Không tải được mã QR')).toBeInTheDocument();
     await act(async () => {
-      client.setQueryData(['booking-order', 'order-1'], {
+      client.setQueryData(['booking-order', 'order-1', null], {
         ...order,
         paidAmount: 200_000,
         payment: {

@@ -224,3 +224,18 @@ booking hôm qua còn điều kiện được nhận trước 06; sau 12 ngày t
 Checkout không tự động; trả xong DIRTY, dọn xong mới AVAILABLE. Trả sớm chỉ hôm nay;
 gia hạn kiểm tồn đoạn thêm/phòng gán. Lưu thời điểm thực tế UTC/TIMESTAMPTZ.
 Kiểm trực tiếp bằng [16 luồng FE](testing/stay-time-fe-checklist.md); ca biên cần Clock backend test.
+
+## Đánh giá hạng phòng sau lưu trú
+
+- Chỉ tài khoản đang đăng nhập và sở hữu đặt phòng từ lúc đặt được chấm 1–5 sao và nhận xét tối đa 1.000 ký tự trong 30 ngày từ thời điểm trả phòng thực tế.
+- Mỗi booking cũ hoặc mỗi hạng phòng trong đơn nhiều phòng được đánh giá một lần; các lần lưu trú khác được đánh giá tiếp.
+- Trang hạng phòng hiển thị điểm trung bình, số lượt, nhận xét đã xác thực, lọc số sao và phân trang; tên khách được rút gọn.
+- MANAGER được lọc đánh giá theo hạng phòng/số sao và xóa theo yêu cầu khách sạn. Đánh giá đã xóa không được tính điểm, không công khai, và không thể gửi lại cho cùng lần lưu trú; lưu người và thời điểm xóa.
+- Kiểm tra quyền ở backend; các vai trò khác không có quyền quản lý/xóa. Chi tiết nghiệp vụ, API và kiểm tra: [Đánh giá hạng phòng](26-room-type-reviews.md).
+
+### Bổ sung vận hành đánh giá
+
+- Khách đặt vãng lai không được đánh giá, kể cả khi đăng nhập sau hoặc email trùng tài khoản. Đánh giá không có luồng OTP/email; token booking không cấp quyền đánh giá.
+- Manager xem chi tiết lần lưu trú, nhập lý do xóa bắt buộc, xem lịch sử xóa gồm người/thời điểm/lý do và phản hồi khách hàng. Phản hồi công khai có thể cập nhật hoặc gỡ khi đánh giá chưa xóa.
+- Manager lọc theo trạng thái phản hồi, tên khách/mã đơn/mã booking và khoảng ngày gửi đánh giá theo giờ khách sạn. Thống kê tính trên toàn bộ kết quả cùng bộ lọc; thông tin các lần lưu trú được truy vấn theo nhóm cho mỗi trang.
+- Danh sách tự chuyển về trang hợp lệ nếu lượt đánh giá bị xóa làm giảm số trang.

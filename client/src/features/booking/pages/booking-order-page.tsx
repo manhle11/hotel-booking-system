@@ -38,6 +38,8 @@ import { ORDER_STATUS } from '../utils/booking-order-presentation';
 import { PaymentInstructions } from './booking-payment-page';
 import './create-booking-page.css';
 import './booking-order.css';
+import { ReviewAction } from '../../review/review-action';
+import { useAuth } from '../../authentication/providers/auth-context';
 
 const ROOM_STATUS: Record<string, string> = {
   PENDING: 'Đang giữ',
@@ -60,11 +62,13 @@ export function BookingOrderPage() {
   const { orderId = '' } = useParams();
   const { message } = App.useApp();
   const client = useQueryClient();
+  const { session } = useAuth();
+  const accountId = session?.user?.id ?? null;
   const [accepted, setAccepted] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [refund, setRefund] = useState<RefundInformation>(emptyRefund);
-  const queryKey = ['booking-order', orderId];
+  const queryKey = ['booking-order', orderId, accountId];
   const orderQuery = useQuery({
     queryKey,
     queryFn: () => getBookingOrder(orderId),
@@ -94,7 +98,7 @@ export function BookingOrderPage() {
     onError: (error: Error) => void message.error(error.message),
   });
   const eligibility = useQuery({
-    queryKey: ['order-cancellation', orderId],
+    queryKey: ['order-cancellation', orderId, accountId],
     queryFn: () => getOrderCancellationEligibility(orderId),
     enabled: cancelOpen,
     retry: false,
@@ -138,7 +142,11 @@ export function BookingOrderPage() {
               showIcon
               title="Không thể xem đơn đặt phòng"
               description="Vui lòng đăng nhập bằng tài khoản đã đặt phòng hoặc mở lại đơn trên trình duyệt đã sử dụng."
-              action={<Button onClick={() => void orderQuery.refetch()}>Thử lại</Button>}
+              action={
+                <Space wrap>
+                  <Button onClick={() => void orderQuery.refetch()}>Thử lại</Button>
+                </Space>
+              }
             />
           ) : (
             <>
@@ -223,6 +231,38 @@ export function BookingOrderPage() {
                       ]}
                     />
                   </Card>
+                  {order.reviewOwner === true &&
+                    order.rooms.some((room) => room.status === 'CHECKED_OUT') && (
+                      <Card title="Đánh giá sau lưu trú" style={{ marginTop: 24 }}>
+                        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+                          {order.rooms
+                            .filter(
+                              (room, index, rooms) =>
+                                room.status === 'CHECKED_OUT' &&
+                                rooms.findIndex(
+                                  (candidate) =>
+                                    candidate.roomTypeId === room.roomTypeId &&
+                                    candidate.status === 'CHECKED_OUT',
+                                ) === index,
+                            )
+                            .map((room) => (
+                              <Flex
+                                key={room.roomTypeId}
+                                justify="space-between"
+                                align="center"
+                                wrap
+                                gap={12}
+                              >
+                                <Typography.Text strong>{room.roomTypeName}</Typography.Text>
+                                <ReviewAction
+                                  bookingId={room.bookingId}
+                                  roomTypeName={room.roomTypeName}
+                                />
+                              </Flex>
+                            ))}
+                        </Space>
+                      </Card>
+                    )}
                   {pending && (
                     <Card title="Thanh toán chung cho toàn đơn" style={{ marginTop: 24 }}>
                       {order.paidAmount > 0 && (

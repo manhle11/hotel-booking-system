@@ -1560,3 +1560,25 @@ Extend yêu cầu authenticated user đúng bookedBy; chỉ CONFIRMED/CHECKED_IN
 Luôn kiểm tồn hạng cho [ngày trả cũ,ngày trả mới), loại booking hiện tại; nếu đã gán phòng còn kiểm lịch
 phòng đó. Giữ snapshot cũ/phòng cũ hoặc từ chối409, không chuyển phòng tự động.
 Các giá trị mặc định và16 luồng FE tại [tài liệu23](23-stay-time-and-inventory.md).
+
+## Room type review APIs
+
+| Method | Endpoint | Access |
+|---|---|---|
+| GET | `/api/v1/room-types/{id}/reviews?page=0&size=6&rating=5` | Public; rating optional |
+| GET | `/api/v1/room-types/{id}/reviews/summary` | Public; nullable averageRating, totalReviews |
+| GET | `/api/v1/bookings/{bookingId}/review-eligibility` | Authenticated booking owner only |
+| POST | `/api/v1/bookings/{bookingId}/reviews` | Authenticated booking owner; `{rating,comment?}`; 201 |
+| GET | `/api/v1/management/reviews?page=0&size=20&roomTypeId={uuid}&rating=1&deleted=false` | MANAGER; optional filters |
+| GET | `/api/v1/management/reviews/summary` | MANAGER; same filters; counts over all matching reviews |
+| DELETE | `/api/v1/management/reviews/{id}` | MANAGER; nonblank `{reason}`, <=500 characters; 204 |
+| PUT | `/api/v1/management/reviews/{id}/reply` | MANAGER; nonblank `{reply}`, <=1000 characters |
+| DELETE | `/api/v1/management/reviews/{id}/reply` | MANAGER; 204 |
+
+Only signed-in owners of checked-out stays within 30 days of actual checkout can create reviews. Guest bookings (`bookedBy=null`) stay ineligible after login, including matching contact emails. Booking/payment tokens do not authorize review APIs. There is no review email/OTP recovery API. Anonymous requests receive 401; other accounts or guest-owned bookings receive 404.
+
+One review per legacy booking or order/room type; deletion preserves uniqueness and deletion audit while excluding the review from public lists/scores. Public DTO redacts the reviewer name and includes hotelReply/repliedAt; private ManagedReviewResponse includes stay details and deletion audit. Out-of-range pages clamp to the last available page after deletion. BookingOrderResponse includes `reviewOwner`, true only for the signed-in owner; the frontend uses it to show the post-stay review section.
+
+Full contract and test commands: [Room type reviews](26-room-type-reviews.md).
+
+Both management GET endpoints accept `replied=true/false`, `search` (case-insensitive reviewer name, order code or any booking code covered by the review, at most 100 characters), and optional `fromDate`/`toDate` (`yyyy-MM-dd`, inclusive hotel-local review creation dates). Invalid values or reversed ranges return 400. Literal `%` and `_` do not expand into wildcards. The summary returns `{totalReviews,unrepliedReviews,repliedReviews,lowRatingReviews}` and uses the same filters without pagination. Stay details are fetched in one batch for the current page instead of one query per review.

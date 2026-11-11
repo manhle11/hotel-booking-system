@@ -385,7 +385,12 @@ public class BookingOrderService {
                                 .anyMatch(r ->
                                         r.getStatus() == PaymentRefundStatus.PENDING && r.getRefundMethod() == null),
                 order.getTotalAmount(),
-                totalAmount - order.getTotalAmount());
+                totalAmount - order.getTotalAmount(),
+                order.getBookedBy() != null
+                        && currentUser
+                                .currentUserId()
+                                .filter(order.getBookedBy().getId()::equals)
+                                .isPresent());
     }
 
     private static BookingNotFoundException notFound() {

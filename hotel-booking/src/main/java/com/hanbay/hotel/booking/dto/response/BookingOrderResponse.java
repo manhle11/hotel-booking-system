@@ -30,7 +30,8 @@ public record BookingOrderResponse(
         PaymentRefundStatus refundStatus,
         boolean refundInformationRequired,
         long bookedAmount,
-        long additionalChargeAmount) {
+        long additionalChargeAmount,
+        boolean reviewOwner) {
     public record Room(
             UUID bookingId,
             String bookingCode,

@@ -39,6 +39,7 @@ export interface BookingOrderRoom {
 }
 
 export interface BookingOrder {
+  reviewOwner?: boolean;
   orderId: string;
   orderCode: string;
   status: BookingOrderStatus;
