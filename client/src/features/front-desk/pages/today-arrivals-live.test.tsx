@@ -102,6 +102,12 @@ async function openArrivals() {
   await screen.findByText(arrival.bookingCode);
 }
 
+function spyOnStorageWrite() {
+  // jsdom's Storage proxy requires a prototype spy; the fallback has its own prototype.
+  const storagePrototype = Object.getPrototypeOf(window.localStorage) as Storage;
+  return vi.spyOn(storagePrototype, 'setItem');
+}
+
 describe('live arrivals', () => {
   it('does not display today bookings under the overdue tab while waiting for its response', async () => {
     let finish: (data: Awaited<ReturnType<typeof getOverdueArrivals>>) => void = () => {};
@@ -141,7 +147,7 @@ describe('live arrivals', () => {
   it('refreshes an open arrivals tab when another tab announces a completed check-in', async () => {
     await openArrivals();
     pendingArrivals = pendingArrivals.slice(1);
-    const storage = vi.spyOn(window.localStorage, 'setItem');
+    const storage = spyOnStorageWrite();
     const otherTab = new QueryClient();
     try {
       await refreshArrivalsAfterCheckIn(otherTab);
@@ -192,12 +198,13 @@ describe('live arrivals', () => {
   it('still updates arrivals when the browser blocks storage', async () => {
     await openArrivals();
     pendingArrivals = [];
-    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+    const storage = spyOnStorageWrite().mockImplementation(() => {
       throw new Error('Storage blocked');
     });
 
     await act(() => refreshArrivalsAfterCheckIn(client));
 
+    expect(storage).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('Hôm nay không có khách dự kiến nhận phòng')).toBeTruthy();
     expect(screen.queryByText(arrival.bookingCode)).toBeNull();
   });
