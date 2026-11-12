@@ -9,3 +9,11 @@ export async function getTodayArrivals(params: TodayArrivalsParams): Promise<Tod
   );
   return response.data.data;
 }
+
+export async function getOverdueArrivals(params: TodayArrivalsParams): Promise<TodayArrivalsPage> {
+  const response = await apiClient.get<ApiResponse<TodayArrivalsPage>>(
+    '/front-desk/arrivals/overdue',
+    { params },
+  );
+  return response.data.data;
+}

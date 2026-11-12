@@ -62,6 +62,35 @@ class FrontDeskRepositoryIntegrationTest {
     private EntityManager entityManager;
 
     @Test
+    void overdueArrivalsExcludeActiveLateArrivalsUntilCutoffAndNeverCancelBookings() {
+        var type = roomTypeRepository.saveAndFlush(roomType());
+        var late = booking("LATE-" + UUID.randomUUID(), type, ARRIVAL_DATE.minusDays(1), BookingStatus.CONFIRMED);
+        var older = booking("MISSED-" + UUID.randomUUID(), type, ARRIVAL_DATE.minusDays(2), BookingStatus.CONFIRMED);
+        var today = booking("TODAY-" + UUID.randomUUID(), type, ARRIVAL_DATE, BookingStatus.CONFIRMED);
+        var pending = booking("PENDING-" + UUID.randomUUID(), type, ARRIVAL_DATE.minusDays(1), BookingStatus.PENDING);
+        var checkedIn = booking("IN-" + UUID.randomUUID(), type, ARRIVAL_DATE.minusDays(1), BookingStatus.CHECKED_IN);
+        bookingRepository.saveAllAndFlush(List.of(late, older, today, pending, checkedIn));
+        var pageable = PageRequest.of(0, 10000);
+
+        var before = bookingRepository.findOverdueArrivals(
+                BookingStatus.CONFIRMED, ARRIVAL_DATE, ARRIVAL_DATE.minusDays(1), true, pageable);
+        var after = bookingRepository.findOverdueArrivals(
+                BookingStatus.CONFIRMED, ARRIVAL_DATE, ARRIVAL_DATE.minusDays(1), false, pageable);
+
+        assertThat(before.getContent())
+                .filteredOn(b -> b.getRoomType().getId().equals(type.getId()))
+                .extracting(Booking::getId)
+                .containsExactly(older.getId());
+        assertThat(after.getContent())
+                .filteredOn(b -> b.getRoomType().getId().equals(type.getId()))
+                .extracting(Booking::getId)
+                .containsExactlyInAnyOrder(older.getId(), late.getId());
+        assertThat(bookingRepository.findById(late.getId()).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.CONFIRMED);
+        assertThat(late.getAssignedRoom()).isNull();
+    }
+
+    @Test
     void queriesOnlyConfirmedBookingsForDateAndBatchLoadsPrimaryGuests() {
         RoomType roomType = roomTypeRepository.saveAndFlush(roomType());
         Booking first = booking("ARRIVAL-A-" + UUID.randomUUID(), roomType, ARRIVAL_DATE, BookingStatus.CONFIRMED);

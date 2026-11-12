@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.hanbay.hotel.booking.domain.Booking;
+import com.hanbay.hotel.booking.domain.BookingGuest;
 import com.hanbay.hotel.booking.domain.BookingStatus;
 import com.hanbay.hotel.booking.dto.request.CheckInGuestRequest;
 import com.hanbay.hotel.booking.exception.CheckInConflictException;
@@ -74,14 +75,72 @@ class CheckInServiceImplTest {
     }
 
     @Test
+    void previewsConfirmedBookingWithDebtAndPrimaryGuestWithoutChangingIt() {
+        var booking = Booking.builder()
+                .id(BOOKING_ID)
+                .bookingCode(BOOKING_CODE)
+                .roomType(roomType(ROOM_TYPE_ID))
+                .checkInDate(LocalDate.of(2026, 8, 19))
+                .checkOutDate(LocalDate.of(2026, 8, 20))
+                .status(BookingStatus.CONFIRMED)
+                .totalAmount(2500000L)
+                .paidAmount(2000000L)
+                .build();
+        booking.addGuest(BookingGuest.builder()
+                .id(UUID.randomUUID())
+                .fullName("Khách chính")
+                .phone("0900000000")
+                .isPrimary(true)
+                .build());
+        when(bookingRepository.findByBookingCode(BOOKING_CODE)).thenReturn(Optional.of(booking));
+
+        var preview = serviceAt(NOW.minusSeconds(3600)).getBookingContext(BOOKING_CODE);
+
+        assertThat(preview.primaryGuest().fullName()).isEqualTo("Khách chính");
+        assertThat(preview.canCheckIn()).isTrue();
+        assertThat(preview.earlyArrivalRequired()).isTrue();
+        assertThat(preview.outstandingAmount()).isEqualTo(500000L);
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        assertThat(booking.getAssignedRoom()).isNull();
+        org.mockito.Mockito.verifyNoInteractions(roomRepository);
+    }
+
+    @Test
+    void previewsRecordedRoomAndActualTimeForRecovery() {
+        var type = roomType(ROOM_TYPE_ID);
+        var booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), type);
+        var room = room(type, RoomStatus.OCCUPIED);
+        booking.checkIn(room, User.builder().id(RECEPTIONIST_ID).build(), NOW, null);
+        when(bookingRepository.findByBookingCode(BOOKING_CODE)).thenReturn(Optional.of(booking));
+
+        var preview = service.getBookingContext(BOOKING_CODE);
+
+        assertThat(preview.canCheckIn()).isFalse();
+        assertThat(preview.assignedRoom().roomId()).isEqualTo(ROOM_ID);
+        assertThat(preview.checkedInAt()).isEqualTo(NOW);
+        assertThat(booking.getStatusHistories()).hasSize(1);
+    }
+
+    @Test
+    void lateArrivalPreviewDoesNotRequireAnEarlyArrivalReason() {
+        var booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), roomType(ROOM_TYPE_ID));
+        when(bookingRepository.findByBookingCode(BOOKING_CODE)).thenReturn(Optional.of(booking));
+        var preview = serviceAt(Instant.parse("2026-08-19T19:00:00Z")).getBookingContext(BOOKING_CODE);
+        assertThat(preview.canCheckIn()).isTrue();
+        assertThat(preview.earlyArrivalRequired()).isFalse();
+        var overdue = serviceAt(Instant.parse("2026-08-19T23:00:00Z")).getBookingContext(BOOKING_CODE);
+        assertThat(overdue.canCheckIn()).isFalse();
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+    }
+
+    @Test
     void assignsRoomAndChecksInWithinLockedFlow() {
         RoomType roomType = roomType(ROOM_TYPE_ID);
         Booking booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), roomType);
         Room room = room(roomType, RoomStatus.AVAILABLE);
         User receptionist = User.builder().id(RECEPTIONIST_ID).build();
 
-        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
-                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
         when(roomRepository.findByIdForUpdate(ROOM_ID)).thenReturn(Optional.of(room));
         when(currentUserProvider.currentUserId()).thenReturn(Optional.of(RECEPTIONIST_ID));
         when(userRepository.findById(RECEPTIONIST_ID)).thenReturn(Optional.of(receptionist));
@@ -98,15 +157,14 @@ class CheckInServiceImplTest {
             assertThat(history.getChangedBy()).isSameAs(receptionist);
         });
         var lockOrder = inOrder(bookingRepository, roomRepository);
-        lockOrder.verify(bookingRepository).findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE);
+        lockOrder.verify(bookingRepository).findByBookingCodeForUpdate(BOOKING_CODE);
         lockOrder.verify(roomRepository).findByIdForUpdate(ROOM_ID);
     }
 
     @Test
     void rejectsBookingThatIsNotConfirmedBeforeLockingRoom() {
         Booking booking = booking(BookingStatus.PENDING, LocalDate.of(2026, 8, 19), roomType(ROOM_TYPE_ID));
-        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
-                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
 
         assertConflict("BOOKING_NOT_CONFIRMED", () -> service.checkIn(BOOKING_CODE, new CheckInGuestRequest(ROOM_ID)));
 
@@ -116,8 +174,7 @@ class CheckInServiceImplTest {
     @Test
     void rejectsBookingThatWasAlreadyCheckedInWithSpecificCode() {
         Booking booking = booking(BookingStatus.CHECKED_IN, LocalDate.of(2026, 8, 19), roomType(ROOM_TYPE_ID));
-        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
-                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
 
         assertConflict(
                 "BOOKING_ALREADY_CHECKED_IN", () -> service.checkIn(BOOKING_CODE, new CheckInGuestRequest(ROOM_ID)));
@@ -146,8 +203,7 @@ class CheckInServiceImplTest {
                 .build();
         Room replacementRoom = room(roomType, RoomStatus.AVAILABLE);
         User receptionist = User.builder().id(RECEPTIONIST_ID).build();
-        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
-                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
         when(roomRepository.findByIdForUpdate(ROOM_ID)).thenReturn(Optional.of(replacementRoom));
         when(currentUserProvider.currentUserId()).thenReturn(Optional.of(RECEPTIONIST_ID));
         when(userRepository.findById(RECEPTIONIST_ID)).thenReturn(Optional.of(receptionist));
@@ -162,8 +218,7 @@ class CheckInServiceImplTest {
     @Test
     void rejectsCheckInOutsideArrivalDate() {
         Booking booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 20), roomType(ROOM_TYPE_ID));
-        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
-                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
 
         assertConflict(
                 "CHECK_IN_DATE_NOT_ALLOWED", () -> service.checkIn(BOOKING_CODE, new CheckInGuestRequest(ROOM_ID)));
@@ -173,8 +228,7 @@ class CheckInServiceImplTest {
     void rejectsRoomOfAnotherType() {
         Booking booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), roomType(ROOM_TYPE_ID));
         Room room = room(roomType(UUID.randomUUID()), RoomStatus.AVAILABLE);
-        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
-                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
         when(roomRepository.findByIdForUpdate(ROOM_ID)).thenReturn(Optional.of(room));
 
         assertConflict("ROOM_TYPE_MISMATCH", () -> service.checkIn(BOOKING_CODE, new CheckInGuestRequest(ROOM_ID)));
@@ -185,8 +239,7 @@ class CheckInServiceImplTest {
         RoomType roomType = roomType(ROOM_TYPE_ID);
         Booking booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), roomType);
         Room room = room(roomType, RoomStatus.OCCUPIED);
-        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
-                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
         when(roomRepository.findByIdForUpdate(ROOM_ID)).thenReturn(Optional.of(room));
 
         assertConflict("ROOM_NOT_AVAILABLE", () -> service.checkIn(BOOKING_CODE, new CheckInGuestRequest(ROOM_ID)));
@@ -237,8 +290,7 @@ class CheckInServiceImplTest {
     @Test
     void requiresReceptionistReasonBeforeStandardArrivalTime() {
         var booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), roomType(ROOM_TYPE_ID));
-        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
-                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
         assertThatThrownBy(
                         () -> serviceAt(NOW.minusSeconds(3600)).checkIn(BOOKING_CODE, new CheckInGuestRequest(ROOM_ID)))
                 .isInstanceOf(com.hanbay.hotel.common.exception.RequestValidationException.class)
@@ -252,8 +304,7 @@ class CheckInServiceImplTest {
         var type = roomType(ROOM_TYPE_ID);
         var booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), type);
         var room = room(type, RoomStatus.AVAILABLE);
-        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
-                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
         when(roomRepository.findByIdForUpdate(ROOM_ID)).thenReturn(Optional.of(room));
         when(currentUserProvider.currentUserId()).thenReturn(Optional.of(RECEPTIONIST_ID));
         when(userRepository.findById(RECEPTIONIST_ID))
@@ -268,8 +319,7 @@ class CheckInServiceImplTest {
         var type = roomType(ROOM_TYPE_ID);
         var booking = booking(BookingStatus.CONFIRMED, LocalDate.of(2026, 8, 19), type);
         var room = room(type, RoomStatus.AVAILABLE);
-        when(bookingRepository.findByBookingCodeWithRoomTypeForUpdate(BOOKING_CODE))
-                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
         when(roomRepository.findByIdForUpdate(ROOM_ID)).thenReturn(Optional.of(room));
         when(currentUserProvider.currentUserId()).thenReturn(Optional.of(RECEPTIONIST_ID));
         when(userRepository.findById(RECEPTIONIST_ID))

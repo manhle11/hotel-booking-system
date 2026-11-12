@@ -120,3 +120,4 @@ The payment hold deadline is separate; availability uses the lowest remaining st
 - [Full UAT guide and workbook](docs/testing/web-uat-guide.md) —334 designed cases, initially not run.
 - [Public stay-policy/search API contract](docs/openapi/room/stay-policy-and-availability.yaml)
 - [Đặt nhiều phòng trong một đơn](docs/24-multi-room-booking.md) — luồng khách hàng, API, giữ phòng và thanh toán chung.
+- [Sơ đồ khách sạn](docs/28-hotel-floor-map.md) — cấu hình bố cục theo tầng, khách xem vị trí và lễ tân chọn phòng khi nhận khách; [thiết kế ban đầu](docs/27-hotel-floor-map-proposal.md).

@@ -76,6 +76,7 @@ export function MainHeader() {
                     { key: 'home', label: 'Tổng quan', route: '/' },
                     { key: 'booking', label: 'Đặt phòng', route: '/rooms/search' },
                     { key: 'room-types', label: 'Hạng phòng', route: '/room-types' },
+                    { key: 'hotel-map', label: 'Sơ đồ khách sạn', route: ROUTE_PATHS.hotelMap },
                   ]
               ).map((item) => (
                 <Button
@@ -91,6 +92,11 @@ export function MainHeader() {
           </nav>
         )}
 
+        {!screens.md && !isAdmin && (
+          <Button type="text" onClick={() => navigate(ROUTE_PATHS.hotelMap)}>
+            Sơ đồ
+          </Button>
+        )}
         {isAuthenticated ? (
           <Dropdown
             trigger={['click']}
@@ -242,5 +248,6 @@ function getActiveNavKey(pathname: string) {
     return 'booking';
   }
   if (pathname.startsWith('/room-types')) return 'room-types';
+  if (pathname === ROUTE_PATHS.hotelMap) return 'hotel-map';
   return undefined;
 }

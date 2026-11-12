@@ -45,6 +45,26 @@ public class FrontDeskServiceImpl implements FrontDeskService {
 
     @Override
     @Transactional(readOnly = true)
+    public PageResponse<TodayArrivalResponse> getOverdueArrivals(int page, int size) {
+        PaginationValidator.validate(page, size, MAX_PAGE_SIZE);
+        var now = stayPolicy.now();
+        LocalDate today = now.toLocalDate();
+        var pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Order.asc("checkInDate"), Sort.Order.asc("createdAt"), Sort.Order.asc("bookingCode")));
+        Page<Booking> bookings = bookingRepository.findOverdueArrivals(
+                BookingStatus.CONFIRMED,
+                today,
+                today.minusDays(1),
+                now.toLocalTime().isBefore(stayPolicy.getProperties().getLateArrivalCutoff()),
+                pageable);
+        var primaryGuests = findPrimaryGuests(bookings.getContent());
+        return PageResponse.from(bookings.map(booking -> toResponse(booking, primaryGuests.get(booking.getId()))));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public PageResponse<TodayArrivalResponse> getTodayArrivals(int page, int size) {
         PaginationValidator.validate(page, size, MAX_PAGE_SIZE);
 

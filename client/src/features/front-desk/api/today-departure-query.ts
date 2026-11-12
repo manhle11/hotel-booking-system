@@ -29,6 +29,10 @@ const invalidateCheckoutData = async (queryClient: QueryClient) => {
       'booking-detail',
       'refund-requests',
       'early-checkout-quote',
+      'staff-room-map',
+      'available-physical-rooms',
+      'available-room-types',
+      'managed-rooms',
     ].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
   );
 };

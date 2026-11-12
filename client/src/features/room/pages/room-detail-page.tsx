@@ -9,15 +9,14 @@ import { BookingCard } from '../../../components/room/BookingCard';
 import { RoomDetailSkeleton } from '../../../components/room/RoomDetailSkeleton';
 import { RoomGallery } from '../../../components/room/RoomGallery';
 import { RoomInfo } from '../../../components/room/RoomInfo';
-import { getRoomTypeDetail } from '../api/room-detail-api';
+import { roomTypeDetailOptions } from '../api/room-detail-api';
 import { RoomReviewSummary, RoomReviewsSection } from '../../review/room-reviews';
 import './room-detail-page.css';
 
 export function RoomDetailPage() {
   const { roomTypeId } = useParams();
   const detailQuery = useQuery({
-    queryKey: ['room-types', 'detail', roomTypeId],
-    queryFn: () => getRoomTypeDetail(roomTypeId!),
+    ...roomTypeDetailOptions(roomTypeId ?? ''),
     enabled: Boolean(roomTypeId),
     retry: 1,
   });
@@ -65,6 +64,9 @@ export function RoomDetailPage() {
           </Link>
           <div>
             <Typography.Title>{roomType.name}</Typography.Title>
+            <Link to="/hotel-map">
+              <Button>Xem sơ đồ khách sạn</Button>
+            </Link>
             <RoomReviewSummary roomTypeId={roomType.id} />
             <Typography.Paragraph type="secondary" className="room-detail-lead">
               {roomType.shortDescription || roomType.description}

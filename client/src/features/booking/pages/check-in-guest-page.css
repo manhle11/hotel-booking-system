@@ -27,6 +27,15 @@
 .check-in-page__error {
   margin-bottom: 20px;
 }
+.check-in-page__map-context {
+  margin-bottom: 16px;
+}
+
+.check-in-page__booking-summary {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
 
 .check-in-page__load-rooms {
   margin-top: -12px;

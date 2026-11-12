@@ -15,6 +15,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RoomRepository extends JpaRepository<Room, UUID> {
+    @EntityGraph(attributePaths = "roomType")
+    @Query("select room from Room room order by room.floor, room.roomNumber")
+    java.util.List<Room> findAllForMap();
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select room from Room room where room.id in :ids order by room.id")
+    java.util.List<Room> findAllForLayoutUpdate(@Param("ids") Collection<UUID> ids);
+
     @Query("select room.roomType.id from Room room where room.id = :id")
     Optional<UUID> findRoomTypeId(@Param("id") UUID id);
 

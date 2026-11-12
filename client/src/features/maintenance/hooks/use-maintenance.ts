@@ -36,6 +36,9 @@ export function useMaintenanceMutations() {
         'manager-dashboard',
         'available-physical-rooms',
         'room-type-catalog',
+        'staff-room-map',
+        'available-room-types',
+        'managed-rooms',
       ].map((key) => client.invalidateQueries({ queryKey: [key] })),
     );
   };

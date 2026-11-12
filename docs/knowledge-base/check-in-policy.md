@@ -3,7 +3,7 @@ documentId: HANBAY-CHECK-IN-POLICY
 title: Check-in Policy
 category: CHECK_IN
 source: docs/knowledge-base/check-in-policy.md
-version: 1.3
+version: 1.4
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -65,6 +65,22 @@ với `BOOKING_ALREADY_CHECKED_IN`, không gán thêm một phòng.
 - Booking không CONFIRMED, đã check-in hoặc ngoài cửa sổ tiếp nhận theo policy.
 - Phòng khác room type, không tồn tại hoặc không còn `AVAILABLE`.
 - Người gọi không có role `RECEPTIONIST`.
+
+### Theo dõi khách quá giờ và xác minh kết quả
+
+Danh sách khách đến có tab **Chưa đến / quá giờ**, chứa booking CONFIRMED đã qua cửa sổ
+tiếp nhận. Booking hôm trước còn trong kỳ lưu trú vẫn thuộc danh sách hôm nay trước
+cutoff đến muộn; đúng cutoff thì chuyển sang nhóm quá giờ. Chỉ thay nhóm hiển thị,
+không tự hủy booking, đổi ngày, giải phóng tồn hoặc tạo hoàn tiền.
+
+RECEPTIONIST và MANAGER có thể tra cứu thông tin booking tại
+`GET /api/v1/bookings/{bookingCode}/check-in-context`. Lễ tân đối chiếu khách, kỳ lưu
+trú, hạng phòng, số khách và công nợ trước khi xác nhận. Công nợ không tự chặn một
+booking CONFIRMED đáp ứng các điều kiện nhận hiện hành.
+
+Khi POST bị mất phản hồi hoặc báo đã nhận phòng, giao diện đọc lại trạng thái và
+hiển thị phòng/giờ đã ghi nhận; không tự gửi lại POST. Nếu tra cứu chưa thành công,
+lễ tân phải dùng nút **Tra cứu lại kết quả** trước khi xác nhận tiếp.
 
 ## 6. Ví dụ
 

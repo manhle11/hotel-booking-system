@@ -1,5 +1,7 @@
 import type { PageResponse } from '../../../types/api';
 
+export type ArrivalView = 'today' | 'overdue';
+
 export interface PrimaryGuestSummary {
   fullName: string;
   phone: string | null;

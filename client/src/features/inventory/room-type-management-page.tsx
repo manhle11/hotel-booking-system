@@ -97,9 +97,13 @@ export function RoomTypeManagementPage() {
     enabled: editing !== undefined,
   });
   const refresh = async () => {
+    // Map responses embed room-type details; refresh those before rebuilding maps.
+    await queryClient.invalidateQueries({ queryKey: ['room-types'] });
     await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['hotel-map'] }),
+      queryClient.invalidateQueries({ queryKey: ['staff-room-map'] }),
+      queryClient.invalidateQueries({ queryKey: ['floor-plan'] }),
       queryClient.invalidateQueries({ queryKey: ['managed-room-types'] }),
-      queryClient.invalidateQueries({ queryKey: ['room-types'] }),
       queryClient.invalidateQueries({ queryKey: ['managed-room-type-options'] }),
       queryClient.invalidateQueries({ queryKey: ['available-room-types'] }),
       queryClient.invalidateQueries({ queryKey: roomTypeCatalogKeys.all }),

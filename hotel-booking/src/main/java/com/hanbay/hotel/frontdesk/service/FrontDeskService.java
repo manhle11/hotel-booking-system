@@ -6,4 +6,6 @@ import com.hanbay.hotel.frontdesk.dto.response.TodayArrivalResponse;
 public interface FrontDeskService {
 
     PageResponse<TodayArrivalResponse> getTodayArrivals(int page, int size);
+
+    PageResponse<TodayArrivalResponse> getOverdueArrivals(int page, int size);
 }

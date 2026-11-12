@@ -1,10 +1,12 @@
 package com.hanbay.hotel.booking.service.impl;
 
 import com.hanbay.hotel.booking.domain.Booking;
+import com.hanbay.hotel.booking.domain.BookingGuest;
 import com.hanbay.hotel.booking.domain.BookingStatus;
 import com.hanbay.hotel.booking.dto.request.CheckInGuestRequest;
 import com.hanbay.hotel.booking.dto.response.AssignedRoomResponse;
 import com.hanbay.hotel.booking.dto.response.AvailablePhysicalRoomResponse;
+import com.hanbay.hotel.booking.dto.response.CheckInBookingResponse;
 import com.hanbay.hotel.booking.dto.response.CheckInGuestResponse;
 import com.hanbay.hotel.booking.exception.CheckInBookingNotFoundException;
 import com.hanbay.hotel.booking.exception.CheckInConflictException;
@@ -22,6 +24,7 @@ import com.hanbay.hotel.user.exception.UserNotFoundException;
 import com.hanbay.hotel.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -39,10 +42,48 @@ public class CheckInServiceImpl implements CheckInService {
     private final HotelStayPolicy stayPolicy;
 
     @Override
+    @Transactional(readOnly = true)
+    public CheckInBookingResponse getBookingContext(String bookingCode) {
+        Booking booking = bookingRepository
+                .findByBookingCode(bookingCode)
+                .orElseThrow(() -> new CheckInBookingNotFoundException("Không tìm thấy booking"));
+        var guest = booking.getGuests().stream()
+                .filter(BookingGuest::isPrimary)
+                .min(Comparator.comparing(BookingGuest::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(BookingGuest::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(g -> new CheckInBookingResponse.Guest(g.getFullName(), g.getPhone(), g.getEmail()))
+                .orElse(null);
+        var type = booking.getRoomType();
+        Room assigned = booking.getAssignedRoom();
+        boolean canCheckIn = booking.getStatus() == BookingStatus.CONFIRMED
+                && stayPolicy.canArrive(booking.getCheckInDate(), booking.getCheckOutDate());
+        return new CheckInBookingResponse(
+                booking.getId(),
+                booking.getBookingCode(),
+                booking.getStatus(),
+                guest,
+                new CheckInBookingResponse.RoomTypeSummary(type.getId(), type.getCode(), type.getName()),
+                booking.getCheckInDate(),
+                booking.getCheckOutDate(),
+                booking.getAdultCount(),
+                booking.getChildCount(),
+                booking.getTotalAmount(),
+                booking.getPaidAmount(),
+                Math.max(0L, booking.getTotalAmount() - booking.getPaidAmount()),
+                canCheckIn,
+                canCheckIn && stayPolicy.isEarlyArrival(booking.getCheckInDate()),
+                assigned == null
+                        ? null
+                        : new AssignedRoomResponse(
+                                assigned.getId(), assigned.getRoomNumber(), assigned.getFloor(), assigned.getStatus()),
+                booking.getCheckedInAt());
+    }
+
+    @Override
     @Transactional
     public CheckInGuestResponse checkIn(String bookingCode, CheckInGuestRequest request) {
         Booking booking = bookingRepository
-                .findByBookingCodeWithRoomTypeForUpdate(bookingCode)
+                .findByBookingCodeForUpdate(bookingCode)
                 .orElseThrow(() -> new CheckInBookingNotFoundException("Không tìm thấy booking"));
 
         validateBooking(booking);

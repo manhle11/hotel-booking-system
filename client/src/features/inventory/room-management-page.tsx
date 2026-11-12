@@ -19,6 +19,7 @@ import {
 import { apiClient } from '../../lib/axios';
 import type { ApiResponse, PageResponse } from '../../types/api';
 import type { ManagedRoomType } from './room-type-management-page';
+import { invalidateRoomMaps } from '../room-map/api';
 interface ManagedRoom {
   id: string;
   roomTypeId: string;
@@ -68,11 +69,7 @@ export function RoomManagementPage() {
       }
     },
   });
-  const refresh = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['managed-rooms'] }),
-      queryClient.invalidateQueries({ queryKey: ['available-room-types'] }),
-    ]);
+  const refresh = () => invalidateRoomMaps(queryClient);
   const save = useMutation({
     mutationFn: (values: ManagedRoom) =>
       editing
