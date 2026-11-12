@@ -22,6 +22,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -53,6 +55,35 @@ class FrontDeskServiceImplTest {
                 CLOCK,
                 new com.hanbay.hotel.booking.policy.HotelStayPolicy(
                         CLOCK, new com.hanbay.hotel.booking.config.HotelStayProperties()));
+    }
+
+    @Test
+    void rejectsInvalidPaginationForOverdueArrivals() {
+        assertThatThrownBy(() -> service.getOverdueArrivals(-1, 20)).isInstanceOf(RequestValidationException.class);
+        assertThatThrownBy(() -> service.getOverdueArrivals(0, 101)).isInstanceOf(RequestValidationException.class);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2026-08-18T22:59:59Z,true", "2026-08-18T23:00:00Z,false"})
+    void overdueListUsesTheExactLateArrivalCutoff(String instant, boolean includeYesterday) {
+        Clock boundary = Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
+        service = new FrontDeskServiceImpl(
+                bookingRepository,
+                bookingGuestRepository,
+                boundary,
+                new com.hanbay.hotel.booking.policy.HotelStayPolicy(
+                        boundary, new com.hanbay.hotel.booking.config.HotelStayProperties()));
+        var pageable = PageRequest.of(
+                0,
+                20,
+                Sort.by(Sort.Order.asc("checkInDate"), Sort.Order.asc("createdAt"), Sort.Order.asc("bookingCode")));
+        when(bookingRepository.findOverdueArrivals(
+                        BookingStatus.CONFIRMED, HOTEL_TODAY, HOTEL_TODAY.minusDays(1), includeYesterday, pageable))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+        service.getOverdueArrivals(0, 20);
+        verify(bookingRepository)
+                .findOverdueArrivals(
+                        BookingStatus.CONFIRMED, HOTEL_TODAY, HOTEL_TODAY.minusDays(1), includeYesterday, pageable);
     }
 
     @Test

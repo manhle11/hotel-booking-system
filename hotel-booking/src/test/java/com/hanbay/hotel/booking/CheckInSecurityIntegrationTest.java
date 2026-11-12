@@ -51,6 +51,21 @@ class CheckInSecurityIntegrationTest {
     private CheckInService checkInService;
 
     @Test
+    void contextRequiresAuthenticationAndStaffRole() throws Exception {
+        String path = "/api/v1/bookings/" + BOOKING_CODE + "/check-in-context";
+        mockMvc.perform(get(path)).andExpect(status().isUnauthorized());
+        authenticate("customer-token");
+        mockMvc.perform(get(path).header("Authorization", "Bearer customer-token"))
+                .andExpect(status().isForbidden());
+        authenticate("manager-context-token", "MANAGER");
+        mockMvc.perform(get(path).header("Authorization", "Bearer manager-context-token"))
+                .andExpect(status().isOk());
+        authenticate("reception-context-token", "RECEPTIONIST");
+        mockMvc.perform(get(path).header("Authorization", "Bearer reception-context-token"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void anonymousRequestReturnsUnauthorized() throws Exception {
         performCheckIn(null)
                 .andExpect(status().isUnauthorized())

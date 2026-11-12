@@ -179,6 +179,25 @@ export interface CheckInGuestResponse {
   checkedInAt: string;
 }
 
+export interface CheckInBookingContext {
+  bookingId: string;
+  bookingCode: string;
+  bookingStatus: BookingStatus;
+  primaryGuest: { fullName: string; phone: string | null; email: string | null } | null;
+  roomType: { id: string; code: string; name: string };
+  checkInDate: string;
+  checkOutDate: string;
+  adultCount: number;
+  childCount: number;
+  totalAmount: number;
+  paidAmount: number;
+  outstandingAmount: number;
+  canCheckIn: boolean;
+  earlyArrivalRequired: boolean;
+  assignedRoom: { roomId: string; roomNumber: string; floor: number; status: string } | null;
+  checkedInAt: string | null;
+}
+
 export interface RoomTypeCatalogItem {
   id: string;
   code: string;

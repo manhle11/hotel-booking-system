@@ -1,4 +1,5 @@
 import { Button, theme, Typography } from 'antd';
+import { Link } from 'react-router-dom';
 
 import { MainFooter } from '../../../components/layout/MainFooter';
 import { MainHeader } from '../../../components/layout/MainHeader';
@@ -37,6 +38,9 @@ export function RoomTypesPage() {
             <Button type="primary" href="#rooms">
               Xem các hạng phòng
             </Button>
+            <Link to="/hotel-map">
+              <Button style={{ marginInlineStart: 12 }}>Sơ đồ khách sạn</Button>
+            </Link>
           </div>
           <div className="room-types-hero__image" role="img" aria-label="Phòng nghỉ tại HANBAY" />
         </section>

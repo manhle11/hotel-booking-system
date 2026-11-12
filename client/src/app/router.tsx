@@ -14,6 +14,14 @@ const routeHydrationFallback = <LoadingPage />;
 
 export const router = createBrowserRouter([
   {
+    path: '/hotel-map',
+    hydrateFallbackElement: routeHydrationFallback,
+    lazy: async () => {
+      const { PublicHotelMapPage } = await import('@features/room-map/public-hotel-map-page');
+      return { Component: PublicHotelMapPage };
+    },
+  },
+  {
     path: '/',
     hydrateFallbackElement: routeHydrationFallback,
     lazy: async () => {
@@ -241,6 +249,15 @@ export const router = createBrowserRouter([
                 },
               },
               {
+                path: ROUTE_PATHS.roomMap,
+                hydrateFallbackElement: routeHydrationFallback,
+                lazy: async () => {
+                  const { StaffRoomMapPage } =
+                    await import('@features/room-map/staff-room-map-page');
+                  return { Component: StaffRoomMapPage };
+                },
+              },
+              {
                 path: ROUTE_PATHS.departures,
                 hydrateFallbackElement: routeHydrationFallback,
                 lazy: async () => {
@@ -263,6 +280,15 @@ export const router = createBrowserRouter([
                   const { RoomManagementPage } =
                     await import('@features/inventory/room-management-page');
                   return { Component: RoomManagementPage };
+                },
+              },
+              {
+                path: ROUTE_PATHS.floorPlans,
+                hydrateFallbackElement: routeHydrationFallback,
+                lazy: async () => {
+                  const { FloorPlanManagementPage } =
+                    await import('@features/room-map/floor-plan-management-page');
+                  return { Component: FloorPlanManagementPage };
                 },
               },
               {

@@ -15,6 +15,7 @@ import {
   TeamOutlined,
   SafetyCertificateOutlined,
   StarOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons';
 import { HomeOutlined, LoginOutlined } from '@ant-design/icons';
 import { Avatar, Button, Dropdown, Layout, Menu, Space, Typography, type MenuProps } from 'antd';
@@ -68,6 +69,9 @@ export function DashboardLayout() {
           },
         ]
       : []),
+    ...(canViewTodayArrivals
+      ? [{ key: ROUTE_PATHS.roomMap, icon: <ApartmentOutlined />, label: 'Sơ đồ phòng' }]
+      : []),
     ...(hasRouteRole(roles, ROUTE_ROLES.reception)
       ? [
           {
@@ -98,6 +102,11 @@ export function DashboardLayout() {
             key: '/management/rooms',
             icon: <HomeOutlined />,
             label: 'Quản lý phòng',
+          },
+          {
+            key: ROUTE_PATHS.floorPlans,
+            icon: <ApartmentOutlined />,
+            label: 'Cấu hình sơ đồ tầng',
           },
           {
             key: '/management/room-types',

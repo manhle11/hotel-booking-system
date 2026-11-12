@@ -23,7 +23,8 @@ class RoomManagementServiceTest {
             types,
             bookings,
             org.mockito.Mockito.mock(com.hanbay.hotel.common.query.DashboardTableQuery.class),
-            new HotelStayPolicy(Clock.systemUTC(), new HotelStayProperties()));
+            new HotelStayPolicy(Clock.systemUTC(), new HotelStayProperties()),
+            mock(com.hanbay.hotel.roommap.RoomLayoutGuard.class));
 
     @Test
     void cannotDeleteInventoryWithOutstandingBookings() {

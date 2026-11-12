@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App, ConfigProvider } from 'antd';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiClient } from '../../lib/axios';
+import { apiClient, publicApiClient } from '../../lib/axios';
 import { RoomTypeManagementPage, type ManagedRoomType } from './room-type-management-page';
+import { getPublicMap, type FloorPlan, type HotelMapResponse } from '../room-map/api';
 
 vi.mock('../../lib/axios', () => ({
   apiClient: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+  publicApiClient: { get: vi.fn() },
 }));
 
 const category = { id: 'category-deluxe', code: 'DELUXE', name: 'Deluxe' };
@@ -128,6 +130,56 @@ async function fillCreate(dialog: ReturnType<typeof within>) {
 }
 
 describe('Room Type bed options', () => {
+  it('updates the room-type details embedded in an active map after saving a new price', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60_000 }, mutations: { retry: false } },
+    });
+    let price = legacy.basePrice;
+    const floor: FloorPlan = {
+      floorNumber: 4,
+      name: 'Tầng 4',
+      gridColumns: 80,
+      gridRows: 40,
+      version: 1,
+      publishedAt: '2026-11-11T10:00:00Z',
+      elements: [],
+      rooms: [{ key: '406', roomNumber: '406', roomTypeId: legacy.id, roomTypeName: legacy.name }],
+    };
+    vi.mocked(publicApiClient.get).mockImplementation(async (url) => ({
+      data: {
+        data:
+          url === '/hotel-map'
+            ? { floors: [floor] }
+            : { ...legacy, basePrice: price, amenities: [] },
+      },
+    }));
+    vi.mocked(apiClient.put).mockImplementation(async (_url, payload) => {
+      price = (payload as { basePrice: number }).basePrice;
+      return { data: { data: {} } };
+    });
+    client.setQueryData(['hotel-map'], await getPublicMap(client));
+    const observer = new QueryObserver(client, {
+      queryKey: ['hotel-map'],
+      queryFn: () => getPublicMap(client),
+    });
+    const unsubscribe = observer.subscribe(() => {});
+    try {
+      const dialog = await openEdit(client);
+      fireEvent.change(dialog.getByLabelText('Giá cơ bản (VND)'), {
+        target: { value: '1200000' },
+      });
+      fireEvent.click(dialog.getByRole('button', { name: 'Lưu' }));
+      await screen.findByText('Đã lưu loại phòng');
+      expect(
+        client.getQueryData<HotelMapResponse>(['hotel-map'])?.floors[0].rooms[0].typeInfo
+          ?.basePrice,
+      ).toBe(1_200_000);
+    } finally {
+      unsubscribe();
+      client.clear();
+    }
+  });
+
   it.each(['save', 'reactivate', 'deactivate'] as const)(
     'refreshes cached public catalog and checkout after %s',
     async (action) => {

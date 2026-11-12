@@ -24,6 +24,7 @@ public class RoomManagementService {
     private final BookingRepository bookings;
     private final DashboardTableQuery tableQuery;
     private final HotelStayPolicy stayPolicy;
+    private final com.hanbay.hotel.roommap.RoomLayoutGuard layoutGuard;
 
     public PageResponse<RoomManagementResponse> list(int page, int size) {
         if (page < 0 || size < 1 || size > 100) throw new RoomValidationException("Phân trang không hợp lệ.");
@@ -64,6 +65,7 @@ public class RoomManagementService {
         if (!room.getRoomType().getId().equals(oldType))
             throw new RoomValidationException("Phòng vừa thay đổi. Vui lòng tải lại.");
         RoomType type = lockType(r.roomTypeId());
+        if (room.getFloor() != r.floor()) layoutGuard.requireUnplaced(id);
         if (!oldType.equals(r.roomTypeId())) {
             requireNoDemand(oldType);
             requireActive(type);
@@ -82,6 +84,7 @@ public class RoomManagementService {
         if (room.getStatus() != RoomStatus.AVAILABLE) throw new RoomValidationException("Chỉ xóa phòng đang sẵn sàng.");
         // Keep the room lock while checking history so a concurrent check-in cannot lose its assignment.
         if (bookings.existsByAssignedRoomId(id)) throw RoomStateConflictException.bookingHistory();
+        layoutGuard.requireUnplaced(id);
         requireNoDemand(oldType);
         rooms.delete(room);
         rooms.flush();

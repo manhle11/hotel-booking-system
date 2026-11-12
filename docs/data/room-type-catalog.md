@@ -1,4 +1,4 @@
-# HANBAY: 6 nhóm, 8 Room Type, 35 phòng vật lý
+# HANBAY: 6 nhóm, 8 Room Type, 36 phòng vật lý
 
 Danh mục hiện hành theo cấu trúc người dùng cung cấp. Giá, diện tích và sức chứa bên dưới là thông số mẫu được khai báo riêng để demo; số lượng phòng và cấu hình giường tuân thủ chính xác yêu cầu. Ảnh stock chỉ minh họa không gian.
 
@@ -9,12 +9,19 @@ Danh mục hiện hành theo cấu trúc người dùng cung cấp. Giá, diện
 | Superior | Superior Twin / SUPERIOR_TWIN | 2 SINGLE | 306–310 | 5 | 30 | 2 / 1 / 3 | 1.700.000 |
 | Deluxe | Deluxe King / DELUXE_KING | 1 KING | 401–405 | 5 | 36 | 2 / 1 / 3 | 2.450.000 |
 | Deluxe | Deluxe Twin / DELUXE_TWIN | 2 SINGLE | 406–410 | 5 | 36 | 2 / 1 / 3 | 2.500.000 |
-| Triple | Triple Mixed / TRIPLE_MIXED | 1 QUEEN + 1 SINGLE | 501–503 | 3 | 38 | 3 / 0 / 3 | 2.800.000 |
+| Triple | Triple Mixed / TRIPLE_MIXED | 1 QUEEN + 1 SINGLE | 501–504 | 4 | 38 | 3 / 0 / 3 | 2.800.000 |
 | Family | Family Double Queen / FAMILY_DOUBLE_QUEEN | 2 QUEEN | 601–604 | 4 | 48 | 4 / 2 / 4 | 3.600.000 |
 | Suite | Suite King / SUITE_KING | 1 KING | 701–702 | 2 | 60 | 2 / 1 / 3 | 5.200.000 |
-| **Tổng** | **8 loại** | **9 dòng cấu hình giường** | | **35** | | | |
+| **Tổng** | **8 loại** | **9 dòng cấu hình giường** | | **36** | | | |
 
 Mỗi phòng vật lý thuộc đúng một Room Type, khởi tạo trạng thái AVAILABLE. Mỗi Room Type có 3 ảnh, ảnh đại diện, mô tả ngắn/chi tiết và danh sách tiện nghi. Giường không tự quyết định sức chứa và không tạo thêm đơn vị tồn phòng.
+
+Ngày 11/11/2026, theo yêu cầu bổ sung tầng 5 thành 4 phòng, đã thêm **504** cùng
+hạng Triple Mixed, trạng thái AVAILABLE; giữ nguyên 35 phòng cũ và mọi thông số
+hạng. Danh mục hiện hành là 36 phòng. Bộ seed Flyway gốc vẫn là 35 phòng để giữ
+checksum và hành vi bootstrap lịch sử; dùng [script bổ sung 504](../../scripts/add-triple-room-504.sql)
+sau khi khởi tạo/reset bộ seed gốc để tái tạo danh mục hiện hành. Script chỉ thêm
+phòng thiếu, không thay loại/tầng/trạng thái của 504 đã có và có thể chạy lại.
 
 ## Tách thông tin đúng nghiệp vụ
 
@@ -62,12 +69,14 @@ Khi chạy profile `local`, `RoomCatalogInitializer` gọi `initialize_hanbay_ro
 Đã bỏ `RoomDataInitializer` tự sinh 5 phòng cho mỗi loại và `AmenityDataInitializer` cũ. Tests nghiệp vụ dùng fixture migration lịch sử với `hotel.demo-catalog.enabled=false`; tests bootstrap riêng bật cấu hình này và xác minh dữ liệu thực tế.
 
 1. Sao lưu database bằng `pg_dump --format=custom`; đặt bản sao trong `.local-backups/` được gitignore và giới hạn quyền đọc.
-2. Áp dụng Flyway đến `202611092100`, gồm hàm danh mục chuẩn và các migration đánh giá hạng phòng. Reset xóa cả đánh giá, phản hồi và lịch sử xóa gắn với các booking bị xóa.
+2. Áp dụng Flyway đến `202611111000`, gồm hàm danh mục chuẩn, các migration đánh giá hạng phòng và bảng sơ đồ tầng. Reset xóa cả sơ đồ, đánh giá, phản hồi và lịch sử xóa gắn với các booking bị xóa.
 3. Chạy script bằng psql với `ON_ERROR_STOP=1` trên `hotelbooking_db`.
-4. Kiểm tra lại đúng 6 nhóm, 8 loại, 35 phòng, 9 dòng giường và 5 dịch vụ mua thêm.
+4. Chạy `scripts/add-triple-room-504.sql` để bổ sung phòng 504 sau bộ seed gốc 35 phòng.
+5. Kiểm tra lại đúng 6 nhóm, 8 loại, 36 phòng, 9 dòng giường và 5 dịch vụ mua thêm.
 
 ```sh
 docker exec -i hotelbooking_postgres psql -U hotelbooking_user -d hotelbooking_db -X -v ON_ERROR_STOP=1 < scripts/reset-room-catalog.sql
+docker exec -i hotelbooking_postgres psql -U hotelbooking_user -d hotelbooking_db -X -v ON_ERROR_STOP=1 < scripts/add-triple-room-504.sql
 ```
 
 **Dữ liệu bị xóa:** các loại/phòng cũ, cấu hình giường, ảnh và tiện nghi cũ, booking/đơn đặt phòng/khách lưu trú/đêm phòng/lịch sử booking, thanh toán/phân bổ/giao dịch/webhook/hoàn tiền, quy tắc giá, phiếu và chi phí bảo trì, danh mục dịch vụ mua thêm cũ. Các danh mục phòng, tiện nghi và dịch vụ được nạp lại theo bộ mới.
@@ -83,11 +92,11 @@ Các migration `202611071000` và `202611071500` đã áp dụng nên được g
 1. Vào `/management/room-types`: thấy đúng 8 loại, nhóm và giường hiển thị thành cột riêng.
 2. Mở Triple Mixed: giường Queen × 1 và Single × 1; mở Family Double Queen: Queen × 2.
 3. Mở Deluxe King: hướng biển, có ban công, tầng cao nằm trong Đặc điểm phòng, tách khỏi Tiện nghi.
-4. Vào `/management/rooms`: tổng 35, đối chiếu số phòng và loại theo bảng trên; mỗi phòng có trạng thái Sẵn sàng.
+4. Vào `/management/rooms`: tổng 36, đối chiếu số phòng và loại theo bảng trên; mỗi phòng có trạng thái Sẵn sàng khi chưa phát sinh vận hành.
 5. Vào `/room-types`: 8 loại có nhóm, giường, ảnh và trang chi tiết; chuyển trang để xem đủ.
-6. Tìm phòng ở một khoảng ngày trong tương lai, 1 người lớn: có 8 loại, tồn lần lượt 6/5/5/5/5/3/4/2 khi chưa có booking.
+6. Tìm phòng ở một khoảng ngày trong tương lai, 1 người lớn: có 8 loại, tồn lần lượt 6/5/5/5/5/4/4/2 khi chưa có booking.
 7. Vào Dịch vụ bổ sung: có 5 dịch vụ mua thêm, không có Wi-Fi/TV/giường phụ.
-8. Khởi động lại backend: số phòng vẫn 35; không tái tạo Ocean Suite hay dịch vụ giường phụ.
+8. Khởi động lại backend: số phòng vẫn 36 sau khi đã bổ sung 504; không tái tạo Ocean Suite hay dịch vụ giường phụ.
 
 ## Kết quả áp dụng local ngày 07/11/2026
 

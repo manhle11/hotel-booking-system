@@ -2,6 +2,7 @@ package com.hanbay.hotel.booking.controller;
 
 import com.hanbay.hotel.booking.dto.request.CheckInGuestRequest;
 import com.hanbay.hotel.booking.dto.response.AvailablePhysicalRoomResponse;
+import com.hanbay.hotel.booking.dto.response.CheckInBookingResponse;
 import com.hanbay.hotel.booking.dto.response.CheckInGuestResponse;
 import com.hanbay.hotel.booking.service.CheckInService;
 import com.hanbay.hotel.common.response.ApiErrorResponse;
@@ -29,6 +30,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class CheckInController {
 
     private final CheckInService checkInService;
+
+    @GetMapping("/{bookingCode}/check-in-context")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER')")
+    @Operation(summary = "Tra cứu booking để đối chiếu và xác minh kết quả nhận phòng")
+    public ApiResponse<CheckInBookingResponse> getBookingContext(@PathVariable String bookingCode) {
+        return ApiResponse.success("Thông tin booking tại quầy", checkInService.getBookingContext(bookingCode));
+    }
 
     @GetMapping("/{bookingCode}/available-rooms")
     @PreAuthorize("hasRole('RECEPTIONIST')")

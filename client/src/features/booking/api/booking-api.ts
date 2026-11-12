@@ -7,6 +7,7 @@ import type {
   CancellationEligibility,
   CancelBookingResponse,
   CheckInGuestResponse,
+  CheckInBookingContext,
   CreatePaymentRequestResponse,
   CreatePendingBookingRequest,
   PendingBookingSummary,
@@ -14,6 +15,15 @@ import type {
   RefundInformation,
   ExtendStayResponse,
 } from '../types/booking';
+
+export async function getCheckInBookingContext(
+  bookingCode: string,
+): Promise<CheckInBookingContext> {
+  const response = await apiClient.get<ApiResponse<CheckInBookingContext>>(
+    `/bookings/${encodeURIComponent(bookingCode)}/check-in-context`,
+  );
+  return response.data.data;
+}
 
 export async function extendStay(
   bookingId: string,

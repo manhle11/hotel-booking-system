@@ -17,6 +17,8 @@ const staffRoutes: Array<[string, UserRole[]]> = [
   [ROUTE_PATHS.adminRoles, ROUTE_ROLES.admin],
   ['/management/rooms', ROUTE_ROLES.management],
   ['/management/room-types', ROUTE_ROLES.management],
+  [ROUTE_PATHS.floorPlans, ROUTE_ROLES.management],
+  [ROUTE_PATHS.roomMap, ROUTE_ROLES.frontDesk],
   [ROUTE_PATHS.reviews, ROUTE_ROLES.management],
   [ROUTE_PATHS.dashboard, ROUTE_ROLES.management],
   [ROUTE_PATHS.frontDeskCheckIn, ROUTE_ROLES.reception],

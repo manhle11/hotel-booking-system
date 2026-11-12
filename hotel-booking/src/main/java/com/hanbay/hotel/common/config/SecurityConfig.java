@@ -77,6 +77,7 @@ public class SecurityConfig {
                                 "/api/v1/room-types/**",
                                 "/api/v1/add-ons/**",
                                 "/api/v1/stay-policy",
+                                "/api/v1/hotel-map",
                                 "/api/v1/media/**")
                         .permitAll()
                         // ADMIN is an account administrator, including legacy accounts with extra roles.

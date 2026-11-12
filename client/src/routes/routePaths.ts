@@ -21,4 +21,7 @@ export const ROUTE_PATHS = {
   maintenance: '/maintenance',
   roomMaintenance: '/rooms/maintenance',
   reviews: '/management/reviews',
+  hotelMap: '/hotel-map',
+  roomMap: '/front-desk/room-map',
+  floorPlans: '/management/floor-plans',
 } as const;

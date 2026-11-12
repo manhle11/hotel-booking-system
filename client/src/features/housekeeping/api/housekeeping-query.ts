@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 
 import type { DirtyRoomsParams } from '../types/dirty-rooms';
 import { completeCleaning, getDirtyRooms, startCleaning } from './housekeeping-api';
+import { invalidateRoomMaps } from '../../room-map/api';
 
 export const housekeepingKeys = {
   all: ['housekeeping'] as const,
@@ -21,6 +22,10 @@ export function useHousekeepingAction() {
   return useMutation({
     mutationFn: ({ roomId, action }: { roomId: string; action: 'start' | 'complete' }) =>
       action === 'start' ? startCleaning(roomId) : completeCleaning(roomId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: housekeepingKeys.all }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: housekeepingKeys.all }),
+        invalidateRoomMaps(queryClient),
+      ]),
   });
 }

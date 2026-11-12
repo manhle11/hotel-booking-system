@@ -25,6 +25,15 @@ public class FrontDeskController {
 
     private final FrontDeskService frontDeskService;
 
+    @GetMapping("/arrivals/overdue")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER')")
+    @Operation(summary = "Khách đã quá khung giờ nhận phòng nhưng booking vẫn được xác nhận")
+    public ApiResponse<PageResponse<TodayArrivalResponse>> getOverdueArrivals(
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(
+                "Danh sách khách chưa đến / quá giờ", frontDeskService.getOverdueArrivals(page, size));
+    }
+
     @GetMapping("/arrivals/today")
     @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER')")
     @Operation(

@@ -46,6 +46,21 @@ class FrontDeskSecurityIntegrationTest {
     private JpaMetamodelMappingContext jpaMappingContext;
 
     @Test
+    void overdueArrivalsHaveTheSameStaffPermissions() throws Exception {
+        String path = "/api/v1/front-desk/arrivals/overdue";
+        mockMvc.perform(get(path)).andExpect(status().isUnauthorized());
+        authenticate("overdue-customer", "GUEST");
+        mockMvc.perform(get(path).header("Authorization", "Bearer overdue-customer"))
+                .andExpect(status().isForbidden());
+        authenticate("overdue-reception", "RECEPTIONIST");
+        mockMvc.perform(get(path).header("Authorization", "Bearer overdue-reception"))
+                .andExpect(status().isOk());
+        authenticate("overdue-manager", "MANAGER");
+        mockMvc.perform(get(path).header("Authorization", "Bearer overdue-manager"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void anonymousRequestReturnsUnauthorizedWithoutCallingService() throws Exception {
         mockMvc.perform(get(PATH))
                 .andExpect(status().isUnauthorized())

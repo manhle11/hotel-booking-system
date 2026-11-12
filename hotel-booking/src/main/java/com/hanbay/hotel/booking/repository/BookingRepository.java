@@ -85,14 +85,18 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("includeYesterday") boolean includeYesterday,
             Pageable pageable);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
             """
-            SELECT booking
-            FROM Booking booking
-            WHERE booking.bookingCode = :bookingCode
+            SELECT b FROM Booking b WHERE b.status = :status AND b.checkInDate < :today
+            AND NOT (:includeYesterday = true AND b.checkInDate = :yesterday AND b.checkOutDate >= :today)
             """)
-    Optional<Booking> findByBookingCodeForUpdate(@Param("bookingCode") String bookingCode);
+    @EntityGraph(attributePaths = "roomType")
+    Page<Booking> findOverdueArrivals(
+            @Param("status") BookingStatus status,
+            @Param("today") LocalDate today,
+            @Param("yesterday") LocalDate yesterday,
+            @Param("includeYesterday") boolean includeYesterday,
+            Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
@@ -101,7 +105,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             FROM Booking booking
             WHERE booking.bookingCode = :bookingCode
             """)
-    Optional<Booking> findByBookingCodeWithRoomTypeForUpdate(@Param("bookingCode") String bookingCode);
+    Optional<Booking> findByBookingCodeForUpdate(@Param("bookingCode") String bookingCode);
 
     @EntityGraph(attributePaths = "roomType")
     Optional<Booking> findByBookingCode(String bookingCode);

@@ -47,6 +47,16 @@ class FrontDeskControllerTest {
     }
 
     @Test
+    void returnsOverdueArrivalsWithoutChangingTheirConfirmedStatus() throws Exception {
+        when(frontDeskService.getOverdueArrivals(0, 20))
+                .thenReturn(new PageResponse<>(List.of(arrival(primaryGuest())), 0, 20, 1, 1, true, true));
+        mockMvc.perform(get("/api/v1/front-desk/arrivals/overdue"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].bookingStatus").value("CONFIRMED"));
+        verify(frontDeskService).getOverdueArrivals(0, 20);
+    }
+
+    @Test
     void returnsTodayArrivalsUsingDefaultPagination() throws Exception {
         TodayArrivalResponse item = arrival(primaryGuest());
         when(frontDeskService.getTodayArrivals(0, 20))

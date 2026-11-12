@@ -21,6 +21,9 @@ public class RoomCatalogInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        // An explicitly configured layout is user data, even if the catalog still matches a legacy demo.
+        if (Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM hotel_floor_plans)", Boolean.class)))
+            return;
         jdbc.queryForObject("SELECT initialize_hanbay_room_demo_catalog()", Boolean.class);
     }
 }
