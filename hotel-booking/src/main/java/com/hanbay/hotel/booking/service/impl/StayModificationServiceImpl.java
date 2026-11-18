@@ -11,12 +11,10 @@ import com.hanbay.hotel.booking.dto.response.ExtendStayResponse;
 import com.hanbay.hotel.booking.exception.BookingNotFoundException;
 import com.hanbay.hotel.booking.exception.StayModificationException;
 import com.hanbay.hotel.booking.repository.BookingRepository;
+import com.hanbay.hotel.booking.service.BookingSettlementLedger;
 import com.hanbay.hotel.booking.service.StayModificationService;
 import com.hanbay.hotel.common.security.CurrentUserProvider;
-import com.hanbay.hotel.payment.domain.Payment;
-import com.hanbay.hotel.payment.domain.PaymentRefund;
 import com.hanbay.hotel.payment.domain.PaymentRefundStatus;
-import com.hanbay.hotel.payment.domain.PaymentStatus;
 import com.hanbay.hotel.payment.repository.PaymentRepository;
 import com.hanbay.hotel.payment.service.CounterPaymentService;
 import com.hanbay.hotel.pricing.dto.result.RoomPricingResult;
@@ -55,6 +53,7 @@ public class StayModificationServiceImpl implements StayModificationService {
     private final CurrentUserProvider currentUserProvider;
     private final Clock clock;
     private final CounterPaymentService counterPaymentService;
+    private final BookingSettlementLedger settlementLedger;
 
     @Override
     @Transactional(readOnly = true)
@@ -120,31 +119,20 @@ public class StayModificationServiceImpl implements StayModificationService {
         counterPaymentService.settleAtCheckout(booking, collectedAmount, receptionist.getId());
         PaymentRefundStatus refundStatus = null;
         if (refundAmount > 0) {
-            Payment payment = (booking.getOrder() == null
-                            ? paymentRepository.findFirstByBookingIdAndStatusOrderByPaidAtDesc(
-                                    bookingId, PaymentStatus.SUCCESS)
-                            : paymentRepository
-                                    .findAllByOrderIdOrderByCreatedAtDesc(
-                                            booking.getOrder().getId())
-                                    .stream()
-                                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS
-                                            || p.getStatus() == PaymentStatus.PARTIALLY_REFUNDED)
-                                    .findFirst())
-                    .orElseThrow(() -> StayModificationException.conflict(
-                            "INSUFFICIENT_PAID_AMOUNT", "Không có khoản thanh toán thành công để hoàn tiền"));
-            PaymentRefund refund = PaymentRefund.builder()
-                    .amount(BigDecimal.valueOf(refundAmount))
-                    .currency(CURRENCY)
-                    .status(PaymentRefundStatus.PENDING)
-                    .reason("Trả phòng sớm " + request.actualCheckOutDate())
-                    .idempotencyKey("early-checkout:" + bookingId)
-                    .refundMethod(request.refundInformation().method())
-                    .bankName(request.refundInformation().normalizedBankName())
-                    .accountHolderName(request.refundInformation().normalizedAccountHolderName())
-                    .accountNumber(request.refundInformation().normalizedAccountNumber())
-                    .requestedAt(clock.instant())
-                    .build();
-            payment.requestRefund(refund);
+            var ledger = settlementLedger.lockPayments(List.of(booking));
+            long available = settlementLedger.available(booking, ledger);
+            if (available < refundAmount)
+                throw StayModificationException.conflict(
+                        "INSUFFICIENT_PAID_AMOUNT",
+                        "Tiền còn bù trừ không đủ để hoàn; cần đối soát trước khi trả sớm.");
+            settlementLedger.refundExcess(
+                    booking,
+                    ledger,
+                    available - refundAmount,
+                    "early-checkout",
+                    "Trả phòng sớm " + request.actualCheckOutDate(),
+                    clock.instant(),
+                    request.refundInformation());
             refundStatus = PaymentRefundStatus.PENDING;
         }
         room.markDirtyAfterCheckout();

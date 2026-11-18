@@ -31,7 +31,8 @@ public record BookingOrderResponse(
         boolean refundInformationRequired,
         long bookedAmount,
         long additionalChargeAmount,
-        boolean reviewOwner) {
+        boolean reviewOwner,
+        boolean claimable) {
     public record Room(
             UUID bookingId,
             String bookingCode,
@@ -43,7 +44,8 @@ public record BookingOrderResponse(
             long paidAmount,
             BookingStatus status,
             String roomNumber,
-            List<Integer> childAges) {
+            List<Integer> childAges,
+            boolean staffCancellation) {
         public Room(
                 UUID bookingId,
                 String bookingCode,
@@ -66,7 +68,8 @@ public record BookingOrderResponse(
                     paidAmount,
                     status,
                     roomNumber,
-                    null);
+                    null,
+                    false);
         }
     }
 }

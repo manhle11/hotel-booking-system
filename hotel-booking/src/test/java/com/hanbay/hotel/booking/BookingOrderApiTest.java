@@ -14,6 +14,8 @@ import com.hanbay.hotel.common.config.SecurityConfig;
 import com.hanbay.hotel.common.security.JwtAccessDeniedHandler;
 import com.hanbay.hotel.common.security.JwtAuthenticationEntryPoint;
 import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +55,56 @@ class BookingOrderApiTest {
                         argThat(request -> request.rooms().size() == 2),
                         eq("test-request-key-123456"),
                         eq("private-order-access-token-at-least-32"));
+    }
+
+    @Test
+    void expiredAccessTokenCannotSilentlyCreateAnAnonymousOrder() throws Exception {
+        when(jwtService.validate("expired-access-token")).thenReturn(Optional.empty());
+        mvc.perform(post("/api/v1/booking-orders")
+                        .header("Authorization", "Bearer expired-access-token")
+                        .header("Idempotency-Key", "test-request-key-123456")
+                        .header("X-Booking-Access-Token", "private-order-access-token-at-least-32")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(room())))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_UNAUTHORIZED"));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void refreshedAccessTokenAllowsCreatingAnAuthenticatedOrder() throws Exception {
+        authenticate();
+        mvc.perform(post("/api/v1/booking-orders")
+                        .header("Authorization", "Bearer valid-customer")
+                        .header("Idempotency-Key", "test-request-key-123456")
+                        .header("X-Booking-Access-Token", "private-order-access-token-at-least-32")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(room())))
+                .andExpect(status().isCreated());
+        verify(service).create(any(), eq("test-request-key-123456"), anyString());
+    }
+
+    @Test
+    void claimRequiresAuthenticationAndAnOrderAccessToken() throws Exception {
+        UUID id = UUID.randomUUID();
+        String token = "private-order-access-token-at-least-32";
+        mvc.perform(post("/api/v1/booking-orders/{id}/claim", id).header("X-Booking-Access-Token", token))
+                .andExpect(status().isUnauthorized());
+        authenticate();
+        mvc.perform(post("/api/v1/booking-orders/{id}/claim", id).header("Authorization", "Bearer valid-customer"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+        mvc.perform(post("/api/v1/booking-orders/{id}/claim", id)
+                        .header("Authorization", "Bearer valid-customer")
+                        .header("X-Booking-Access-Token", token))
+                .andExpect(status().isOk());
+        verify(service).claim(id, token);
+    }
+
+    private void authenticate() {
+        when(jwtService.validate("valid-customer"))
+                .thenReturn(Optional.of(
+                        new JwtService.ValidatedJwt(UUID.randomUUID().toString(), List.of())));
     }
 
     @Test

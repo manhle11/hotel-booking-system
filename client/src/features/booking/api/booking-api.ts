@@ -119,10 +119,11 @@ export async function updatePendingBooking(
 export async function createPaymentRequest(
   bookingId: string,
   bookingAccessToken?: string,
+  arrivalPolicyVersion?: string,
 ): Promise<CreatePaymentRequestResponse> {
   const response = await apiClient.post<ApiResponse<CreatePaymentRequestResponse>>(
     '/payments/requests',
-    { bookingId },
+    { bookingId, ...(arrivalPolicyVersion ? { arrivalPolicyVersion } : {}) },
     bookingAccessToken ? { headers: { 'X-Booking-Access-Token': bookingAccessToken } } : undefined,
   );
   return response.data.data;

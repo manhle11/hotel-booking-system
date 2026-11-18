@@ -6,6 +6,7 @@ export interface GuestInfo {
 }
 
 export interface CreatePendingBookingRequest {
+  replacementForBookingCode?: string;
   roomTypeId: string;
   checkInDate: string;
   checkOutDate: string;
@@ -48,6 +49,7 @@ export interface CreatePaymentRequestResponse {
 }
 
 export interface PaymentStatusResponse {
+  policyFeePayment?: boolean;
   paymentId: string;
   bookingId: string;
   bookingCode: string;
@@ -77,7 +79,7 @@ export interface PaymentStatusResponse {
 }
 
 export type BookingStatus =
-  'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'EXPIRED';
+  'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'EXPIRED' | 'NO_SHOW';
 
 export type BookingPaymentStatus =
   'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'REFUNDED' | 'EXPIRED' | 'PARTIALLY_REFUNDED';
@@ -91,6 +93,8 @@ export interface BookingHistoryRoomType {
 }
 
 export interface BookingHistoryItem {
+  staffCancellation?: boolean;
+  rescheduled?: boolean;
   bookingId: string;
   bookingCode: string;
   roomType: BookingHistoryRoomType;
@@ -126,6 +130,8 @@ export interface CancellationEligibility {
   refundAmount: number;
   currency: 'VND';
   policyDescription: string;
+  feeAmount?: number;
+  outstandingAmount?: number;
 }
 
 export interface CancelBookingResponse {

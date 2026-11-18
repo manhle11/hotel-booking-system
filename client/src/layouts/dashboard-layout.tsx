@@ -67,6 +67,11 @@ export function DashboardLayout() {
             icon: <LoginOutlined />,
             label: 'Khách đến hôm nay',
           },
+          {
+            key: ROUTE_PATHS.bookingRequests,
+            icon: <ScheduleOutlined />,
+            label: 'Yêu cầu hủy / đổi lịch',
+          },
         ]
       : []),
     ...(canViewTodayArrivals

@@ -10,6 +10,7 @@ const statusLabels: Record<BookingStatus, string> = {
   CHECKED_OUT: 'Đã trả phòng',
   CANCELLED: 'Đã hủy',
   EXPIRED: 'Đã hết hạn',
+  NO_SHOW: 'Không đến',
 };
 
 export function CheckInBookingSummary({ booking }: { booking: CheckInBookingContext }) {

@@ -9,6 +9,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.springframework.ai.document.Document;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
@@ -17,6 +18,7 @@ public final class PolicyKnowledgeBaseLoader {
 
     private static final String RESOURCE_PATTERN = "classpath*:knowledge-base/*.md";
     private static final String LOCAL_DEVELOPMENT_RESOURCE_PATTERN = "file:../docs/knowledge-base/*-policy.md";
+    private static final Pattern SECTION_HEADING = Pattern.compile("^#{2,6}\\s+(.+)$");
     private static final List<String> REQUIRED_METADATA =
             List.of("documentId", "title", "category", "source", "version", "hotel", "language");
 
@@ -41,7 +43,7 @@ public final class PolicyKnowledgeBaseLoader {
         }
     }
 
-    private List<Document> loadResource(Resource resource) throws IOException {
+    List<Document> loadResource(Resource resource) throws IOException {
         String markdown = resource.getContentAsString(StandardCharsets.UTF_8).replace("\r\n", "\n");
         ParsedMarkdown parsed = parseFrontMatter(markdown, resource.getFilename());
         parsed.metadata().put("checksum", checksum(markdown));
@@ -88,30 +90,29 @@ public final class PolicyKnowledgeBaseLoader {
         String[] lines = parsed.body().split("\n");
         String documentTitle = "";
         List<Chunk> chunks = new ArrayList<>();
-        String heading = null;
+        String heading = parsed.metadata().get("title").toString();
         StringBuilder content = new StringBuilder();
+        boolean fenced = false;
 
         for (String line : lines) {
+            if (line.startsWith("```") || line.startsWith("~~~")) fenced = !fenced;
             if (line.startsWith("# ") && documentTitle.isBlank()) {
                 documentTitle = line.substring(2).trim();
+                continue;
             }
-            if (line.startsWith("### ")) {
+            var section = SECTION_HEADING.matcher(line);
+            if (!fenced && section.matches()) {
                 addChunk(chunks, heading, content);
-                heading = line.substring(4).trim();
+                heading = section.group(1).trim();
                 content = new StringBuilder();
                 continue;
             }
-            if (heading != null && line.startsWith("## ")) {
-                addChunk(chunks, heading, content);
-                heading = null;
-                content = new StringBuilder();
-                continue;
-            }
-            if (heading != null) {
-                content.append(line).append('\n');
-            }
+            content.append(line).append('\n');
         }
         addChunk(chunks, heading, content);
+        if (chunks.isEmpty())
+            throw new IllegalStateException(
+                    "Policy document không có nội dung: " + parsed.metadata().get("source"));
 
         List<Document> documents = new ArrayList<>();
         for (int index = 0; index < chunks.size(); index++) {

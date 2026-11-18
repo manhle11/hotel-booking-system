@@ -25,6 +25,7 @@ export interface CreateBookingOrderRequest {
 }
 
 export interface BookingOrderRoom {
+  staffCancellation?: boolean;
   bookingId: string;
   bookingCode: string;
   roomTypeId: string;
@@ -39,6 +40,7 @@ export interface BookingOrderRoom {
 }
 
 export interface BookingOrder {
+  claimable?: boolean;
   reviewOwner?: boolean;
   orderId: string;
   orderCode: string;

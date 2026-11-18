@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: API hủy đặt phòng HANBAY
-  version: 1.0.0
+  version: 1.1.0
 paths:
   /api/v1/bookings/{bookingCode}/cancellation:
     get:
@@ -18,14 +18,23 @@ paths:
           description: Người dùng chưa đăng nhập
         '404':
           description: Không tìm thấy đặt phòng thuộc người dùng
-  /api/v1/bookings/{bookingCode}/cancel:
+  /api/v1/bookings/{bookingId}/cancel:
     post:
       tags: [Đặt phòng]
       summary: Hủy đặt phòng theo chính sách
+      description: >
+        V2 tính phí 0/50/100% giá đêm đầu gốc theo mốc 48/24 giờ, tổng phí chuỗi tối đa P.
+        Booking cũ giữ chính sách cũ; kiểm tra khả năng hủy trước khi gửi.
+        Cần thông tin ngân hàng khi có tiền hoàn. Khoản hoàn tạo PENDING, chưa chuyển tiền.
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/BookingCode'
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -36,6 +45,19 @@ paths:
                 reason:
                   type: string
                   maxLength: 500
+                refundInformation:
+                  type: object
+                  required: [method, bankName, accountHolderName, accountNumber]
+                  properties:
+                    method:
+                      type: string
+                      enum: [BANK_TRANSFER]
+                    bankName:
+                      type: string
+                    accountHolderName:
+                      type: string
+                    accountNumber:
+                      type: string
       responses:
         '200':
           description: Hủy đặt phòng thành công

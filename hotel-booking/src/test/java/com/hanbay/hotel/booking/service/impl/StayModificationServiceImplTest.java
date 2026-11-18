@@ -84,7 +84,8 @@ class StayModificationServiceImplTest {
                 userRepository,
                 currentUserProvider,
                 Clock.fixed(NOW, ZoneOffset.UTC),
-                counterPaymentService);
+                counterPaymentService,
+                new com.hanbay.hotel.booking.service.BookingSettlementLedger(paymentRepository));
     }
 
     @Test
@@ -118,12 +119,20 @@ class StayModificationServiceImplTest {
                         night(booking, LocalDate.of(2026, 9, 8), 500_000L),
                         night(booking, LocalDate.of(2026, 9, 9), 500_000L)));
         Payment payment = Payment.builder()
+                .id(UUID.randomUUID())
                 .booking(booking)
                 .paymentCode("PAY-20260908080000-ABCDEF12")
                 .amount(2_000_000L)
                 .status(PaymentStatus.SUCCESS)
                 .expiresAt(NOW)
                 .build();
+        payment.addTransaction(com.hanbay.hotel.payment.domain.PaymentTransaction.builder()
+                .type(com.hanbay.hotel.payment.domain.PaymentTransactionType.PAYMENT)
+                .status(com.hanbay.hotel.payment.domain.PaymentTransactionStatus.SUCCESS)
+                .amount(2_000_000)
+                .currency("VND")
+                .receivedAt(NOW)
+                .build());
         User receptionist = User.builder().id(receptionistId).build();
         EarlyCheckoutRequest request = new EarlyCheckoutRequest(
                 LocalDate.of(2026, 9, 8),
@@ -136,8 +145,8 @@ class StayModificationServiceImplTest {
         when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
         when(currentUserProvider.currentUserId()).thenReturn(Optional.of(receptionistId));
         when(userRepository.findById(receptionistId)).thenReturn(Optional.of(receptionist));
-        when(paymentRepository.findFirstByBookingIdAndStatusOrderByPaidAtDesc(bookingId, PaymentStatus.SUCCESS))
-                .thenReturn(Optional.of(payment));
+        when(paymentRepository.findAllForBookingSettlement(bookingId)).thenReturn(List.of(payment));
+        when(paymentRepository.findByIdForUpdate(payment.getId())).thenReturn(Optional.of(payment));
 
         var response = service.earlyCheckout(bookingId, request);
 

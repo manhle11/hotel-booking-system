@@ -2,8 +2,10 @@ package com.hanbay.hotel.payment.service.impl;
 
 import com.hanbay.hotel.booking.domain.Booking;
 import com.hanbay.hotel.booking.domain.BookingStatus;
+import com.hanbay.hotel.booking.policy.ClosedBookingFeePolicy;
 import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.booking.service.BookingAccessTokenService;
+import com.hanbay.hotel.booking.service.BookingSettlementLedger;
 import com.hanbay.hotel.common.security.CurrentUserProvider;
 import com.hanbay.hotel.payment.config.PaymentProperties;
 import com.hanbay.hotel.payment.domain.Payment;
@@ -46,11 +48,14 @@ public class PaymentServiceImpl implements PaymentService {
     private final Clock clock;
     private final BookingAccessTokenService bookingAccessTokenService;
     private final CurrentUserProvider currentUserProvider;
+    private final BookingSettlementLedger settlementLedger;
+    private final com.hanbay.hotel.booking.service.BookingOrderPaymentService orderPayments;
 
     @Override
     @Transactional
     public CreatePaymentRequestResponse createPaymentRequest(CreatePaymentRequest request, String bookingAccessToken) {
         Instant now = clock.instant();
+        bookingRepository.findOrderIdByBookingId(request.bookingId()).ifPresent(orderPayments::lockOrder);
         Booking booking = bookingRepository
                 .findByIdForUpdate(request.bookingId())
                 .orElseThrow(() -> new PaymentBookingNotFoundException("Không tìm thấy đặt phòng cần thanh toán."));
@@ -62,6 +67,16 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         validatePayableBooking(booking, now);
+        if (booking.getOrder() != null && booking.getStatus() != BookingStatus.PENDING) {
+            orderPayments.closePendingPayments(
+                    booking.getOrder(),
+                    now,
+                    "Đối soát mã toàn đơn khi chuyển sang thanh toán riêng",
+                    "replace-with-room-payment:");
+        }
+        com.hanbay.hotel.booking.policy.ArrivalPolicy.accept(booking, request.arrivalPolicyVersion());
+        if (com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.VERSION.equals(request.arrivalPolicyVersion()))
+            booking.acceptStandardTerms(clock.instant());
         long payableAmount = payableAmount(booking);
 
         Payment activePendingPayment = findActivePendingPayment(booking, now, payableAmount);
@@ -88,13 +103,16 @@ public class PaymentServiceImpl implements PaymentService {
         if (booking.getStatus() == BookingStatus.PENDING) {
             return null;
         }
-        return "additional-balance:" + booking.getId() + ":" + booking.getTotalAmount();
+        // The booking lock and active-payment lookup make retries idempotent. Each renewed QR needs its own key.
+        return (ClosedBookingFeePolicy.applies(booking) ? ClosedBookingFeePolicy.PAYMENT_PREFIX : "additional-balance:")
+                + booking.getId() + ":" + UUID.randomUUID();
     }
 
     private void validatePayableBooking(Booking booking, Instant now) {
         if (booking.getStatus() != BookingStatus.PENDING
                 && booking.getStatus() != BookingStatus.CONFIRMED
-                && booking.getStatus() != BookingStatus.CHECKED_IN) {
+                && booking.getStatus() != BookingStatus.CHECKED_IN
+                && !ClosedBookingFeePolicy.applies(booking)) {
             throw new PaymentBookingNotPayableException("Trạng thái booking không cho phép thanh toán.");
         }
         if (booking.getStatus() == BookingStatus.PENDING
@@ -107,6 +125,12 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private long payableAmount(Booking booking) {
+        if (ClosedBookingFeePolicy.applies(booking))
+            return Math.max(
+                    booking.getTotalAmount()
+                            - settlementLedger.available(
+                                    booking, paymentRepository.findAllForBookingSettlement(booking.getId())),
+                    0);
         return Math.max(booking.getTotalAmount() - booking.getPaidAmount(), 0L);
     }
 
@@ -114,7 +138,13 @@ public class PaymentServiceImpl implements PaymentService {
         return paymentRepository
                 .findAllByBookingIdAndStatusOrderByCreatedAtDesc(booking.getId(), PaymentStatus.PENDING)
                 .stream()
-                .filter(payment -> payment.isPendingAndActive(now) && payment.getAmount() == payableAmount)
+                .filter(payment -> payment.getOrder() == null)
+                .filter(payment -> payment.isPendingAndActive(now)
+                        && payment.getAmount() == payableAmount
+                        && (!ClosedBookingFeePolicy.applies(booking)
+                                || (payment.getIdempotencyKey() != null
+                                        && payment.getIdempotencyKey()
+                                                .startsWith(ClosedBookingFeePolicy.PAYMENT_PREFIX))))
                 .findFirst()
                 .orElse(null);
     }
@@ -123,10 +153,15 @@ public class PaymentServiceImpl implements PaymentService {
         paymentRepository
                 .findAllByBookingIdAndStatusOrderByCreatedAtDesc(booking.getId(), PaymentStatus.PENDING)
                 .stream()
+                .filter(payment -> payment.getOrder() == null)
                 .forEach(payment -> {
                     if (payment.isPendingAndExpired(now)) {
                         payment.markExpired(now);
-                    } else if (payment.getAmount() != payableAmount) {
+                    } else if (payment.getAmount() != payableAmount
+                            || (ClosedBookingFeePolicy.applies(booking)
+                                    && (payment.getIdempotencyKey() == null
+                                            || !payment.getIdempotencyKey()
+                                                    .startsWith(ClosedBookingFeePolicy.PAYMENT_PREFIX)))) {
                         payment.cancelPending(now);
                     }
                 });
@@ -134,7 +169,9 @@ public class PaymentServiceImpl implements PaymentService {
 
     private Instant calculatePaymentExpiration(Booking booking, Instant now) {
         Instant configuredExpiration = now.plusSeconds(paymentProperties.expirationMinutes() * 60L);
-        return booking.getExpiredAt() != null && booking.getExpiredAt().isBefore(configuredExpiration)
+        return booking.getStatus() == BookingStatus.PENDING
+                        && booking.getExpiredAt() != null
+                        && booking.getExpiredAt().isBefore(configuredExpiration)
                 ? booking.getExpiredAt()
                 : configuredExpiration;
     }
@@ -201,7 +238,9 @@ public class PaymentServiceImpl implements PaymentService {
                 qrInfo.transferContent(),
                 payment.getExpiresAt(),
                 payment.getPaidAt(),
-                remainingAmount);
+                remainingAmount,
+                payment.getIdempotencyKey() != null
+                        && payment.getIdempotencyKey().startsWith(ClosedBookingFeePolicy.PAYMENT_PREFIX));
     }
 
     private Payment findPayment(UUID paymentId) {

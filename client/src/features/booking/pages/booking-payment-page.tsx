@@ -34,6 +34,8 @@ import { useNavigate } from 'react-router-dom';
 
 import { ApiClientError } from '../../../types/api';
 import { createPaymentRequest, getPaymentStatus } from '../api/booking-api';
+import { ARRIVAL_POLICY_VERSION } from '../arrival-policy';
+import { ArrivalPolicyNotice } from '../components/arrival-policy-notice';
 import type {
   SelectedAddOn,
   CreatePaymentRequestResponse,
@@ -64,9 +66,11 @@ export function BookingPaymentPage({
   const screens = Grid.useBreakpoint();
   const navigate = useNavigate();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [policyReady, setPolicyReady] = useState(false);
   const nights = countStayNights(dayjs(request.checkInDate), dayjs(request.checkOutDate));
   const paymentMutation = useMutation({
-    mutationFn: () => createPaymentRequest(booking.bookingId, booking.bookingAccessToken),
+    mutationFn: () =>
+      createPaymentRequest(booking.bookingId, booking.bookingAccessToken, ARRIVAL_POLICY_VERSION),
     onSuccess: (createdPayment) => {
       storePaymentResultToken(createdPayment.paymentId, booking.bookingAccessToken);
     },
@@ -240,12 +244,18 @@ export function BookingPaymentPage({
               showIcon
               message="Yêu cầu đặt phòng sẽ tự động hết hiệu lực nếu chưa thanh toán trước thời hạn."
             />
+            <ArrivalPolicyNotice
+              codes={[booking.bookingCode]}
+              accessToken={booking.bookingAccessToken}
+              onReady={setPolicyReady}
+            />
             <Checkbox
               checked={acceptedTerms}
               onChange={(event) => setAcceptedTerms(event.target.checked)}
               style={{ marginTop: 20 }}
             >
-              Tôi đã đọc và đồng ý với điều khoản đặt phòng và chính sách bảo mật của HANBAY HOTEL.
+              Tôi đã đọc và đồng ý với điều khoản đặt phòng, chính sách hủy/đổi lịch/đến muộn/không
+              đến và chính sách bảo mật của HANBAY HOTEL.
             </Checkbox>
           </Card>
 
@@ -375,7 +385,12 @@ export function BookingPaymentPage({
               type="primary"
               size="large"
               block
-              disabled={!acceptedTerms || (!paymentError && Boolean(payment)) || paymentCompleted}
+              disabled={
+                !policyReady ||
+                !acceptedTerms ||
+                (!paymentError && Boolean(payment)) ||
+                paymentCompleted
+              }
               loading={paymentMutation.isPending}
               icon={paymentError ? <ReloadOutlined /> : undefined}
               onClick={() => paymentMutation.mutate()}

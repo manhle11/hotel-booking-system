@@ -130,6 +130,19 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/payments/*/status")
                         .permitAll()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/bookings/*/arrival-settlement",
+                                "/api/v1/bookings/*/booking-policy",
+                                "/api/v1/bookings/*/customer-change-requests",
+                                "/api/v1/bookings/*/customer-change-requests/*/quote")
+                        .permitAll()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/bookings/*/arrival-refund-information",
+                                "/api/v1/bookings/*/customer-change-requests",
+                                "/api/v1/bookings/*/customer-change-requests/*/consent")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/media/**")
                         .permitAll()
                         .requestMatchers("/api/v1/room-types/**", "/api/v1/add-ons/**", "/api/v1/stay-policy")
@@ -144,7 +157,9 @@ public class SecurityConfig {
 
         JwtService jwtService = jwtServiceProvider.getIfAvailable();
         if (jwtService != null) {
-            http.addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
+            http.addFilterBefore(
+                    new JwtAuthenticationFilter(jwtService, authenticationEntryPoint),
+                    UsernamePasswordAuthenticationFilter.class);
         }
         AuthenticationRateLimitService rateLimitService = rateLimitServiceProvider.getIfAvailable();
         if (rateLimitService != null) {

@@ -17,6 +17,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+    @Query("select b.roomType.id from Booking b where b.bookingCode = :code")
+    Optional<UUID> findRoomTypeIdByBookingCode(@Param("code") String code);
+
+    @Query("select b.order.id from Booking b where b.bookingCode = :code")
+    Optional<UUID> findOrderIdForArrival(@Param("code") String code);
+
+    @Query("select b.order.id from Booking b where b.id = :bookingId")
+    Optional<UUID> findOrderIdByBookingId(@Param("bookingId") UUID bookingId);
+
     boolean existsByAssignedRoomId(UUID roomId);
 
     @Query("select max(b.checkedOutAt) from Booking b where b.order.id = :orderId "
@@ -70,6 +79,31 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("overdueThrough") LocalDate overdueThrough,
             @Param("now") Instant now,
             @Param("excludedBookingId") UUID excludedBookingId);
+
+    @Query(
+            value =
+                    """
+            WITH stay_nights AS (
+                SELECT generate_series(CAST(:checkIn AS date), CAST(:checkOut AS date) - 1, INTERVAL '1 day')::date AS stay_date
+            ), nightly_demand AS (
+                SELECT b.room_type_id, n.stay_date, COUNT(*) AS booking_count
+                FROM stay_nights n JOIN bookings b ON b.check_in_date <= n.stay_date
+                    AND (b.check_out_date > n.stay_date OR (b.status = 'CHECKED_IN' AND b.check_out_date <= :overdueThrough))
+                WHERE b.room_type_id IN (:roomTypeIds)
+                    AND (b.status IN ('CONFIRMED', 'CHECKED_IN') OR (b.status = 'PENDING' AND b.expired_at > :now))
+                    AND (b.order_id IS NULL OR b.order_id <> :excludedOrderId)
+                GROUP BY b.room_type_id, n.stay_date
+            ) SELECT room_type_id AS "roomTypeId", MAX(booking_count) AS "bookingCount"
+              FROM nightly_demand GROUP BY room_type_id
+            """,
+            nativeQuery = true)
+    Collection<RoomTypeBookingCount> countPeakExcludingOrder(
+            @Param("roomTypeIds") Collection<UUID> roomTypeIds,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut,
+            @Param("overdueThrough") LocalDate overdueThrough,
+            @Param("now") Instant now,
+            @Param("excludedOrderId") UUID excludedOrderId);
 
     @Query(
             """

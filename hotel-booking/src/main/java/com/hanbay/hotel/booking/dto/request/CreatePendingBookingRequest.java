@@ -15,7 +15,20 @@ public record CreatePendingBookingRequest(
         @Min(value = 0, message = "Số trẻ em không được âm") int children,
         @NotNull(message = "Thông tin khách hàng không được để trống") @Valid GuestInfo guestInfo,
         @Valid List<AddOnSelectionRequest> addOns,
-        @jakarta.validation.constraints.Size(max = 20) List<@NotNull @Min(0) Integer> childAges) {
+        @jakarta.validation.constraints.Size(max = 20) List<@NotNull @Min(0) Integer> childAges,
+        @jakarta.validation.constraints.Size(max = 50) String replacementForBookingCode) {
+    public CreatePendingBookingRequest(
+            UUID roomTypeId,
+            LocalDate checkInDate,
+            LocalDate checkOutDate,
+            int adults,
+            int children,
+            GuestInfo guestInfo,
+            List<AddOnSelectionRequest> addOns,
+            List<Integer> childAges) {
+        this(roomTypeId, checkInDate, checkOutDate, adults, children, guestInfo, addOns, childAges, null);
+    }
+
     public CreatePendingBookingRequest(
             UUID roomTypeId,
             LocalDate checkInDate,
@@ -24,6 +37,6 @@ public record CreatePendingBookingRequest(
             int children,
             GuestInfo guestInfo,
             List<AddOnSelectionRequest> addOns) {
-        this(roomTypeId, checkInDate, checkOutDate, adults, children, guestInfo, addOns, null);
+        this(roomTypeId, checkInDate, checkOutDate, adults, children, guestInfo, addOns, null, null);
     }
 }

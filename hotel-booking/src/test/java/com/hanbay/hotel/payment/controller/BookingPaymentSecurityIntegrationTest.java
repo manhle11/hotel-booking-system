@@ -113,7 +113,8 @@ class BookingPaymentSecurityIntegrationTest {
                         "PAY-20260814070244-E02D78616064F1D9FA5F7DD96F876D",
                         Instant.parse("2026-08-14T08:15:00Z"),
                         Instant.parse("2026-08-14T08:05:00Z"),
-                        0L));
+                        0L,
+                        false));
 
         mockMvc.perform(get("/api/v1/payments/{paymentId}/status", paymentId)
                         .header("X-Booking-Access-Token", "booking-access-token"))

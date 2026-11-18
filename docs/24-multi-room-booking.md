@@ -18,6 +18,7 @@
 4. Bấm giữ phòng. Backend kiểm tra lại giá, sức chứa và tổng số phòng; chuyển tới `/booking-orders/:orderId` sau khi giữ thành công.
 5. Đồng ý điều khoản và tạo QR. Mã QR ban đầu dùng tổng tiền toàn đơn; sau thanh toán một phần, QR và hướng dẫn chuyển khoản dùng số còn thiếu. Trang chi tiết tự cập nhật trạng thái thanh toán.
 6. Tài khoản đã đăng nhập xem các đơn mới trong lịch sử đặt phòng; booking cũ tiếp tục được hiển thị riêng. Khách vãng lai xem lại đơn trên cùng tab/trình duyệt bằng token trong `sessionStorage`.
+   Khách có thể đăng nhập rồi bấm **Lưu đơn vào lịch sử** trên trang đơn. Backend yêu cầu token truy cập đơn, liên kết cả đơn và các booking con trong một transaction, và không chuyển đơn đã thuộc tài khoản khác. Email liên hệ trùng nhau không tự cấp quyền sở hữu. Request có access token hết hạn/sai trả `401` để frontend refresh; không tạo đơn khách vãng lai từ request đó.
 7. Có thể hủy toàn đơn nếu tất cả phòng còn đủ điều kiện. Nếu có tiền hoàn, khách cung cấp tài khoản ngân hàng. Với tiền chuyển thừa/đến muộn, trang đơn cho phép bổ sung tài khoản nhận hoàn sau khi phát sinh yêu cầu.
 
 ## Dữ liệu và tương thích
@@ -30,7 +31,7 @@ Migration bổ sung `V202611061800__link_refund_transactions.sql` liên kết m�
 - `bookings.order_id`, `bookings.order_room_number`: liên kết từng phòng với đơn chung; mỗi booking giữ nguyên giá theo đêm, dịch vụ, lịch sử trạng thái và phân phòng.
 - `payments.order_id`: chủ thể thanh toán cho đơn nhiều phòng. `booking_id` tiếp tục tham chiếu booking đại diện để tương thích các màn hình/báo cáo cũ; không dùng booking đại diện làm tổng tiền hoặc trạng thái toàn đơn.
 - `payment_allocations`: phần tiền dự kiến và phần đã ghi nhận cho mỗi booking. Tiền ghi nhận của một phòng không vượt phần phân bổ; tiền thừa tạo yêu cầu hoàn riêng.
-- Đơn có quan hệ 1–N với payment để mở rộng; phạm vi hiện tại tái sử dụng một yêu cầu thanh toán đang có cho lần trả trước ban đầu. Các khoản thu phát sinh tại quầy tiếp tục thuộc booking tương ứng.
+- Đơn có quan hệ 1–N với payment: QR ban đầu và QR chênh lệch sau đổi lịch là các yêu cầu riêng. QR bổ sung dùng tổng khoản còn thiếu, phân bổ theo từng phòng và không xác nhận đơn lần nữa. Vẫn hỗ trợ thanh toán riêng từng phòng và thu phát sinh tại quầy.
 - Trạng thái đơn (`PENDING`, `CONFIRMED`, `CANCELLED`, `EXPIRED`) quản lý việc đặt và thanh toán. Trạng thái lưu trú nằm trên từng booking; một phòng đã check-in không buộc các phòng khác check-in cùng lúc.
 
 ## API
@@ -41,8 +42,9 @@ Tiền tố `/api/v1`:
 |---|---|---|
 | POST | `/booking-orders` | Tạo đơn và giữ toàn bộ phòng |
 | GET | `/booking-orders/my-orders?page=0&size=6` | Lịch sử đơn của tài khoản đăng nhập |
+| POST | `/booking-orders/{id}/claim` | Đăng nhập và gửi `X-Booking-Access-Token` để lưu đơn khách vãng lai vào tài khoản |
 | GET | `/booking-orders/{id}` | Chi tiết đơn, từng phòng, thanh toán và hoàn tiền |
-| POST | `/booking-orders/{id}/payments` | Tạo hoặc tái sử dụng QR tổng đơn |
+| POST | `/booking-orders/{id}/payments` | Tạo/tái sử dụng QR đặt phòng ban đầu hoặc QR tổng chênh lệch của đơn CONFIRMED |
 | GET | `/booking-orders/{id}/cancellation-eligibility` | Kiểm tra điều kiện và tổng tiền hoàn |
 | POST | `/booking-orders/{id}/cancel` | Hủy tất cả phòng trong một giao dịch |
 | POST | `/booking-orders/{id}/refund-information` | Bổ sung thông tin ngân hàng cho khoản hoàn tự động đang chờ |

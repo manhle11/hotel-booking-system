@@ -65,10 +65,22 @@ export async function getBookingOrder(id: string): Promise<BookingOrder> {
   return order;
 }
 
-export async function createOrderPayment(id: string): Promise<BookingOrder> {
+export async function claimBookingOrder(id: string): Promise<BookingOrder> {
+  const response = await apiClient.post<ApiResponse<BookingOrder>>(
+    `/booking-orders/${id}/claim`,
+    {},
+    { headers: checkoutHeaders(id) },
+  );
+  return response.data.data;
+}
+
+export async function createOrderPayment(
+  id: string,
+  arrivalPolicyVersion?: string,
+): Promise<BookingOrder> {
   const response = await apiClient.post<ApiResponse<BookingOrder>>(
     `/booking-orders/${id}/payments`,
-    {},
+    arrivalPolicyVersion ? { arrivalPolicyVersion } : {},
     { headers: checkoutHeaders(id) },
   );
   const token = getOrderAccessToken(id);

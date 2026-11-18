@@ -3,6 +3,7 @@ package com.hanbay.hotel.booking.policy;
 import com.hanbay.hotel.booking.config.HotelStayProperties;
 import com.hanbay.hotel.booking.exception.BookingValidationException;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import lombok.Getter;
@@ -52,6 +53,35 @@ public class HotelStayPolicy {
     public boolean isEarlyArrival(LocalDate checkIn) {
         var now = now();
         return checkIn.equals(now.toLocalDate()) && now.toLocalTime().isBefore(properties.getCheckInTime());
+    }
+
+    public Instant arrivalCutoff(LocalDate checkIn) {
+        return checkIn.plusDays(1)
+                .atTime(properties.getLateArrivalCutoff())
+                .atZone(properties.zoneId())
+                .toInstant();
+    }
+
+    public Instant departureDeadline(LocalDate checkOut) {
+        return checkOut.atTime(properties.getCheckOutTime())
+                .atZone(properties.zoneId())
+                .toInstant();
+    }
+
+    public boolean canArrive(com.hanbay.hotel.booking.domain.Booking booking) {
+        return canArrive(booking.getCheckInDate(), booking.getCheckOutDate())
+                || (booking.getArrivalHoldUntil() != null
+                        && !now().toInstant().isBefore(arrivalCutoff(booking.getCheckInDate()))
+                        && now().toInstant().isBefore(booking.getArrivalHoldUntil())
+                        && now().toInstant().isBefore(departureDeadline(booking.getCheckOutDate())));
+    }
+
+    public Instant receptionDeadline(com.hanbay.hotel.booking.domain.Booking booking) {
+        Instant cutoff = arrivalCutoff(booking.getCheckInDate());
+        Instant approved = booking.getArrivalHoldUntil();
+        Instant deadline = approved != null && approved.isAfter(cutoff) ? approved : cutoff;
+        Instant departure = departureDeadline(booking.getCheckOutDate());
+        return deadline.isBefore(departure) ? deadline : departure;
     }
 
     public boolean isOverdue(LocalDate checkOut) {

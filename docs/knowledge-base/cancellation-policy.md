@@ -3,88 +3,93 @@ documentId: HANBAY-CANCELLATION-POLICY
 title: Cancellation Policy
 category: CANCELLATION
 source: docs/knowledge-base/cancellation-policy.md
-version: 1.3
+version: 2.3
 hotel: HANBAY HOTEL
 language: vi
 ---
 
-# HANBAY HOTEL — Chính sách hủy đặt phòng
+# HANBAY HOTEL — Chính sách hủy và đổi lịch
 
-## 1. Mục đích
+## Phạm vi và phiên bản
 
-Mô tả trạng thái được hủy và mức refund đã được backend xác nhận.
+Gói trực tiếp tiêu chuẩn `HANBAY-STANDARD-2026-11-V2`, áp dụng khi khách đã thấy và chấp thuận tại bước thanh toán. Lưu nội dung, phiên bản, thời điểm đồng ý, ngày nhận gốc và giá đêm đầu gốc P theo từng phòng. Không áp hồi tố: booking thiếu phiên bản giữ điều khoản cũ và cần đối soát. Không tự áp gói tiêu chuẩn cho OTA, hợp đồng đoàn hoặc gói không hoàn có điều khoản khác.
 
-## 2. Phạm vi
+Mốc tính phí theo giờ nhận cấu hình, mặc định 14:00 Asia/Ho_Chi_Minh. P là giá phòng đêm đầu gốc sau giảm giá đã phân bổ, không gồm dịch vụ; P = 0 thì phí bằng 0. Làm tròn xuống đồng VND.
 
-Áp dụng cho booking `PENDING` hoặc `CONFIRMED`. Mốc thời gian dùng
-`Asia/Ho_Chi_Minh` và giờ check-in cấu hình mặc định 14:00.
+| Thời điểm khách xác nhận hủy / gửi đề nghị đổi đầy đủ | Tổng phí mục tiêu |
+| --- | --- |
+| Còn ít nhất 48 giờ | 0đ |
+| Còn từ 24 đến dưới 48 giờ | 50% P |
+| Còn dưới 24 giờ, kể cả sau giờ nhận | 100% P |
+| No-show đã được nhân viên xác nhận | 100% P |
 
-## 3. Quy định
+Đúng mốc 48 giờ thuộc mức 0đ; đúng mốc 24 giờ thuộc mức 50% P. Hủy muộn sau cutoff vẫn là CANCELLED nếu khách chủ động xác nhận hủy, không gọi là NO_SHOW.
 
-### 3.1 Booking PENDING
+### Căn cứ một đêm đầu tiên khi đơn có nhiều đêm hoặc nhiều phòng
 
-Booking `PENDING` có thể hủy. Refund là `NOT_REQUIRED` vì policy không coi payment chưa
-hoàn tất là khoản cần hoàn theo cancellation flow.
-Nếu booking `PENDING` đã nhận một phần tiền, nhánh hủy này không tự tạo khoản hoàn cho số
-đã nhận dở. Cần liên hệ nhân viên đối soát, không thông báo số tiền đó đã tự động được hoàn.
+Ở mốc 50%, **phí từng phòng = 50% × giá phòng đêm đầu gốc đã chốt sau giảm giá**.
+Các đêm thứ hai trở đi, dịch vụ bổ sung và chênh lệch giá kỳ mới không tham gia căn cứ này.
+Không lấy tổng tiền cả kỳ chia số đêm để thay cho snapshot giá đêm đầu, vì giá mỗi đêm có
+thể khác nhau. Đơn nhiều phòng cộng phí của các phòng trong phạm vi hủy/đổi; không chọn
+giá của một phòng đại diện và không nhân phí thêm với số đêm.
 
-### 3.2 Booking CONFIRMED
+Ví dụ hai phòng có giá đêm đầu gốc 2.450.000đ và 3.600.000đ: phí 50% lần lượt là
+1.225.000đ và 1.800.000đ, tổng **3.025.000đ**. Nếu đặt một đêm, tổng giá đêm đầu
+6.050.000đ trùng với tiền phòng cả kỳ. Nếu đặt ba đêm cùng đơn giá, tiền phòng cả kỳ
+là 18.150.000đ nhưng phí 50% vẫn là **3.025.000đ**, trước khi xét phí đã phát sinh hoặc
+quản lý miễn/giảm. Số tiền thanh toán thêm sau đổi còn phụ thuộc tiền kỳ mới và tiền
+đã thanh toán, tách riêng với phí hủy/đổi.
 
-- Còn ít nhất 48 giờ trước check-in: refund 100% nếu payment `SUCCESS`.
-- Còn từ 24 giờ đến dưới 48 giờ: refund 50% nếu payment `SUCCESS`.
-- Còn dưới 24 giờ: không cho phép hủy.
+## Không thu phí trùng
 
-Nếu payment không ở `SUCCESS`, cancellation được phép trong cửa sổ tương ứng nhưng không
-tạo refund. Refund của payment thành công có trạng thái ban đầu `PENDING`.
+Lưu F là tổng phí hủy/đổi/no-show còn hiệu lực. Tổng phí sau sự kiện = max(F trước đó, phí mục tiêu), tối đa P mỗi phòng; chỉ ghi thêm phần chênh lệch. Phí đã phát sinh không tự được hoàn khi ngày mới còn trong cửa sổ miễn phí. Đổi có phí rồi khách đến ở: tiền kỳ mới cộng F. Chỉ quản lý được giảm/miễn với lý do; lưu bút toán điều chỉnh, không xóa lịch sử.
 
-Code tính số tiền hoàn bằng phần trăm trên `booking.totalAmount`, làm tròn xuống VND;
-không trực tiếp nhân `paidAmount`. Với booking đã gia hạn hoặc có nhiều khoản thanh toán/
-hoàn tiền, không tự suy luận số hoàn từ tổng tiền đã trả: dùng kết quả kiểm tra điều kiện
-hủy của booking cụ thể và liên hệ nhân viên đối soát nếu số tiền không khớp thực nhận.
+## Khách xác nhận hủy
 
-Khi policy tạo refund, guest phải cung cấp destination `BANK_TRANSFER`: tên ngân hàng, tên
-chủ tài khoản và số tài khoản. Không yêu cầu thông tin này khi refund là `NOT_REQUIRED`.
-Backend tự xác định refund amount; client không được gửi amount. Quy tắc penalty 20% của
-early checkout không áp dụng cho cancellation.
+Tra cứu điều kiện chỉ là báo giá. Xác nhận hủy có quyền truy cập mới đóng CANCELLED và giải phóng phần giữ chỗ chưa dùng ngay. Hủy đúng chính sách không cần duyệt lại; lễ tân được hủy cả sát giờ. Với booking cũ hoặc tiền chưa đối soát, đóng booking và chuyển phần quyết toán chờ quản lý; không ghi khoản phạt mới như công nợ đã chấp thuận. Không khôi phục booking do đang chờ hoàn hay khách khiếu nại phí.
 
-Refund `PENDING` chưa có nghĩa tiền đã về tài khoản. Quy trình hiện tại cho `MANAGER` xác
-nhận sau đối soát bằng mã tham chiếu ngân hàng, không tự chuyển tiền ra hoặc đợi callback refund.
+Quyết toán theo tiền thực nhận trừ các khoản đã hoàn và đang dành cho hoàn khác. Nghĩa vụ còn lại là phí hợp lệ; bỏ tiền đêm và dịch vụ chưa cung cấp. Hoàn thêm = max(tiền còn bù trừ − nghĩa vụ, 0). Còn thu = max(nghĩa vụ − tiền còn bù trừ, 0). Không xóa công nợ nếu cọc nhỏ hơn phí. Khoản hoàn tạo PENDING, có thể bổ sung tài khoản nhận sau; PENDING không có nghĩa đã chuyển tiền.
 
-### 3.3 Trạng thái khác
+## Đổi lịch trước nhận phòng
 
-Booking ngoài `PENDING` và `CONFIRMED` không được hủy bằng cancellation policy hiện tại.
+Đợt triển khai này hỗ trợ toàn booking/toàn đơn, cùng hạng và cùng số đêm, một lần, ngày nhận mới trong 90 ngày từ ngày nhận gốc. Tùy tồn phòng và quản lý xác nhận. Yêu cầu chờ giữ ngày cũ, không bảo đảm phòng kỳ mới hoặc gia hạn cutoff. Khách chấp thuận báo giá trước áp dụng; phí lấy thời điểm đề nghị hợp lệ, không tăng bậc vì nhân viên duyệt muộn. Chỉ ghi phí khi áp dụng thành công.
 
-## 4. Quy trình
+Giá kỳ mới được tính lại, cộng F. Xác nhận lại dịch vụ chuyển được; nếu không chuyển được, quản lý có thể bỏ toàn bộ dịch vụ chưa dùng trong phạm vi và báo giá lại. Tuổi trẻ em phải nhập lại theo ngày mới. Kiểm tra tồn và cập nhật ngày/phí/giải phóng ngày cũ trong cùng giao dịch. QR số dư cũ bị hủy. Nếu còn thiếu tiền, booking giữ CONFIRMED và lưu hạn thu chênh lệch đã thỏa thuận.
 
-1. Backend kiểm tra ownership/access của booking.
-2. Policy kiểm tra trạng thái booking và thời gian còn lại đến check-in.
-3. Nếu hợp lệ, booking chuyển `CANCELLED`.
-4. Payment thành công tạo refund `PENDING` theo phần trăm policy.
-5. Refund applicable yêu cầu thông tin nhận tiền hợp lệ và dùng idempotency key riêng theo booking.
+Ngoại lệ vượt một lần/90 ngày hoặc đổi khác số đêm cần quản lý ghi lý do để mở xét duyệt; khách phải chấp thuận lại báo giá. Hệ thống tính và hiển thị báo giá tăng/giảm đêm trước khi quản lý xét ngoại lệ, nhưng không đổi ngày, ghi phí, thu thêm hay tạo hoàn chỉ vì đã có báo giá. Chưa hỗ trợ hủy một phần phòng trong đơn; không giả lập bằng hủy cả đơn. Booking đã nhận phòng dùng chính sách lưu trú, không dùng hủy/no-show trước nhận.
 
-## 5. Các trường hợp không hợp lệ
+Khách đã xác nhận hủy thì đề nghị đổi lịch đang chờ cùng booking/toàn đơn được kết thúc,
+kể cả hủy từ trang khách; không còn quyền áp dụng báo giá cũ. Lịch sử được giữ với lý do
+đã kết thúc do hủy. Đổi đã áp dụng trước khi hủy vẫn giữ lịch sử và theo dõi quyết toán
+hiện tại trong **Yêu cầu hủy / đổi lịch → Giám sát thu / hoàn**; đã duyệt đổi không đồng
+nghĩa khách đã trả đủ hoặc khách sạn đã hoàn. Chỉ khoản hoàn đã đối soát thành công mới
+được tính là đã hoàn; yêu cầu hoàn đang chờ vẫn theo dõi riêng.
 
-- Booking `CHECKED_IN`, `CHECKED_OUT`, `CANCELLED` hoặc `EXPIRED`.
-- Booking `CONFIRMED` còn dưới 24 giờ trước check-in.
-- Người gọi không có quyền truy cập booking.
+### Báo giá ngoại lệ thay đổi số đêm trước nhận phòng
 
-## 6. Ví dụ
+Điều khoản V2 đã chấp thuận và P gốc không bị ghi đè. Khi quản lý đồng ý xét ngoại lệ,
+khách xác nhận báo giá cụ thể; kết quả lưu căn cứ ngoại lệ, nội dung và phiên bản thỏa thuận
+`HANBAY-STAY-CHANGE-2026-11-V1` cùng thời điểm chấp thuận trong lịch sử yêu cầu.
 
-Booking đã thanh toán đủ được hủy còn 30 giờ trước mốc check-in thì refund bằng 50% tổng
-tiền booking và bắt đầu ở trạng thái `PENDING`.
+- Dời ngày nhận: báo giá lại toàn kỳ mới theo giá hiện hành, cộng phí mục tiêu 0/50%/100% P gốc theo thời điểm nhận yêu cầu so với giờ nhận của kỳ hiện tại. Vừa dời ngày vừa giảm đêm chỉ áp một mức phí chung này.
+- Giữ ngày nhận, tăng số đêm: giữ giá các đêm cũ, đêm thêm theo giá hiện hành; không ghi thêm phí đổi. Phí trước đây vẫn còn hiệu lực.
+- Giữ ngày nhận, giảm số đêm: giữ giá các đêm còn lại; bỏ tiền các đêm bị cắt. Phí mục tiêu 0/50%/100% giá đêm đầu bị bỏ theo snapshot, tối đa giá trị phần bỏ và P gốc. Phí trước đây tham gia trần chung; chỉ ghi thêm phần thiếu.
+- Dịch vụ vẫn theo số lượng trong báo giá đã được xác nhận chuyển; không tự tăng số lượng chỉ vì tăng đêm. Nếu không chuyển được, báo giá lại sau khi bỏ dịch vụ chưa dùng.
 
-## 7. Source of Truth
+Tổng nghĩa vụ mới = tiền phòng kỳ mới + dịch vụ còn hiệu lực + tổng phí còn hiệu lực.
+Tiền được bù trừ = thực nhận − đã hoàn − tiền đang dành cho khoản hoàn khác.
+Còn thu = max(nghĩa vụ mới − tiền bù trừ, 0); cần hoàn = max(tiền bù trừ − nghĩa vụ mới, 0).
+Tính theo từng phòng rồi cộng lên đơn; không tự dùng tiền thừa của phòng này trả nợ phòng khác.
+Giảm số đêm có thể không phát sinh hoàn nếu phí hoặc công nợ đã bù hết phần giảm.
 
-- `docs/06-api-specification.md`
-- `docs/07-business-workflows.md`
-- `StandardBookingCancellationPolicy.java`
-- `BookingCancellationProperties.java`, `application.yaml`
-- `BookingServiceImpl.java`
-- `RefundManagementServiceImpl.java`, `PaymentMonitoringController.java`
+## Booking chưa xác nhận và booking cũ
 
-### Đồng hồ chung với lưu trú
+PENDING hủy giữ chỗ không có phí. Tiền nhận một phần hoặc sau hạn phải đối soát hoàn, không tự mất. Booking cũ chưa chấp thuận V2 không tự nhận căn cứ P mới: luồng tự phục vụ giữ điều khoản cũ (trước 48 giờ hoàn 100%, 24–48 giờ hoàn 50% tổng theo contract cũ; dưới 24 giờ liên hệ nhân viên). Qua quầy, xác nhận hủy giải phóng ngay; phần phí thiếu căn cứ cần quản lý quyết định với bằng chứng, không đánh no-show thay hủy.
 
-Mốc48h/24h tính tới giờ nhận đã cấu hình (mặc định14:00) theo timezone khách sạn;
-không tính tới cutoff đặt cùng ngày23:59:59 hoặc expiredAt payment. Cấu hình lấy chung
-hotel.stay.check-in-time/zone. Đặt sau14:00 vẫn có thể hợp lệ, nhưng không bỏ qua giới hạn hủy.
-Nguồn: HotelStayProperties, BookingCancellationPolicy; [tài liệu23](../23-stay-time-and-inventory.md).
+Đơn nhiều phòng hiện hủy/đổi toàn đơn khi tất cả phòng chưa nhận; no-show xét từng phòng. Phí và trần tính riêng từng phòng. Không hoàn hai nơi cho cùng khoản tiền từ kênh OTA.
+
+## Hoàn tiền và thông báo
+
+Hoàn theo nguồn thanh toán/cơ chế kênh đã thỏa thuận. Chuyển khoản thủ công cần tên ngân hàng, chủ tài khoản, số tài khoản đã xác minh; quản lý đối soát rồi ghi mã tham chiếu. SLA thông báo: 3–7 ngày làm việc sau khi đủ điều kiện và thông tin nhận, thời gian nhận tiền tùy ngân hàng. Gửi xác nhận qua kênh đã xác minh là tác vụ nhân viên; phần mềm lưu người thao tác, thời điểm, báo giá và kết quả, không tự gửi tin hoặc chuyển tiền.
+
+Nguồn: `UnifiedBookingPolicy`, `BookingChangeService`, `BookingSettlementLedger`, `BookingServiceImpl`, `BookingOrderService`, `ArrivalHandlingService`; [kiểm thử triển khai](../testing/unified-booking-policy.md).

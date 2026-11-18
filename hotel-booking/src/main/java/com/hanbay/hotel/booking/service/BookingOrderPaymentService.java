@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(propagation = Propagation.MANDATORY)
 public class BookingOrderPaymentService {
+    public static final String ADDITIONAL_PAYMENT_PREFIX = "order-additional-balance:";
     private final BookingOrderRepository orderRepository;
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
@@ -70,6 +71,12 @@ public class BookingOrderPaymentService {
         payment.addTransaction(transaction);
         transactionRepository.saveAndFlush(transaction);
 
+        if (isAdditionalPayment(payment)) {
+            settleAdditionalBalance(order, payment, request, occurredAt, settlementTime, now);
+            event.markProcessed(payment, now);
+            return;
+        }
+
         if (order.isActive(settlementTime) && payment.isPendingAndActive(settlementTime)) {
             long remaining = request.transferAmount();
             for (PaymentAllocation allocation : payment.getAllocations().stream()
@@ -103,6 +110,76 @@ public class BookingOrderPaymentService {
                     null);
         }
         event.markProcessed(payment, now);
+    }
+
+    public static boolean isAdditionalPayment(Payment payment) {
+        return payment.getOrder() != null
+                && payment.getIdempotencyKey() != null
+                && payment.getIdempotencyKey().startsWith(ADDITIONAL_PAYMENT_PREFIX);
+    }
+
+    public static boolean canCollectBalance(Booking booking) {
+        return booking.getStatus() == BookingStatus.CONFIRMED || booking.getStatus() == BookingStatus.CHECKED_IN;
+    }
+
+    private void settleAdditionalBalance(
+            BookingOrder order,
+            Payment payment,
+            SePayWebhookRequest request,
+            Instant occurredAt,
+            Instant settlementTime,
+            Instant now) {
+        if (order.getStatus() != BookingOrderStatus.CONFIRMED || !payment.isPendingAndActive(settlementTime)) {
+            reconcileReceivedPayment(payment, occurredAt);
+            refund(
+                    payment,
+                    request.transferAmount(),
+                    "Hoàn khoản chuyển vào mã chênh lệch toàn đơn đã hết hiệu lực",
+                    "late-order-balance:" + request.id(),
+                    now,
+                    null);
+            return;
+        }
+        long remaining = request.transferAmount();
+        for (PaymentAllocation allocation : payment.getAllocations().stream()
+                .sorted(Comparator.comparing(a -> a.getBooking().getOrderRoomNumber()))
+                .toList()) {
+            Booking booking = allocation.getBooking();
+            if (!canCollectBalance(booking)) continue;
+            long balance = Math.max(booking.getTotalAmount() - booking.getPaidAmount(), 0);
+            remaining -= allocation.apply(remaining, balance);
+        }
+        if (remaining > 0)
+            refund(
+                    payment,
+                    remaining,
+                    "Hoàn tiền vượt số dư chênh lệch toàn đơn",
+                    "over-order-balance:" + request.id(),
+                    now,
+                    null);
+        boolean completed = payment.getAllocations().stream()
+                .allMatch(allocation -> allocation.getAppliedAmount() >= allocation.getAmount()
+                        || !canCollectBalance(allocation.getBooking())
+                        || allocation.getBooking().getPaidAmount()
+                                >= allocation.getBooking().getTotalAmount());
+        if (completed) payment.markSuccessful(occurredAt);
+    }
+
+    /** Called with the order and all its rooms locked before replacing room-level QR codes. */
+    public void closeRoomPendingPayments(BookingOrder order, Instant now) {
+        for (Booking booking : order.getBookings()) {
+            for (Payment payment : paymentRepository.findAllByBookingIdAndStatusOrderByCreatedAtDesc(
+                    booking.getId(), PaymentStatus.PENDING)) {
+                if (payment.getOrder() != null) continue;
+                long received = payment.getTransactions().stream()
+                        .filter(t -> t.getType() == PaymentTransactionType.PAYMENT
+                                && t.getStatus() == PaymentTransactionStatus.SUCCESS)
+                        .mapToLong(PaymentTransaction::getAmount)
+                        .sum();
+                if (received > 0) payment.markSuccessful(now);
+                else payment.cancelPending(now);
+            }
+        }
     }
 
     public void expire(BookingOrder order, Instant now) {

@@ -682,12 +682,17 @@ Các lỗi chính:
 
 Mức bảo mật: `AUTHENTICATED`.
 
-Khách được hủy đặt phòng của chính mình theo chính sách: trước giờ nhận phòng từ 48 giờ được hoàn 100%; từ 24 đến dưới 48 giờ được hoàn 50%; dưới 24 giờ không được hủy. Booking đang chờ thanh toán có thể hủy mà không phát sinh hoàn tiền. Với booking đã thanh toán, backend tạo yêu cầu hoàn tiền đang chờ; chỉ Manager xác nhận sau khi thực hiện chuyển khoản và không được thay đổi số tiền do hệ thống tính.
+Khách được hủy đặt phòng của chính mình theo điều khoản đã chấp thuận. Với V2,
+phí mục tiêu là 0 / 50% / 100% giá đêm đầu gốc P theo mốc 48/24 giờ, tổng phí chuỗi tối đa P.
+Booking cũ giữ chính sách cũ; tra cứu điều kiện qua `GET /bookings/{bookingCode}/cancellation`.
+Booking đang chờ thanh toán có thể hủy. Khoản hoàn dựa trên tiền thực thu còn bù trừ,
+trừ các khoản đã hoàn/đang dành hoàn; Manager xác nhận sau khi thực hiện chuyển khoản.
+Hủy tại quầy và đối soát booking cũ xem [luồng chính sách V2](testing/booking-change-requests.md).
 
 Contract chi tiết tại [`openapi/booking/cancel-booking.yaml`](openapi/booking/cancel-booking.yaml).
 
 ```http
-PATCH /bookings/{id}/cancel
+POST /bookings/{bookingId}/cancel
 ```
 
 ---
@@ -696,30 +701,35 @@ PATCH /bookings/{id}/cancel
 
 ## Create Payment Request
 
-Mức bảo mật: `CẦN XÁC NHẬN NGHIỆP VỤ`.
+Mức bảo mật: chủ booking có JWT hoặc booking access token hợp lệ.
 
 ```http
 POST /payments/requests
 ```
 
-Public endpoint cho khách bắt đầu thanh toán booking đang chờ. API này dùng cho cả khách vãng lai đã nhập thông tin liên hệ trong booking form; không bắt buộc JWT.
+Endpoint cho khách thanh toán booking mới, số dư kỳ ở hoặc phí hủy/no-show đã chốt.
+Khách vãng lai phải gửi `X-Booking-Access-Token`; không bắt buộc JWT khi token hợp lệ.
 
 Request:
 
 ```json
 {
-  "bookingId": "uuid"
+  "bookingId": "uuid",
+  "arrivalPolicyVersion": "HANBAY-STANDARD-2026-11-V2"
 }
 ```
 
 Business rules:
 
-- Chỉ tạo payment request cho booking tồn tại, status `PENDING` và `expiredAt > now`.
-- Số tiền thanh toán lấy từ `bookings.total_amount`; client không được truyền `amount`.
+- Booking `PENDING` phải còn hạn. `CONFIRMED`/`CHECKED_IN` có thể thanh toán số dư.
+- `NO_SHOW` hoặc `CANCELLED` đã quyết toán có thể thanh toán phí còn thiếu; booking cũ chờ chốt phí chưa được thu.
+- Số tiền do server tính; phí booking đóng dựa trên tiền thực thu trừ các khoản đã hoàn/đang dành hoàn. Client không truyền `amount`.
+- `arrivalPolicyVersion` ghi chấp thuận điều khoản ban đầu; chỉ ghi khi khách đã đồng ý, không gán lại cho booking cũ.
 - Gửi email xác nhận không nằm trong phạm vi API tạo payment request.
 - API chỉ tạo payment attempt với status `PENDING`; không xác nhận thanh toán và không chuyển booking sang `CONFIRMED`.
-- Nếu booking đã có payment `PENDING` còn hiệu lực, API trả lại payment đó thay vì tạo bản ghi trùng.
-- Nếu booking đã có payment `SUCCESS`, booking không còn payable.
+- Nếu có payment `PENDING` đúng số dư và còn hiệu lực, trả lại cùng payment. Hết hạn tạo được mã mới.
+- Không còn nợ thì không tạo payment mới; payment `SUCCESS` trước đó không chặn thu số dư mới sau đổi/gia hạn.
+- Thu phí không khôi phục booking CANCELLED/NO_SHOW hoặc giữ chỗ.
 - Payment success/failure được xử lý bởi webhook hoặc bước đối soát riêng.
 
 Response `201 Created`:
@@ -753,11 +763,35 @@ Các lỗi chính:
 | --- | --- | --- |
 | 400 | `VALIDATION_FAILED` | `bookingId` thiếu hoặc không đúng UUID |
 | 404 | `PAYMENT_BOOKING_NOT_FOUND` | Không tìm thấy booking |
-| 409 | `PAYMENT_BOOKING_NOT_PAYABLE` | Booking không còn `PENDING`, đã hết hạn hoặc tổng tiền không hợp lệ |
-| 409 | `PAYMENT_ALREADY_COMPLETED` | Booking đã có payment `SUCCESS` |
+| 409 | `PAYMENT_BOOKING_NOT_PAYABLE` | Sai trạng thái, pending hết hạn hoặc chưa chốt quyết toán phí |
+| 409 | `PAYMENT_ALREADY_COMPLETED` | Booking không còn số dư cần thu |
 | 500 | `INTERNAL_SERVER_ERROR` | Lỗi không mong muốn hoặc lỗi tạo payment URL |
 
 Contract chi tiết nằm tại [`openapi/payment/create-payment-request.yaml`](openapi/payment/create-payment-request.yaml).
+
+## Thu tiền mặt phí hủy / không đến
+
+```http
+POST /bookings/{bookingCode}/policy-fee-collection
+Authorization: Bearer <staff-access-token>
+```
+
+Chỉ RECEPTIONIST hoặc MANAGER. Booking phải NO_SHOW hoặc CANCELLED đã chốt quyết toán.
+
+```json
+{
+  "requestId": "7e8a4a2f-d683-4c11-b755-43f690d24129",
+  "amount": 200000,
+  "expectedOutstandingAmount": 500000,
+  "note": "Đã thực nhận tiền mặt, phiếu thu QA-01"
+}
+```
+
+Tiền là số nguyên VND, amount > 0, tối đa 9.999.999.999đ và không vượt công nợ;
+ghi chú bắt buộc, tối đa 500 ký tự. Công nợ khác snapshot gửi lên trả `409 FEE_COLLECTION_CHANGED`.
+Gửi lại cùng requestId và amount trả kết quả hiện tại, không ghi thu lần hai.
+API trả `ArrivalHandlingResponse`, lưu phiếu CASH và giao dịch PAYMENT/SUCCESS, giữ trạng thái booking đóng.
+Mất phản hồi phải dùng lại requestId, không tạo phiếu mới khi chưa xác minh.
 
 ## Payment Status
 
@@ -822,6 +856,9 @@ Response thành công:
 | `PARTIALLY_REFUNDED` | Hiển thị giao dịch đã được hoàn tiền một phần |
 
 Nếu payment có refund, frontend ưu tiên `refundStatus`, `refundAmount` và `refundReason` để hiển thị đúng các trường hợp thanh toán trễ, booking đã hủy/hết hạn và chuyển khoản dư. `paidAmount` chỉ là tổng transaction thành công của payment đang tra cứu, không phải tổng tiền trên toàn booking.
+
+`policyFeePayment=true` xác định payment thu phí booking đóng. Thanh toán SUCCESS không đổi
+CANCELLED/NO_SHOW sang CONFIRMED; tiền vào mã phí đã đóng/hết hạn được ghi nhận để hoàn.
 
 Khi payment còn `PENDING`, response trả lại QR và thông tin tài khoản để người dùng mở lại trang thanh toán từ lịch sử đặt phòng hoặc liên kết **Tiếp tục thanh toán** trong header mà không phụ thuộc state của form tạo booking.
 

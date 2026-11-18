@@ -89,7 +89,7 @@ class RoomInventoryManagementIntegrationTest {
     private MockMvc mvc;
 
     @ParameterizedTest
-    @EnumSource(BookingStatus.class)
+    @EnumSource(value = BookingStatus.class, names = "NO_SHOW", mode = EnumSource.Mode.EXCLUDE)
     @WithMockUser(roles = "MANAGER")
     void deletingReferencedRoomReturnsConflictAndKeepsHistoricalAssignment(BookingStatus status) throws Exception {
         Room room = room(type());

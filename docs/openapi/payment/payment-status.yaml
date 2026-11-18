@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: API trạng thái thanh toán HANBAY Hotel
-  version: 1.0.0
+  version: 1.1.0
   description: API tra cứu kết quả thanh toán cho trang kết quả thanh toán HAN-33.
 
 servers:
@@ -198,6 +198,9 @@ components:
           $ref: "#/components/schemas/PaymentStatus"
         bookingStatus:
           $ref: "#/components/schemas/BookingStatus"
+        policyFeePayment:
+          type: boolean
+          description: Payment thu phí booking đã hủy/không đến; không khôi phục quyền nhận phòng.
         amount:
           type: integer
           format: int64
@@ -274,7 +277,7 @@ components:
     BookingStatus:
       type: string
       description: Trạng thái booking hiện tại do backend trả về.
-      enum: [PENDING, CONFIRMED, CANCELLED, CHECKED_IN, CHECKED_OUT, EXPIRED]
+      enum: [PENDING, CONFIRMED, CANCELLED, CHECKED_IN, CHECKED_OUT, EXPIRED, NO_SHOW]
 
     PaymentRefundStatus:
       type: string

@@ -49,6 +49,12 @@ describe('post-login redirect', () => {
     expect(getPostLoginRedirect([], requested)).toBe('/account/bookings/BOOKING-001');
     expect(getPostLoginRedirect([USER_ROLES.receptionist], requested)).toBe('/front-desk/check-in');
   });
+
+  it('returns to the guest order after logging in to save it to account history', () => {
+    const requested = { pathname: '/booking-orders/AbC123' };
+    expect(getPostLoginRedirect([], requested)).toBe('/booking-orders/AbC123');
+    expect(getPostLoginRedirect([USER_ROLES.receptionist], requested)).toBe('/front-desk/check-in');
+  });
 });
 
 it.each(['/account/profile/', '/ACCOUNT/PROFILE'])('preserves valid path %s', (pathname) => {

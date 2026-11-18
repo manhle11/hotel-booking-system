@@ -3,7 +3,7 @@ documentId: HANBAY-CHECK-IN-POLICY
 title: Check-in Policy
 category: CHECK_IN
 source: docs/knowledge-base/check-in-policy.md
-version: 1.4
+version: 1.5
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -31,8 +31,9 @@ Không tự áp đặt phí nhận sớm.
 
 Chỉ booking `CONFIRMED` được check-in. Cho nhận trong ngày dự kiến hoặc đến muộn sau
 nửa đêm đến trước **06:00 hôm sau** (cấu hình được), miễn booking còn trong thời gian
-lưu trú. Trường hợp đến muộn giữ nguyên ngày nhận/trả đã đặt. Ngoài khung này lễ tân
-phải điều chỉnh booking; hệ thống không tự đổi ngày hoặc tự hủy booking đã xác nhận.
+lưu trú. Trường hợp đến muộn giữ nguyên ngày nhận/trả đã đặt, phụ thu đến muộn 0 VND.
+Ngoài khung này chỉ được nhận khi quản lý đã duyệt giữ có hạn còn hiệu lực trong kỳ
+ở gốc. Hệ thống không tự đổi ngày hoặc tự hủy booking đã xác nhận.
 Giờ nhận phòng thực tế được lưu tại `bookings.checked_in_at` bằng timestamp có múi giờ.
 
 Booking `PENDING` chưa được xác nhận nên không được check-in, kể cả khách muốn trả tiền
@@ -73,6 +74,11 @@ tiếp nhận. Booking hôm trước còn trong kỳ lưu trú vẫn thuộc dan
 cutoff đến muộn; đúng cutoff thì chuyển sang nhóm quá giờ. Chỉ thay nhóm hiển thị,
 không tự hủy booking, đổi ngày, giải phóng tồn hoặc tạo hoàn tiền.
 
+Nhân viên có thể mở **Xử lý khách chưa đến** để ghi liên hệ, đề nghị/duyệt giữ
+phòng hoặc xác nhận NO_SHOW sau cutoff. NO_SHOW thu tiền phòng đêm đầu đã chốt,
+hoàn phần còn lại và dịch vụ chưa dùng; quản lý có quyền miễn/giảm với lý do.
+Booking đã NO_SHOW không được check-in; xem [chính sách không đến](no-show-policy.md).
+
 RECEPTIONIST và MANAGER có thể tra cứu thông tin booking tại
 `GET /api/v1/bookings/{bookingCode}/check-in-context`. Lễ tân đối chiếu khách, kỳ lưu
 trú, hạng phòng, số khách và công nợ trước khi xác nhận. Công nợ không tự chặn một
@@ -101,5 +107,6 @@ Booking Deluxe `CONFIRMED` hôm nay chỉ có thể được gán một phòng D
 nếu còn phòng. Thanh toán đủ trong hạn mới confirmed; sau đó lễ tân nhận khi phòng sẵn sàng.
 Trước14:00 cùng ngày cần earlyArrivalReason có nội dung≤500 ký tự. Đúng 14 không cần lý do sớm.
 Ngoại lệ hôm qua: checkInDate = hotelToday-1, checkOutDate >= hotelToday và giờ <06:00;
-đúng 06:00 bị chặn. Ngoài cửa sổ cần xử lý booking theo nghiệp vụ, không tự đổi ngày/hủy.
+đúng 06:00 cần ngoại lệ giữ phòng được quản lý duyệt và còn hiệu lực. Ngoài cửa sổ
+cần xử lý booking theo nghiệp vụ, không tự đổi ngày/hủy.
 Nguồn: HotelStayPolicy; [tài liệu23](../23-stay-time-and-inventory.md).

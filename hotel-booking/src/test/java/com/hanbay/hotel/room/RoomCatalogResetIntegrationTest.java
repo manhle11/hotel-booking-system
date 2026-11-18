@@ -63,6 +63,38 @@ class RoomCatalogResetIntegrationTest {
     }
 
     @Test
+    void policyQaSeedAddsReusableScenariosWithoutChangingExistingData() throws Exception {
+        jdbc.update(
+                "INSERT INTO users(email,full_name,password_hash,status) VALUES ('qa-policy@example.test','Policy QA','test-hash','ACTIVE') ON CONFLICT(email) DO NOTHING");
+        var before = snapshots(List.of("users", "roles", "user_roles", "flyway_schema_history"));
+        String seed = Files.readString(Path.of("../scripts/seed-booking-policy-qa.sql"));
+
+        execute(seed);
+
+        assertThat(snapshots(before.keySet())).isEqualTo(before);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM room_types", Integer.class))
+                .isEqualTo(9);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM rooms", Integer.class))
+                .isEqualTo(43);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM bookings WHERE booking_code LIKE 'QP%-%'", Integer.class))
+                .isEqualTo(9);
+        assertThat(jdbc.queryForObject(
+                        "SELECT sum(amount) FROM payment_refunds WHERE idempotency_key LIKE 'qa-refund:%'", Long.class))
+                .isEqualTo(2_100_000L);
+        assertThat(jdbc.queryForObject(
+                        "SELECT paid_amount FROM bookings WHERE booking_code LIKE 'QP%-EARLY'", Long.class))
+                .isEqualTo(300_000L);
+
+        execute(seed);
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM bookings WHERE booking_code LIKE 'QP%-%'", Integer.class))
+                .isEqualTo(18);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM rooms", Integer.class))
+                .isEqualTo(51);
+        assertThat(snapshots(before.keySet())).isEqualTo(before);
+    }
+
+    @Test
     void exactlyMatchesEightTypesBedsAndThirtyFivePhysicalRooms() {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM room_categories", Integer.class))
                 .isEqualTo(6);

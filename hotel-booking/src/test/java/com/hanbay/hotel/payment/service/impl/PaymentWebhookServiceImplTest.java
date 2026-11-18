@@ -71,7 +71,8 @@ class PaymentWebhookServiceImplTest {
                 properties,
                 Clock.fixed(RECEIVED_AT, ZoneOffset.UTC),
                 bookingRepository,
-                orderPayments);
+                orderPayments,
+                new com.hanbay.hotel.booking.service.BookingSettlementLedger(paymentRepository));
     }
 
     @Test

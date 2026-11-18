@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '../../../lib/axios';
 import {
   cancelBookingOrder,
+  claimBookingOrder,
   createBookingOrder,
   createOrderPayment,
   getBookingOrder,
@@ -31,6 +32,20 @@ beforeEach(() => {
 });
 
 describe('order checkout', () => {
+  it('uses proof of order access when saving a guest order to account history', async () => {
+    sessionStorage.setItem('booking-order-access:order-1', 'private-order-token');
+    const claimed = { orderId: 'order-1', claimable: false, reviewOwner: true };
+    vi.mocked(apiClient.post).mockResolvedValue({ data: { data: claimed } });
+    await expect(claimBookingOrder('order-1')).resolves.toEqual(claimed);
+    expect(apiClient.post).toHaveBeenCalledWith(
+      '/booking-orders/order-1/claim',
+      {},
+      {
+        headers: { 'X-Booking-Access-Token': 'private-order-token' },
+      },
+    );
+  });
+
   it('reuses the idempotency key and access token after a lost response', async () => {
     vi.mocked(apiClient.post)
       .mockRejectedValueOnce(new Error('Connection lost'))

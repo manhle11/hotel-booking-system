@@ -23,6 +23,8 @@ export interface OccupancySummary {
 }
 
 export interface BookingSummary {
+  noShowBookings?: number;
+  noShowFeeAmount?: number;
   totalBookings: number;
   pendingBookings: number;
   confirmedBookings: number;

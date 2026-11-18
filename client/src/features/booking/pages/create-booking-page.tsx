@@ -190,6 +190,9 @@ export function CreateBookingPage() {
     }
 
     const payload: CreatePendingBookingRequest = {
+      ...(searchParams.get('replacementFor')
+        ? { replacementForBookingCode: searchParams.get('replacementFor')! }
+        : {}),
       roomTypeId: roomSelection.roomTypeId,
       checkInDate: roomSelection.stayDates[0].format('YYYY-MM-DD'),
       checkOutDate: roomSelection.stayDates[1].format('YYYY-MM-DD'),

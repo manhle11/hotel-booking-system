@@ -6,6 +6,7 @@ public enum BookingStatus {
     CANCELLED,
     CHECKED_IN,
     CHECKED_OUT,
+    NO_SHOW,
     EXPIRED;
 
     public boolean canCancel() {

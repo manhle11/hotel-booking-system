@@ -47,10 +47,15 @@ public class Payment extends BaseEntity {
     private List<PaymentAllocation> allocations = new ArrayList<>();
 
     public void allocateTo(Booking roomBooking) {
+        allocateTo(roomBooking, roomBooking.getTotalAmount());
+    }
+
+    public void allocateTo(Booking roomBooking, long amount) {
+        if (amount < 0) throw new IllegalArgumentException("Khoản phân bổ thanh toán không được âm.");
         allocations.add(PaymentAllocation.builder()
                 .payment(this)
                 .booking(roomBooking)
-                .amount(roomBooking.getTotalAmount())
+                .amount(amount)
                 .build());
     }
 

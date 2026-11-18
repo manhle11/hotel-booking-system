@@ -2,8 +2,10 @@ package com.hanbay.hotel.payment.service.impl;
 
 import com.hanbay.hotel.booking.domain.Booking;
 import com.hanbay.hotel.booking.domain.BookingStatus;
+import com.hanbay.hotel.booking.policy.ClosedBookingFeePolicy;
 import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.booking.service.BookingOrderPaymentService;
+import com.hanbay.hotel.booking.service.BookingSettlementLedger;
 import com.hanbay.hotel.payment.config.SePayProperties;
 import com.hanbay.hotel.payment.domain.*;
 import com.hanbay.hotel.payment.dto.SePayTransferType;
@@ -47,6 +49,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
     private final Clock clock;
     private final BookingRepository bookingRepository;
     private final BookingOrderPaymentService orderPayments;
+    private final BookingSettlementLedger settlementLedger;
 
     @Override
     @Transactional
@@ -96,8 +99,9 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
 
         // Read no managed booking state until its lock is held, so counter collection and
         // incoming transfers cannot overwrite each other's paid amount or booking status.
-        Booking booking = paymentRepository
-                .findBookingIdByPaymentCode(paymentCode.get())
+        var bookingId = paymentRepository.findBookingIdByPaymentCode(paymentCode.get());
+        bookingId.flatMap(bookingRepository::findOrderIdByBookingId).ifPresent(orderPayments::lockOrder);
+        Booking booking = bookingId
                 .flatMap(bookingRepository::findByIdWithAssignedRoomForUpdate)
                 .orElse(null);
         if (booking == null) {
@@ -128,13 +132,33 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         transactionRepository.save(transaction);
 
         long receivedAmount = transactionRepository.sumSuccessfulPaymentAmount(payment.getId());
-        if (canSettleAdditionalBalance(payment, booking)) {
-            booking.recordPayment(request.transferAmount());
-            if (receivedAmount >= payment.getAmount()) {
+        if (payment.getIdempotencyKey() != null
+                && payment.getIdempotencyKey().startsWith(ClosedBookingFeePolicy.PAYMENT_PREFIX)) {
+            if (ClosedBookingFeePolicy.applies(booking) && payment.isPendingAndActive(now)) {
+                long available =
+                        settlementLedger.available(booking, settlementLedger.lockPayments(java.util.List.of(booking)));
+                long before = Math.max(available - request.transferAmount(), 0);
+                long applied = Math.min(request.transferAmount(), Math.max(booking.getTotalAmount() - before, 0));
+                if (receivedAmount >= payment.getAmount() || before + applied >= booking.getTotalAmount())
+                    payment.markSuccessful(occurredAt);
+                if (request.transferAmount() > applied)
+                    createOverpaymentRefund(payment, request.transferAmount() - applied, eventId, now);
+                booking.recordSettledFeeCollection(
+                        Math.min(booking.getTotalAmount(), before + applied),
+                        null,
+                        "Ghi nhận chuyển khoản phí hủy/không đến: " + payment.getPaymentCode());
+            } else {
+                preparePaymentForRefund(payment, occurredAt);
+                createLatePaymentRefund(payment, request.transferAmount(), eventId, now);
+            }
+        } else if (canSettleAdditionalBalance(payment, booking)) {
+            long applied =
+                    Math.min(request.transferAmount(), Math.max(booking.getTotalAmount() - booking.getPaidAmount(), 0));
+            if (applied > 0) booking.recordPayment(applied);
+            if (request.transferAmount() > applied)
+                createOverpaymentRefund(payment, request.transferAmount() - applied, eventId, now);
+            if (receivedAmount >= payment.getAmount() || booking.getPaidAmount() >= booking.getTotalAmount()) {
                 payment.markSuccessful(occurredAt);
-                if (receivedAmount > payment.getAmount()) {
-                    createOverpaymentRefund(payment, receivedAmount - payment.getAmount(), eventId, now);
-                }
             }
         } else if (!canConfirmBooking(payment, booking, now)) {
             preparePaymentForRefund(payment, occurredAt);
@@ -164,7 +188,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
     }
 
     private boolean canSettleAdditionalBalance(Payment payment, Booking booking) {
-        return payment.getStatus() == PaymentStatus.PENDING
+        return payment.isPendingAndActive(clock.instant())
                 && payment.getIdempotencyKey() != null
                 && payment.getIdempotencyKey().startsWith("additional-balance:")
                 && (booking.getStatus() == BookingStatus.CONFIRMED || booking.getStatus() == BookingStatus.CHECKED_IN);

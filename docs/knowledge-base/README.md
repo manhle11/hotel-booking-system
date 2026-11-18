@@ -16,6 +16,7 @@ HANBAY HOTEL.”**
 - [Thanh toán](payment-policy.md)
 - [Hủy đặt phòng](cancellation-policy.md)
 - [Check-in](check-in-policy.md)
+- [Đến muộn và không đến](no-show-policy.md)
 - [Check-out](check-out-policy.md)
 - [Early checkout và gia hạn lưu trú](stay-modification-policy.md)
 - [Phòng và availability](room-policy.md)
@@ -49,5 +50,5 @@ repository không đồng nghĩa đã nạp lại corpus hoặc kiểm tra provi
 
 - [Nguồn quy tắc và biên giờ](../23-stay-time-and-inventory.md)
 - [16 luồng FE vừa thay đổi](../testing/stay-time-fe-checklist.md)
--14:00 bắt đầu nhận, không đóng đặt; cutoff 23:59:59 và expiredAt là hai hạn riêng.
-Các tài liệu hỗ trợ không phải corpus runtime; quy tắc truy xuất được phải có trong các mục### của *-policy.md.
+  -14:00 bắt đầu nhận, không đóng đặt; cutoff 23:59:59 và expiredAt là hai hạn riêng.
+  Các tài liệu hỗ trợ không phải corpus runtime; quy tắc truy xuất được phải có trong các mục### của *-policy.md.

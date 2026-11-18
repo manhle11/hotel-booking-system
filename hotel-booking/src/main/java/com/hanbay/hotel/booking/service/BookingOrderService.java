@@ -53,6 +53,9 @@ public class BookingOrderService {
     private final HotelStayPolicy stayPolicy;
     private final Clock clock;
     private final ObjectMapper objectMapper;
+    private final BookingSettlementLedger settlementLedger;
+    private final com.hanbay.hotel.payment.config.PaymentProperties paymentProperties;
+    private final BookingChangeLifecycle changeLifecycle;
 
     public BookingOrderResponse create(CreateBookingOrderRequest request, String idempotencyKey, String accessToken) {
         String fingerprint = tokens.hash(objectMapper.writeValueAsString(request));
@@ -143,11 +146,33 @@ public class BookingOrderService {
                 .map(this::toResponse));
     }
 
+    public BookingOrderResponse claim(UUID orderId, String accessToken) {
+        UUID userId = currentUser.currentUserId().orElseThrow(BookingOrderService::notFound);
+        BookingOrder order = orderPayments.lockOrder(orderId);
+        if (!tokens.matches(accessToken, order.getAccessTokenHash())
+                || (order.getBookedBy() != null
+                        && !userId.equals(order.getBookedBy().getId()))) {
+            throw notFound();
+        }
+        order.claimBy(userRepository.findById(userId).orElseThrow(BookingOrderService::notFound));
+        return toResponse(order);
+    }
+
     public BookingOrderResponse createPayment(UUID orderId, String accessToken) {
+        return createPayment(orderId, accessToken, null);
+    }
+
+    public BookingOrderResponse createPayment(UUID orderId, String accessToken, String arrivalPolicyVersion) {
         BookingOrder order = orderPayments.lockOrder(orderId);
         ensureAccess(order, accessToken);
         Instant now = clock.instant();
+        if (order.getStatus() == BookingOrderStatus.CONFIRMED) return createBalancePayment(order, now);
         if (!order.isActive(now)) throw new BookingValidationException("Đơn không còn trong thời gian thanh toán.");
+        order.getBookings().forEach(b -> {
+            com.hanbay.hotel.booking.policy.ArrivalPolicy.accept(b, arrivalPolicyVersion);
+            if (com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.VERSION.equals(arrivalPolicyVersion))
+                b.acceptStandardTerms(now);
+        });
         List<Payment> payments = paymentRepository.findAllByOrderIdOrderByCreatedAtDesc(orderId);
         if (payments.stream().anyMatch(p -> p.isPendingAndActive(now))) return toResponse(order);
         if (!payments.isEmpty()) throw new BookingValidationException("Yêu cầu thanh toán không còn hiệu lực.");
@@ -169,6 +194,60 @@ public class BookingOrderService {
         return toResponse(order);
     }
 
+    private BookingOrderResponse createBalancePayment(BookingOrder order, Instant now) {
+        if (order.getBookings().stream()
+                .anyMatch(booking -> !BookingOrderPaymentService.canCollectBalance(booking)
+                        && booking.getTotalAmount() > booking.getPaidAmount())) {
+            throw new BookingValidationException(
+                    "Đơn có phòng đã đóng còn công nợ; vui lòng xử lý quyết toán phòng đó riêng.");
+        }
+        Map<UUID, Long> balances = new LinkedHashMap<>();
+        order.getBookings().stream()
+                .filter(BookingOrderPaymentService::canCollectBalance)
+                .forEach(booking -> {
+                    long balance = Math.max(booking.getTotalAmount() - booking.getPaidAmount(), 0);
+                    if (balance > 0) balances.put(booking.getId(), balance);
+                });
+        long total = balances.values().stream().reduce(0L, Math::addExact);
+        if (total <= 0) throw new BookingValidationException("Đơn không còn số tiền chênh lệch cần thanh toán.");
+        var prior = paymentRepository.findAllByOrderIdOrderByCreatedAtDesc(order.getId());
+        boolean reusable = prior.stream()
+                .filter(BookingOrderPaymentService::isAdditionalPayment)
+                .filter(payment -> payment.isPendingAndActive(now))
+                .anyMatch(payment -> {
+                    Map<UUID, Long> unpaid = new LinkedHashMap<>();
+                    payment.getAllocations().forEach(allocation -> {
+                        long remaining = allocation.getAmount() - allocation.getAppliedAmount();
+                        if (remaining > 0) unpaid.put(allocation.getBooking().getId(), remaining);
+                    });
+                    return balances.equals(unpaid);
+                });
+        if (reusable) return toResponse(order);
+        orderPayments.closePendingPayments(
+                order, now, "Đối soát mã thanh toán chênh lệch được thay thế", "replace-order-balance:");
+        orderPayments.closeRoomPendingPayments(order, now);
+        String timestamp = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+                .withZone(ZoneOffset.UTC)
+                .format(now);
+        Payment payment = Payment.builder()
+                .order(order)
+                .booking(order.getBookings().get(0))
+                .paymentCode("PAY-" + timestamp + "-"
+                        + UUID.randomUUID().toString().replace("-", "").toUpperCase())
+                .amount(total)
+                .currency("VND")
+                .expiresAt(now.plusSeconds(paymentProperties.expirationMinutes() * 60L))
+                .idempotencyKey(
+                        BookingOrderPaymentService.ADDITIONAL_PAYMENT_PREFIX + order.getId() + ":" + UUID.randomUUID())
+                .build();
+        order.getBookings().forEach(booking -> {
+            Long amount = balances.get(booking.getId());
+            if (amount != null) payment.allocateTo(booking, amount);
+        });
+        paymentRepository.saveAndFlush(payment);
+        return toResponse(order);
+    }
+
     public CancellationEligibilityResponse cancellationEligibility(UUID orderId, String accessToken) {
         BookingOrder order = orderPayments.lockOrder(orderId);
         ensureAccess(order, accessToken);
@@ -178,18 +257,47 @@ public class BookingOrderService {
     public BookingOrderResponse cancel(UUID orderId, String accessToken, CancelBookingRequest request) {
         BookingOrder order = orderPayments.lockOrder(orderId);
         ensureAccess(order, accessToken);
-        if (order.getStatus() == BookingOrderStatus.CANCELLED) return toResponse(order);
+        if (order.getStatus() == BookingOrderStatus.CANCELLED) {
+            changeLifecycle.afterCancellation(order.getBookings().get(0), order.getBookedBy(), clock.instant());
+            return toResponse(order);
+        }
         CancellationEligibilityResponse decision = eligibility(order);
         if (!decision.canCancel()) {
             throw new BookingCancellationNotAllowedException("ORDER_CANCELLATION_NOT_ALLOWED", decision.message());
         }
-        if (decision.refundAmount() > 0 && request.refundInformation() == null) {
+        if (decision.refundAmount() > 0
+                && request.refundInformation() == null
+                && order.getBookings().stream()
+                        .noneMatch(com.hanbay.hotel.booking.policy.UnifiedBookingPolicy::applies)) {
             throw new BookingValidationException("Vui lòng cung cấp tài khoản nhận hoàn tiền.");
         }
         Instant now = clock.instant();
         boolean pending = order.getStatus() == BookingOrderStatus.PENDING;
+        if (!pending
+                && order.getBookings().stream()
+                        .anyMatch(b -> b.getStayRevision() > 0
+                                || com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(b))) {
+            var ledger = settlementLedger.lockPayments(order.getBookings());
+            for (Booking room : order.getBookings()) {
+                var contract = cancellationPolicy.evaluate(room, PaymentStatus.SUCCESS, now);
+                if (!contract.allowed())
+                    throw new BookingCancellationNotAllowedException(contract.denialCode(), contract.message());
+                long fee = contract.feeAmount();
+                long available = settlementLedger.available(room, ledger);
+                settlementLedger.refundExcess(
+                        room, ledger, fee, "pubcancel", request.normalizedReason(), now, request.refundInformation());
+                if (com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(room))
+                    room.recordPolicyFee(fee, "CANCELLATION", order.getBookedBy(), now, request.normalizedReason());
+                room.cancelAtFrontDesk(
+                        order.getBookedBy(), now, fee, Math.min(available, fee), request.normalizedReason());
+            }
+            order.completeFrontDeskCancellation(now);
+            changeLifecycle.afterCancellation(order.getBookings().get(0), order.getBookedBy(), now);
+            return toResponse(order);
+        }
         // A token also authorizes anonymous cancellation; no user profile is invented for the audit history.
         order.cancel(order.getBookedBy(), request.normalizedReason(), now);
+        changeLifecycle.afterCancellation(order.getBookings().get(0), order.getBookedBy(), now);
         if (pending) {
             orderPayments.closePendingPayments(
                     order, now, request.normalizedReason(), "order-cancellation:", request.refundInformation());
@@ -218,10 +326,7 @@ public class BookingOrderService {
             UUID orderId, String token, com.hanbay.hotel.payment.dto.request.RefundInformationRequest information) {
         BookingOrder order = orderPayments.lockOrder(orderId);
         ensureAccess(order, token);
-        for (Payment payment : paymentRepository.findAllByOrderIdOrderByCreatedAtDesc(orderId)) {
-            paymentRepository
-                    .findByPaymentCodeForUpdate(payment.getPaymentCode())
-                    .orElseThrow();
+        for (Payment payment : settlementLedger.lockPayments(order.getBookings())) {
             payment.getRefunds().stream()
                     .filter(r -> r.getStatus() == PaymentRefundStatus.PENDING && r.getRefundMethod() == null)
                     .forEach(r -> r.supplyDestination(
@@ -257,11 +362,16 @@ public class BookingOrderService {
                     "VND",
                     "Hủy toàn đơn đang giữ phòng; hoàn lại số tiền đã nhận nếu có.");
         }
-        long refund = 0;
+        long refund = 0, totalFee = 0, outstanding = 0;
         int percent = 0;
         for (Booking booking : order.getBookings()) {
-            CancellationDecision decision =
-                    cancellationPolicy.evaluate(booking, payment == null ? null : payment.getStatus(), now);
+            CancellationDecision decision = cancellationPolicy.evaluate(
+                    booking,
+                    (booking.getStayRevision() > 0
+                                    || com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(booking))
+                            ? PaymentStatus.SUCCESS
+                            : payment == null ? null : payment.getStatus(),
+                    now);
             if (!decision.allowed())
                 return new CancellationEligibilityResponse(
                         false,
@@ -271,7 +381,17 @@ public class BookingOrderService {
                         0,
                         "VND",
                         "Chỉ hủy toàn đơn khi tất cả phòng còn đủ điều kiện.");
-            refund = Math.addExact(refund, decision.refundAmount());
+            long amount = decision.refundAmount();
+            if ((booking.getStayRevision() > 0
+                    || com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(booking))) {
+                long fee = decision.feeAmount();
+                long available = settlementLedger.available(
+                        booking, paymentRepository.findAllForBookingSettlement(booking.getId()));
+                amount = Math.max(available - fee, 0);
+                totalFee += fee;
+                outstanding += Math.max(fee - available, 0);
+            }
+            refund = Math.addExact(refund, amount);
             percent = decision.refundPercent();
         }
         return new CancellationEligibilityResponse(
@@ -281,7 +401,10 @@ public class BookingOrderService {
                 percent,
                 refund,
                 "VND",
-                "Hủy toàn bộ phòng trong đơn; hoàn " + percent + "% tiền phòng theo chính sách khách sạn.");
+                "Hủy toàn bộ phòng trong đơn. Tổng phí còn hiệu lực " + totalFee
+                        + " VND; hoàn theo thực thu còn bù trừ. Hoàn tiền chờ đối soát.",
+                totalFee,
+                outstanding);
     }
 
     private boolean matchesRequestHash(String previousHash, String currentHash, CreateBookingOrderRequest request) {
@@ -324,21 +447,23 @@ public class BookingOrderService {
                                         .sum());
         long paid =
                 order.getBookings().stream().mapToLong(Booking::getPaidAmount).sum();
-        long refund = payment == null
-                ? 0
-                : payment.getRefunds().stream()
-                        .filter(r -> r.getStatus() != PaymentRefundStatus.CANCELLED
-                                && r.getStatus() != PaymentRefundStatus.FAILED)
-                        .mapToLong(r -> r.getAmount().longValueExact())
-                        .sum();
-        var refundStatus = payment == null
-                ? null
-                : payment.getRefunds().stream()
-                        .max(Comparator.comparing((PaymentRefund r) -> r.getStatus() == PaymentRefundStatus.PENDING
-                                        || r.getStatus() == PaymentRefundStatus.PROCESSING)
-                                .thenComparing(PaymentRefund::getRequestedAt))
-                        .map(PaymentRefund::getStatus)
-                        .orElse(null);
+        var allPayments = new LinkedHashMap<UUID, Payment>();
+        for (Booking room : order.getBookings())
+            paymentRepository.findAllForBookingSettlement(room.getId()).forEach(p -> allPayments.put(p.getId(), p));
+        var allRefunds = allPayments.values().stream()
+                .flatMap(p -> p.getRefunds().stream())
+                .toList();
+        long refund = allRefunds.stream()
+                .filter(r ->
+                        r.getStatus() != PaymentRefundStatus.CANCELLED && r.getStatus() != PaymentRefundStatus.FAILED)
+                .mapToLong(r -> r.getAmount().longValueExact())
+                .sum();
+        var refundStatus = allRefunds.stream()
+                .max(Comparator.comparing((PaymentRefund r) -> r.getStatus() == PaymentRefundStatus.PENDING
+                                || r.getStatus() == PaymentRefundStatus.PROCESSING)
+                        .thenComparing(PaymentRefund::getRequestedAt))
+                .map(PaymentRefund::getStatus)
+                .orElse(null);
         BookingOrderStatus status = order.getStatus() == BookingOrderStatus.PENDING && !order.isActive(clock.instant())
                 ? BookingOrderStatus.EXPIRED
                 : order.getStatus();
@@ -369,7 +494,8 @@ public class BookingOrderService {
                                 b.getAssignedRoom() == null
                                         ? null
                                         : b.getAssignedRoom().getRoomNumber(),
-                                b.getChildAges()))
+                                b.getChildAges(),
+                                b.getCancellationOriginalTotal() != null))
                         .toList(),
                 payment == null
                         ? null
@@ -380,17 +506,16 @@ public class BookingOrderService {
                 payment == null ? null : payment.getStatus(),
                 refund,
                 refundStatus,
-                payment != null
-                        && payment.getRefunds().stream()
-                                .anyMatch(r ->
-                                        r.getStatus() == PaymentRefundStatus.PENDING && r.getRefundMethod() == null),
+                allRefunds.stream()
+                        .anyMatch(r -> r.getStatus() == PaymentRefundStatus.PENDING && r.getRefundMethod() == null),
                 order.getTotalAmount(),
                 totalAmount - order.getTotalAmount(),
                 order.getBookedBy() != null
                         && currentUser
                                 .currentUserId()
                                 .filter(order.getBookedBy().getId()::equals)
-                                .isPresent());
+                                .isPresent(),
+                order.getBookedBy() == null);
     }
 
     private static BookingNotFoundException notFound() {

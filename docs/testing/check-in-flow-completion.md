@@ -1,14 +1,18 @@
 # Hoàn thiện luồng nhận phòng — 12/11/2026
 
+Phần xử lý sau khi khách quá giờ đã được bổ sung trong
+[luồng đến muộn và không đến](no-show-handling.md). Các mục dưới ghi lại trạng
+thái trước lần bổ sung này; dùng tài liệu mới cho phí, giữ phòng có hạn và NO_SHOW.
+
 ## Kết quả triển khai
 
-| Hạng mục | Hành vi sau thay đổi |
-| --- | --- |
-| Reset form | Đổi mã booking sẽ bỏ phòng và lý do nhận sớm cũ. Nhận thành công hoặc bấm Làm mới sẽ xóa toàn bộ dữ liệu nhập, kể cả mã được điền từ URL. |
-| Phân trang | Khi số booking giảm làm trang hiện tại không còn hợp lệ, danh sách tự chuyển về trang cuối còn dữ liệu. Không dùng dữ liệu tạm của trang trước để quyết định chuyển trang. |
-| Đối chiếu | Lễ tân bấm Nhận phòng trên từng dòng để mở đúng mã; trang nhận phòng tự tải thông tin khách chính, liên hệ, hạng phòng, ngày ở, số khách, tổng tiền, đã trả và còn phải thu. |
+| Hạng mục          | Hành vi sau thay đổi                                                                                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reset form        | Đổi mã booking sẽ bỏ phòng và lý do nhận sớm cũ. Nhận thành công hoặc bấm Làm mới sẽ xóa toàn bộ dữ liệu nhập, kể cả mã được điền từ URL.                                                            |
+| Phân trang        | Khi số booking giảm làm trang hiện tại không còn hợp lệ, danh sách tự chuyển về trang cuối còn dữ liệu. Không dùng dữ liệu tạm của trang trước để quyết định chuyển trang.                           |
+| Đối chiếu         | Lễ tân bấm Nhận phòng trên từng dòng để mở đúng mã; trang nhận phòng tự tải thông tin khách chính, liên hệ, hạng phòng, ngày ở, số khách, tổng tiền, đã trả và còn phải thu.                         |
 | Khôi phục kết quả | Với lỗi mạng, lỗi server hoặc BOOKING_ALREADY_CHECKED_IN, giao diện tra cứu trạng thái đã lưu. Chỉ hiện kết quả nhận phòng khi booking đang CHECKED_IN, có phòng OCCUPIED và thời điểm nhận thực tế. |
-| Khách quá giờ | Tab Chưa đến / quá giờ liệt kê booking CONFIRMED đã qua cửa sổ nhận phòng; lễ tân có thể mở tra cứu. Booking không bị tự hủy hoặc đổi ngày. |
+| Khách quá giờ     | Tab Chưa đến / quá giờ liệt kê booking CONFIRMED đã qua cửa sổ nhận phòng; lễ tân có thể mở tra cứu. Booking không bị tự hủy hoặc đổi ngày.                                                          |
 
 ## API mới
 

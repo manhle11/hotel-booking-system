@@ -55,8 +55,7 @@ public class CheckInServiceImpl implements CheckInService {
                 .orElse(null);
         var type = booking.getRoomType();
         Room assigned = booking.getAssignedRoom();
-        boolean canCheckIn = booking.getStatus() == BookingStatus.CONFIRMED
-                && stayPolicy.canArrive(booking.getCheckInDate(), booking.getCheckOutDate());
+        boolean canCheckIn = booking.getStatus() == BookingStatus.CONFIRMED && stayPolicy.canArrive(booking);
         return new CheckInBookingResponse(
                 booking.getId(),
                 booking.getBookingCode(),
@@ -153,7 +152,7 @@ public class CheckInServiceImpl implements CheckInService {
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
             throw CheckInConflictException.bookingNotConfirmed();
         }
-        if (!stayPolicy.canArrive(booking.getCheckInDate(), booking.getCheckOutDate())) {
+        if (!stayPolicy.canArrive(booking)) {
             throw CheckInConflictException.checkInDateNotAllowed();
         }
     }

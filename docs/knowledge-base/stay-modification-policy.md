@@ -3,7 +3,7 @@ documentId: HANBAY-STAY-MODIFICATION-POLICY
 title: Chính sách trả phòng sớm và gia hạn lưu trú
 category: STAY_MODIFICATION
 source: docs/knowledge-base/stay-modification-policy.md
-version: 1.3
+version: 1.4
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -116,3 +116,18 @@ của khách sạn; không cho lùi/tới ngày khác. Khi hoàn tất lưu chec
 Gia hạn kiểm tồn hạng cho [ngày trả cũ,ngày trả mới), loại booking đang sửa; cả khi đã gán
 phòng vẫn phải kiểm tồn hạng và lịch phòng. Không đổi snapshot đêm cũ hoặc tự chuyển phòng.
 Nguồn: StayModificationServiceImpl; [tài liệu23](../23-stay-time-and-inventory.md).
+
+
+## Đổi ngày trước khi nhận phòng theo gói tiêu chuẩn V2
+
+Đây là đổi lịch trước lưu trú, không phải trả sớm. Booking đã chấp thuận V2 áp bảng
+0/50%/100% P theo mốc 48/24 giờ và giới hạn F/P của [chính sách hủy/đổi](cancellation-policy.md).
+Đổi chuẩn cùng hạng, cùng số đêm, toàn booking/đơn, một lần trong 90 ngày từ ngày nhận gốc.
+Khách chấp thuận báo giá; quản lý kiểm tra lại tồn, dịch vụ và tuổi trẻ em rồi áp dụng
+trong một giao dịch. Thiếu tiền giữ CONFIRMED với hạn thu đã thỏa thuận. Yêu cầu đang chờ
+không đổi ngày, không ghi phí và không kéo dài cutoff. Tăng/giảm số đêm được báo giá trước;
+quản lý cần ghi lý do xét ngoại lệ và khách chấp thuận báo giá mới trước khi áp dụng.
+Giữ ngày nhận thì giữ giá snapshot các đêm còn lại: thêm đêm tính giá hiện hành và không thêm
+phí đổi; bớt đêm áp hủy một phần trên giá đêm đầu bị bỏ, cùng mốc 48/24 giờ và trần P gốc.
+Dời ngày nhận thì báo giá lại toàn kỳ, cộng một mức phí đổi theo P gốc; không cộng thêm phí
+hủy phần đêm bị bỏ cho cùng lần đổi. Quy tắc 20% trả sớm vẫn chỉ dành cho khách đã CHECKED_IN.

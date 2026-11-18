@@ -48,7 +48,35 @@ public record DashboardReportResponse(
             long expiredBookings,
             long totalBookingValue,
             long averageBookingValue,
-            BigDecimal cancellationRate) {}
+            BigDecimal cancellationRate,
+            long noShowBookings,
+            long noShowFeeAmount) {
+        public BookingSummary(
+                long totalBookings,
+                long pendingBookings,
+                long confirmedBookings,
+                long checkedInBookings,
+                long checkedOutBookings,
+                long cancelledBookings,
+                long expiredBookings,
+                long totalBookingValue,
+                long averageBookingValue,
+                BigDecimal cancellationRate) {
+            this(
+                    totalBookings,
+                    pendingBookings,
+                    confirmedBookings,
+                    checkedInBookings,
+                    checkedOutBookings,
+                    cancelledBookings,
+                    expiredBookings,
+                    totalBookingValue,
+                    averageBookingValue,
+                    cancellationRate,
+                    0,
+                    0);
+        }
+    }
 
     public record DailyRevenue(LocalDate date, long grossRevenue, long refundedAmount, long netRevenue) {}
 

@@ -32,7 +32,11 @@ public class PaymentAllocation {
 
     /** Applies only the room's share; overpayments never inflate the room balance. */
     public long apply(long availableAmount) {
-        long applied = Math.min(availableAmount, amount - appliedAmount);
+        return apply(availableAmount, Long.MAX_VALUE);
+    }
+
+    public long apply(long availableAmount, long currentBalance) {
+        long applied = Math.min(Math.min(availableAmount, amount - appliedAmount), Math.max(currentBalance, 0));
         if (applied > 0) {
             booking.recordPayment(applied);
             appliedAmount = Math.addExact(appliedAmount, applied);

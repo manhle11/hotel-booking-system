@@ -249,6 +249,15 @@ export const router = createBrowserRouter([
                 },
               },
               {
+                path: ROUTE_PATHS.bookingRequests,
+                hydrateFallbackElement: routeHydrationFallback,
+                lazy: async () => {
+                  const { BookingChangeRequestsPage } =
+                    await import('@features/front-desk/pages/booking-change-requests-page');
+                  return { Component: BookingChangeRequestsPage };
+                },
+              },
+              {
                 path: ROUTE_PATHS.roomMap,
                 hydrateFallbackElement: routeHydrationFallback,
                 lazy: async () => {

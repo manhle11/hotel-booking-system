@@ -36,6 +36,7 @@ import { useAuth } from '@features/authentication/providers/auth-context';
 import { ApiClientError } from '../../../types/api';
 import { getPaymentStatus } from '../api/booking-api';
 import type { PaymentStatusResponse } from '../types/booking';
+import { NoShowSettlementCard } from '../components/no-show-settlement-card';
 import { clearLatestPaymentResult, getPaymentResultToken } from '../utils/payment-result-storage';
 import { getPaymentPollingInterval } from '../utils/payment-status-polling';
 import './payment-result-page.css';
@@ -122,7 +123,11 @@ function PendingPaymentResult({ payment }: { payment: PaymentStatusResponse }) {
     <Card className="payment-result-card">
       <Result
         icon={<ClockCircleOutlined className="payment-result-icon payment-result-icon--pending" />}
-        title="Đang chờ xác nhận thanh toán"
+        title={
+          payment.policyFeePayment
+            ? 'Thanh toán phí hủy / không đến'
+            : 'Đang chờ xác nhận thanh toán'
+        }
         subTitle="Hệ thống sẽ tự động cập nhật ngay khi ngân hàng xác nhận giao dịch."
       />
       <Divider />
@@ -351,11 +356,47 @@ function PaymentResultDetails({ payment }: { payment: PaymentStatusResponse }) {
           />
         )}
       </div>
+      {payment.bookingStatus === 'NO_SHOW' && (
+        <NoShowSettlementCard
+          bookingCode={payment.bookingCode}
+          accessToken={getPaymentResultToken(payment.paymentId) ?? undefined}
+        />
+      )}
+      {payment.bookingStatus === 'CANCELLED' && payment.policyFeePayment && (
+        <NoShowSettlementCard
+          bookingCode={payment.bookingCode}
+          accessToken={getPaymentResultToken(payment.paymentId) ?? undefined}
+          kind="cancellation"
+        />
+      )}
     </div>
   );
 }
 
 function getResultPresentation(payment: PaymentStatusResponse): ResultPresentation {
+  if (payment.policyFeePayment) {
+    if (payment.paymentStatus === 'SUCCESS' && payment.refundStatus === null)
+      return {
+        status: 'success',
+        title: 'Đã ghi nhận thanh toán phí',
+        description:
+          'Công nợ phí đã được cập nhật. Booking giữ trạng thái đã hủy / không đến; khoản thu không khôi phục quyền nhận phòng.',
+      };
+    if (payment.paymentStatus === 'EXPIRED' || payment.paymentStatus === 'CANCELLED')
+      return {
+        status: 'warning',
+        title: 'Mã thanh toán phí không còn hiệu lực',
+        description: 'Xem công nợ bên dưới và tạo mã thanh toán mới nếu còn thiếu tiền.',
+      };
+  }
+  if (payment.bookingStatus === 'NO_SHOW') {
+    return {
+      status: 'warning',
+      title: 'Booking đã đóng do khách không đến',
+      description:
+        'Phí no-show và tiền hoàn được xử lý theo quyết toán của khách sạn. Xem chi tiết hoặc bổ sung tài khoản nhận hoàn bên dưới.',
+    };
+  }
   if (payment.refundStatus === 'PENDING' || payment.refundStatus === 'PROCESSING') {
     return {
       status: 'info',
@@ -402,6 +443,13 @@ function getResultPresentation(payment: PaymentStatusResponse): ResultPresentati
   }
 
   if (payment.paymentStatus === 'SUCCESS' && payment.bookingStatus === 'CONFIRMED') {
+    if (payment.remainingAmount > 0)
+      return {
+        status: 'info',
+        title: 'Đã ghi nhận thanh toán một phần',
+        description:
+          'Mã thanh toán này đã kết thúc. Số tiền đã nhận được giữ trong đơn; mở chi tiết đặt phòng để xem số dư hiện tại và tạo mã mới nếu còn thiếu.',
+      };
     return {
       status: 'success',
       title: 'Thanh toán thành công',
@@ -484,6 +532,7 @@ function getBookingStatusLabel(status: PaymentStatusResponse['bookingStatus']) {
     CANCELLED: 'Đã hủy',
     CHECKED_IN: 'Đã nhận phòng',
     CHECKED_OUT: 'Đã trả phòng',
+    NO_SHOW: 'Không đến',
     EXPIRED: 'Hết hạn',
   };
   return labels[status];

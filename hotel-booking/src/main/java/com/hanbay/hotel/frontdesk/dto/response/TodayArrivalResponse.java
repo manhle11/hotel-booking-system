@@ -18,4 +18,32 @@ public record TodayArrivalResponse(
         @Schema(example = "2") int adultCount,
         @Schema(example = "1") int childCount,
         @Schema(allowableValues = "CONFIRMED") BookingStatus bookingStatus,
-        @Schema(format = "date-time") Instant createdAt) {}
+        @Schema(format = "date-time") Instant createdAt,
+        Instant arrivalHoldUntil,
+        Instant arrivalHoldRequestedUntil) {
+    public TodayArrivalResponse(
+            UUID bookingId,
+            String bookingCode,
+            PrimaryGuestSummaryResponse primaryGuest,
+            ArrivalRoomTypeResponse roomType,
+            LocalDate checkInDate,
+            LocalDate checkOutDate,
+            int adultCount,
+            int childCount,
+            BookingStatus bookingStatus,
+            Instant createdAt) {
+        this(
+                bookingId,
+                bookingCode,
+                primaryGuest,
+                roomType,
+                checkInDate,
+                checkOutDate,
+                adultCount,
+                childCount,
+                bookingStatus,
+                createdAt,
+                null,
+                null);
+    }
+}

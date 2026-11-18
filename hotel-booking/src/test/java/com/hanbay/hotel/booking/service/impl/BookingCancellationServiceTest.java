@@ -10,6 +10,7 @@ import com.hanbay.hotel.booking.dto.response.RefundStatus;
 import com.hanbay.hotel.booking.policy.BookingCancellationPolicy;
 import com.hanbay.hotel.booking.policy.CancellationDecision;
 import com.hanbay.hotel.booking.repository.BookingRepository;
+import com.hanbay.hotel.booking.service.BookingSettlementLedger;
 import com.hanbay.hotel.common.security.CurrentUserProvider;
 import com.hanbay.hotel.payment.domain.Payment;
 import com.hanbay.hotel.payment.domain.PaymentRefundStatus;
@@ -20,12 +21,14 @@ import com.hanbay.hotel.payment.repository.PaymentRepository;
 import com.hanbay.hotel.user.domain.User;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,6 +54,12 @@ class BookingCancellationServiceTest {
     @Mock
     private Clock clock;
 
+    @Mock
+    private com.hanbay.hotel.booking.service.BookingChangeLifecycle changeLifecycle;
+
+    @Spy
+    private BookingSettlementLedger settlementLedger = new BookingSettlementLedger(null);
+
     @InjectMocks
     private BookingServiceImpl service;
 
@@ -58,7 +67,10 @@ class BookingCancellationServiceTest {
     void cancelsPendingBookingAndPendingPaymentWithoutRefund() {
         Booking booking = booking(BookingStatus.PENDING);
         Payment payment = payment(booking, PaymentStatus.PENDING);
-        arrange(booking, payment, CancellationDecision.allowed(0, 0, RefundStatus.NOT_REQUIRED));
+        when(currentUserProvider.currentUserId()).thenReturn(Optional.of(USER_ID));
+        when(bookingRepository.findByBookingCodeForUpdate(BOOKING_CODE)).thenReturn(Optional.of(booking));
+        when(clock.instant()).thenReturn(NOW);
+        org.mockito.Mockito.doReturn(List.of(payment)).when(settlementLedger).lockPayments(List.of(booking));
 
         var response = service.cancelBooking(BOOKING_CODE, new CancelBookingRequest("Đổi kế hoạch"));
 
@@ -73,7 +85,7 @@ class BookingCancellationServiceTest {
     void createsPendingRefundForSuccessfulPayment() {
         Booking booking = booking(BookingStatus.CONFIRMED);
         Payment payment = payment(booking, PaymentStatus.SUCCESS);
-        arrange(booking, payment, CancellationDecision.allowed(50, 1_000_000, RefundStatus.PENDING));
+        arrange(booking, payment, CancellationDecision.allowed(50, 1_000_000, 1_000_000, RefundStatus.PENDING));
 
         var response = service.cancelBooking(
                 BOOKING_CODE,

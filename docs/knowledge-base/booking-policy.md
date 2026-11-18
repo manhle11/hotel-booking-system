@@ -3,7 +3,7 @@ documentId: HANBAY-BOOKING-POLICY
 title: Booking Policy
 category: BOOKING
 source: docs/knowledge-base/booking-policy.md
-version: 1.4
+version: 1.6
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -72,6 +72,25 @@ hoặc quyết toán tại checkout. Booking `CONFIRMED` vẫn phải đáp ứn
 Chỉ sửa booking `PENDING` còn hạn với quyền chủ booking hoặc booking access token hợp lệ.
 Hệ thống kiểm tra lại ngày, sức chứa, tồn kho và tính lại snapshot giá/phòng/dịch vụ.
 Sửa booking không cộng thêm 15 phút; hạn giữ chỗ ban đầu được giữ nguyên.
+
+### 3.8 Khách không đến
+
+Nhân viên được xác nhận `CONFIRMED → NO_SHOW` sau cutoff nếu chưa nhận phòng và
+không có thỏa thuận giữ còn hiệu lực. Phí chuẩn bằng tiền phòng đêm đầu đã chốt;
+quản lý có quyền miễn/giảm kèm lý do. Tổng nghĩa vụ sau quyết toán bằng phí được
+duyệt, lưu riêng tổng tiền gốc và các snapshot giá. Booking giải phóng giữ chỗ
+còn lại, khoản hoàn được theo dõi riêng. Đơn nhiều phòng xử lý từng booking.
+Xem [chính sách đến muộn và không đến](no-show-policy.md).
+
+### 3.9 Khách chủ động hủy hoặc đổi lịch trước khi nhận phòng
+
+Khách xác nhận hủy thì CANCELLED và giải phóng ngay. Booking cũ thiếu căn cứ phí chỉ chờ
+quản lý quyết toán, không chờ duyệt việc giải phóng. Đổi lịch giữ ngày cũ khi đang chờ;
+không kéo dài cutoff và không tự bảo đảm phòng kỳ mới. Booking V2 đã chấp thuận áp phí
+0/50%/100% giá đêm đầu gốc theo mốc 48/24 giờ; tổng phí toàn chuỗi không vượt giá đó.
+Đổi cùng hạng/cùng số đêm một lần trong 90 ngày, báo giá lại và khách chấp thuận trước
+quản lý áp dụng. Dịch vụ và tuổi trẻ em xác nhận lại. Đơn nhiều phòng hủy/đổi toàn đơn,
+no-show từng phòng. Booking cũ giữ điều khoản cũ. Xem [chính sách hủy/đổi](cancellation-policy.md).
 
 ## 4. Quy trình
 

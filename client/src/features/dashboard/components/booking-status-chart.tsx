@@ -12,6 +12,7 @@ export function BookingStatusChart({ bookings }: BookingStatusChartProps) {
     { label: 'Đã hủy', value: bookings.cancelledBookings, color: '#dc2626' },
     { label: 'Chờ xử lý', value: bookings.pendingBookings, color: '#d97706' },
     { label: 'Hết hạn', value: bookings.expiredBookings, color: '#64748b' },
+    { label: 'Không đến', value: bookings.noShowBookings ?? 0, color: '#be123c' },
   ];
   const maxValue = Math.max(...statuses.map((status) => status.value), 1);
 
@@ -24,6 +25,12 @@ export function BookingStatusChart({ bookings }: BookingStatusChartProps) {
         </div>
         <strong>{bookings.totalBookings} booking</strong>
       </div>
+      <p>
+        Phí no-show đã ghi nhận:{' '}
+        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+          bookings.noShowFeeAmount ?? 0,
+        )}
+      </p>
       <div className="manager-dashboard__status-bars">
         {statuses.map((status) => (
           <div className="manager-dashboard__status-row" key={status.label}>

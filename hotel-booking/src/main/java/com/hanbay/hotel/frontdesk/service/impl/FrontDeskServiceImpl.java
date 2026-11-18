@@ -129,6 +129,8 @@ public class FrontDeskServiceImpl implements FrontDeskService {
                 booking.getAdultCount(),
                 booking.getChildCount(),
                 booking.getStatus(),
-                booking.getCreatedAt());
+                booking.getCreatedAt(),
+                booking.getArrivalHoldUntil(),
+                booking.getArrivalHoldRequestedUntil());
     }
 }

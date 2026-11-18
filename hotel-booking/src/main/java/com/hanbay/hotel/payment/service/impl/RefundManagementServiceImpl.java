@@ -70,6 +70,11 @@ public class RefundManagementServiceImpl implements RefundManagementService {
         if (refund.getStatus() != PaymentRefundStatus.PENDING) {
             throw new InvalidRefundStateException("Yêu cầu hoàn tiền đã được xử lý");
         }
+        if ((refund.getSourceBookingId() != null
+                        || payment.getBooking().getStatus() == com.hanbay.hotel.booking.domain.BookingStatus.NO_SHOW)
+                && refund.getRefundMethod() == null) {
+            throw new InvalidRefundStateException("Cần bổ sung tài khoản nhận hoàn trước khi xác nhận hoàn no-show.");
+        }
 
         Instant now = clock.instant();
         String bankReference = request.normalizedBankReference();
@@ -106,5 +111,20 @@ public class RefundManagementServiceImpl implements RefundManagementService {
                 refund.getBankName(),
                 refund.getAccountHolderName(),
                 refund.getAccountNumber());
+    }
+
+    @Override
+    @Transactional
+    public RefundRequestResponse supplyDestination(
+            UUID refundId, com.hanbay.hotel.payment.dto.request.RefundInformationRequest request) {
+        UUID paymentId = refundRepository.findPaymentIdById(refundId).orElseThrow(RefundNotFoundException::new);
+        paymentRepository.findByIdForUpdate(paymentId).orElseThrow(RefundNotFoundException::new);
+        PaymentRefund refund = refundRepository.findByIdForUpdate(refundId).orElseThrow(RefundNotFoundException::new);
+        refund.supplyDestination(
+                request.method(),
+                request.normalizedBankName(),
+                request.normalizedAccountHolderName(),
+                request.normalizedAccountNumber());
+        return toResponse(refund);
     }
 }

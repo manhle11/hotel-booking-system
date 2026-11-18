@@ -1,5 +1,6 @@
 package com.hanbay.hotel.booking.domain;
 
+import com.hanbay.hotel.booking.exception.InvalidBookingStateException;
 import com.hanbay.hotel.common.domain.BaseEntity;
 import com.hanbay.hotel.user.domain.User;
 import jakarta.persistence.*;
@@ -7,6 +8,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.*;
 
@@ -78,6 +80,29 @@ public class BookingOrder extends BaseEntity {
 
     public boolean isActive(Instant now) {
         return status == BookingOrderStatus.PENDING && expiresAt.isAfter(now);
+    }
+
+    public void claimBy(User owner) {
+        Objects.requireNonNull(owner);
+        if (bookedBy != null && !bookedBy.getId().equals(owner.getId())) {
+            throw new InvalidBookingStateException("Đơn đặt phòng đã thuộc tài khoản khác.");
+        }
+        bookings.forEach(booking -> booking.claimBy(owner));
+        bookedBy = owner;
+    }
+
+    public void rescheduleDates(LocalDate arrival, LocalDate departure) {
+        if (status != BookingOrderStatus.CONFIRMED)
+            throw new IllegalStateException("Đơn không còn đủ điều kiện đổi lịch.");
+        checkInDate = arrival;
+        checkOutDate = departure;
+    }
+
+    public void completeFrontDeskCancellation(Instant now) {
+        if (bookings.stream().anyMatch(b -> b.getStatus() != BookingStatus.CANCELLED))
+            throw new IllegalStateException("Các phòng chưa hủy đồng bộ.");
+        status = BookingOrderStatus.CANCELLED;
+        cancelledAt = now;
     }
 
     public void confirm(Instant now) {

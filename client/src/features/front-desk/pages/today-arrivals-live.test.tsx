@@ -17,14 +17,14 @@ import {
 import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getTodayArrivals, getOverdueArrivals } from '../api/front-desk-api';
+import { getTodayArrivals, getArrivalWork } from '../api/front-desk-api';
 import { refreshArrivalsAfterCheckIn, useArrivals } from '../api/front-desk-query';
 import type { TodayArrival } from '../types/today-arrivals';
 import { TodayArrivalsPage } from './today-arrivals-page';
 
 vi.mock('../api/front-desk-api', () => ({
   getTodayArrivals: vi.fn(),
-  getOverdueArrivals: vi.fn(),
+  getArrivalWork: vi.fn(),
 }));
 
 vi.mock('../../authentication/providers/auth-context', () => ({
@@ -66,6 +66,9 @@ beforeEach(() => {
     first: true,
     last: true,
   }));
+  vi.mocked(getArrivalWork).mockImplementation(async (params) =>
+    vi.mocked(getTodayArrivals)(params),
+  );
   globalThis.ResizeObserver = class {
     observe() {}
     unobserve() {}
@@ -109,15 +112,56 @@ function spyOnStorageWrite() {
 }
 
 describe('live arrivals', () => {
-  it('does not display today bookings under the overdue tab while waiting for its response', async () => {
-    let finish: (data: Awaited<ReturnType<typeof getOverdueArrivals>>) => void = () => {};
-    vi.mocked(getOverdueArrivals).mockReturnValue(
-      new Promise((resolve) => {
-        finish = resolve;
+  it('does not show results from the previous date range while loading older history', async () => {
+    let finish: (data: Awaited<ReturnType<typeof getArrivalWork>>) => void = () => {};
+    vi.mocked(getArrivalWork).mockImplementation((params) =>
+      params.resolvedFrom === '2026-10-01'
+        ? new Promise((resolve) => {
+            finish = resolve;
+          })
+        : vi.mocked(getTodayArrivals)(params),
+    );
+    const { result, rerender } = renderHook(
+      ({ from }) =>
+        useArrivals(
+          {
+            page: 0,
+            size: 20,
+            resolvedFrom: from,
+            resolvedTo: '2026-11-18',
+          },
+          'resolved',
+        ),
+      { wrapper, initialProps: { from: '2026-11-18' } },
+    );
+    await waitFor(() => expect(result.current.data?.content).toHaveLength(2));
+    rerender({ from: '2026-10-01' });
+    expect(result.current.data).toBeUndefined();
+    await act(async () =>
+      finish({
+        content: [{ ...arrival, bookingCode: 'BK-OLD-HISTORY' }],
+        page: 0,
+        size: 20,
+        totalElements: 1,
+        totalPages: 1,
+        first: true,
+        last: true,
       }),
     );
+    await waitFor(() => expect(result.current.data?.content[0].bookingCode).toBe('BK-OLD-HISTORY'));
+  });
+
+  it('does not display today bookings under the overdue tab while waiting for its response', async () => {
+    let finish: (data: Awaited<ReturnType<typeof getArrivalWork>>) => void = () => {};
+    vi.mocked(getArrivalWork).mockImplementation((params, group) =>
+      group === 'ACTION_REQUIRED'
+        ? new Promise((resolve) => {
+            finish = resolve;
+          })
+        : vi.mocked(getTodayArrivals)(params),
+    );
     await openArrivals();
-    fireEvent.click(screen.getByRole('tab', { name: 'Chưa đến / quá giờ' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Cần xử lý' }));
     expect(screen.queryByText(arrival.bookingCode)).toBeNull();
     await act(async () =>
       finish({
@@ -205,7 +249,7 @@ describe('live arrivals', () => {
     await act(() => refreshArrivalsAfterCheckIn(client));
 
     expect(storage).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText('Hôm nay không có khách dự kiến nhận phòng')).toBeTruthy();
+    expect(await screen.findByText('Không có booking trong nhóm này')).toBeTruthy();
     expect(screen.queryByText(arrival.bookingCode)).toBeNull();
   });
 });

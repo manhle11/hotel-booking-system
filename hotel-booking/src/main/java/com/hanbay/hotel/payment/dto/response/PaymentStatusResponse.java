@@ -34,4 +34,5 @@ public record PaymentStatusResponse(
         String transferContent,
         Instant expiredAt,
         Instant paidAt,
-        long remainingAmount) {}
+        long remainingAmount,
+        boolean policyFeePayment) {}

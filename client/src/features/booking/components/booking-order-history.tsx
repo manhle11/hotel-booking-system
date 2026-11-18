@@ -56,6 +56,12 @@ export function BookingOrderHistorySection() {
                   <Tag color={ORDER_STATUS[order.status].color}>
                     {ORDER_STATUS[order.status].label}
                   </Tag>
+                  {order.rooms.some((room) => room.status === 'NO_SHOW') && (
+                    <Tag color="red">
+                      {order.rooms.filter((room) => room.status === 'NO_SHOW').length} phòng không
+                      đến
+                    </Tag>
+                  )}
                 </div>
                 <Space orientation="vertical" align="end">
                   <Typography.Text strong>

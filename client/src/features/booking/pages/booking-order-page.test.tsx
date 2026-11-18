@@ -5,12 +5,19 @@ import { App, ConfigProvider } from 'antd';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getBookingOrder, getMyBookingOrders } from '../api/booking-order-api';
+import {
+  claimBookingOrder,
+  createOrderPayment,
+  getBookingOrder,
+  getMyBookingOrders,
+  getOrderAccessToken,
+} from '../api/booking-order-api';
 import { BookingOrderHistorySection } from '../components/booking-order-history';
 import type { BookingOrder } from '../types/booking-order';
 import { BookingOrderPage } from './booking-order-page';
 import { BookingPaymentPage } from './booking-payment-page';
 import { createPaymentRequest, getPaymentStatus } from '../api/booking-api';
+import { getPaymentResultToken } from '../utils/payment-result-storage';
 
 let accountId: string | null = null;
 vi.mock('../../authentication/providers/auth-context', () => ({
@@ -25,12 +32,14 @@ vi.mock('@components/layout/MainFooter', () => ({ MainFooter: () => null }));
 vi.mock('@components/booking/BookingSteps', () => ({ BookingSteps: () => null }));
 vi.mock('../api/booking-api', () => ({ createPaymentRequest: vi.fn(), getPaymentStatus: vi.fn() }));
 vi.mock('../api/booking-order-api', () => ({
+  claimBookingOrder: vi.fn(),
   getBookingOrder: vi.fn(),
   getMyBookingOrders: vi.fn(),
   getOrderCancellationEligibility: vi.fn(),
   createOrderPayment: vi.fn(),
   cancelBookingOrder: vi.fn(),
   supplyOrderRefundInformation: vi.fn(),
+  getOrderAccessToken: vi.fn(),
 }));
 
 const order: BookingOrder = {
@@ -117,6 +126,10 @@ function mount(
           <MemoryRouter initialEntries={['/booking-orders/order-1']}>
             <Routes>
               <Route path="/booking-orders/:orderId" element={page} />
+              <Route
+                path="/payments/:paymentId/result"
+                element={<div>Kết quả thanh toán chênh lệch</div>}
+              />
             </Routes>
           </MemoryRouter>
         </App>
@@ -127,6 +140,157 @@ function mount(
 }
 
 describe('BookingOrderPage regression flows', () => {
+  it('pays the whole confirmed order balance with one QR and the order access token', async () => {
+    const changed: BookingOrder = {
+      ...order,
+      status: 'CONFIRMED',
+      totalAmount: 6_000_000,
+      paidAmount: 4_000_000,
+      additionalChargeAmount: 2_000_000,
+      paymentStatus: 'SUCCESS',
+      rooms: order.rooms.map((room) => ({
+        ...room,
+        status: 'CONFIRMED',
+        totalAmount: 3_000_000,
+        paidAmount: 2_000_000,
+      })),
+    };
+    vi.mocked(getBookingOrder).mockResolvedValue(changed);
+    vi.mocked(getOrderAccessToken).mockReturnValue('group-access-token');
+    vi.mocked(createOrderPayment).mockResolvedValue({
+      ...changed,
+      paymentStatus: 'PENDING',
+      payment: {
+        ...order.payment!,
+        paymentId: 'whole-balance-payment',
+        amount: 2_000_000,
+        remainingAmount: 2_000_000,
+      },
+    });
+    const client = mount();
+    fireEvent.click(await screen.findByRole('button', { name: /Thanh toán toàn bộ 2.000.000/ }));
+    await screen.findByText('Kết quả thanh toán chênh lệch');
+    expect(createOrderPayment).toHaveBeenCalledExactlyOnceWith('order-1');
+    expect(createPaymentRequest).not.toHaveBeenCalled();
+    expect(getPaymentResultToken('whole-balance-payment')).toBe('group-access-token');
+    client.clear();
+  });
+
+  it('shows only the unpaid room balances in the whole-order payment action', async () => {
+    vi.mocked(getBookingOrder).mockResolvedValue({
+      ...order,
+      status: 'CONFIRMED',
+      totalAmount: 6_000_000,
+      paidAmount: 5_000_000,
+      paymentStatus: 'SUCCESS',
+      rooms: order.rooms.map((room, index) => ({
+        ...room,
+        status: 'CONFIRMED',
+        totalAmount: 3_000_000,
+        paidAmount: index === 0 ? 3_000_000 : 2_000_000,
+      })),
+    });
+    const client = mount();
+    await screen.findByText('ORD-TEST');
+    expect(screen.getByText(/Thanh toán toàn bộ 1.000.000/).closest('button')).toBeEnabled();
+    expect(screen.getAllByText('Thanh toán chênh lệch')).toHaveLength(1);
+    cleanup();
+    client.clear();
+  });
+
+  it('does not offer a whole-order top-up after all rooms have been paid', async () => {
+    vi.mocked(getBookingOrder).mockResolvedValue({
+      ...order,
+      status: 'CONFIRMED',
+      totalAmount: 6_000_000,
+      paidAmount: 6_000_000,
+      paymentStatus: 'SUCCESS',
+      rooms: order.rooms.map((room) => ({
+        ...room,
+        status: 'CONFIRMED',
+        totalAmount: 3_000_000,
+        paidAmount: 3_000_000,
+      })),
+    });
+    const client = mount();
+    await screen.findByText('ORD-TEST');
+    expect(screen.queryByRole('button', { name: /Thanh toán toàn bộ/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Thanh toán chênh lệch' })).toBeNull();
+    client.clear();
+  });
+
+  it('saves a guest order to the signed-in account and refreshes history', async () => {
+    accountId = 'customer';
+    vi.mocked(getBookingOrder).mockResolvedValue({ ...order, claimable: true });
+    vi.mocked(claimBookingOrder).mockResolvedValue({
+      ...order,
+      claimable: false,
+      reviewOwner: true,
+    });
+    const client = mount();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    fireEvent.click(await screen.findByRole('button', { name: 'Lưu đơn vào lịch sử' }));
+    await waitFor(() => expect(claimBookingOrder).toHaveBeenCalledExactlyOnceWith('order-1'));
+    await waitFor(() =>
+      expect(screen.queryByText('Đơn này chưa được lưu vào tài khoản')).not.toBeInTheDocument(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['booking-order-history'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['booking-history'] });
+    client.clear();
+  });
+
+  it('keeps the save action available when claiming fails', async () => {
+    accountId = 'customer';
+    vi.mocked(getBookingOrder).mockResolvedValue({ ...order, claimable: true });
+    vi.mocked(claimBookingOrder).mockRejectedValue(new Error('Không thể lưu đơn'));
+    const client = mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Lưu đơn vào lịch sử' }));
+    expect(await screen.findByText('Không thể lưu đơn')).toBeInTheDocument();
+    expect(screen.getByText('Đơn này chưa được lưu vào tài khoản')).toBeInTheDocument();
+    client.clear();
+  });
+
+  it('asks a guest to log in before saving the order', async () => {
+    vi.mocked(getBookingOrder).mockResolvedValue({ ...order, claimable: true });
+    const client = mount();
+    expect(await screen.findByRole('link', { name: 'Đăng nhập để lưu đơn' })).toHaveAttribute(
+      'href',
+      '/login',
+    );
+    expect(screen.queryByRole('button', { name: 'Lưu đơn vào lịch sử' })).not.toBeInTheDocument();
+    expect(claimBookingOrder).not.toHaveBeenCalled();
+    client.clear();
+  });
+
+  it('pays a confirmed room balance after rescheduling using the order access token', async () => {
+    vi.mocked(getBookingOrder).mockResolvedValue({
+      ...order,
+      status: 'CONFIRMED',
+      paymentStatus: 'SUCCESS',
+      totalAmount: 4_800_000,
+      paidAmount: 4_000_000,
+      rooms: order.rooms.map((room, i) => ({
+        ...room,
+        status: 'CONFIRMED',
+        totalAmount: i === 0 ? 2_800_000 : 2_000_000,
+        paidAmount: 2_000_000,
+      })),
+    });
+    vi.mocked(getOrderAccessToken).mockReturnValue('group-access-token');
+    vi.mocked(createPaymentRequest).mockResolvedValue({
+      ...order.payment!,
+      paymentId: 'balance-payment',
+      bookingId: 'booking-1',
+      amount: 800_000,
+      remainingAmount: 800_000,
+    });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Thanh toán chênh lệch' }));
+    await screen.findByText('Kết quả thanh toán chênh lệch');
+    expect(createPaymentRequest).toHaveBeenCalledExactlyOnceWith('booking-1', 'group-access-token');
+    expect(getPaymentResultToken('balance-payment')).toBe('group-access-token');
+  });
+
   it('never reuses another account or guest review ownership from a fresh order cache', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { staleTime: 60_000, retry: false } },

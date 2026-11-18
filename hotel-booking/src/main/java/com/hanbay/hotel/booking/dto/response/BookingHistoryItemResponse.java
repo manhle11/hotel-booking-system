@@ -25,4 +25,46 @@ public record BookingHistoryItemResponse(
         PaymentStatus paymentStatus,
         PaymentRefundStatus refundStatus,
         BigDecimal refundAmount,
-        Instant createdAt) {}
+        Instant createdAt,
+        boolean staffCancellation,
+        boolean rescheduled) {
+    public BookingHistoryItemResponse(
+            UUID bookingId,
+            String bookingCode,
+            BookingHistoryRoomTypeResponse roomType,
+            LocalDate checkInDate,
+            LocalDate checkOutDate,
+            int adultCount,
+            int childCount,
+            long totalNights,
+            BigDecimal totalAmount,
+            BigDecimal outstandingAmount,
+            String currency,
+            BookingStatus bookingStatus,
+            UUID paymentId,
+            PaymentStatus paymentStatus,
+            PaymentRefundStatus refundStatus,
+            BigDecimal refundAmount,
+            Instant createdAt) {
+        this(
+                bookingId,
+                bookingCode,
+                roomType,
+                checkInDate,
+                checkOutDate,
+                adultCount,
+                childCount,
+                totalNights,
+                totalAmount,
+                outstandingAmount,
+                currency,
+                bookingStatus,
+                paymentId,
+                paymentStatus,
+                refundStatus,
+                refundAmount,
+                createdAt,
+                false,
+                false);
+    }
+}
