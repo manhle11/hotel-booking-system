@@ -58,6 +58,11 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @SpringBootTest(
         properties = {
             "booking.expiration.cron=-",
+            "payment.sepay.webhook-api-key=arrival-test-secret",
+            "payment.sepay.account-number=123456789",
+            "payment.sepay.bank-code=MB",
+            "payment.sepay.account-name=TEST HOTEL",
+            "payment.sepay.qr-base-url=https://example.test/qr",
             "debug=false",
             "logging.level.root=WARN",
             "logging.level.org.springframework=WARN",
