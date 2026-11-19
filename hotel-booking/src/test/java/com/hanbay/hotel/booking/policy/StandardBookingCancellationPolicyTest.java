@@ -83,6 +83,40 @@ class StandardBookingCancellationPolicyTest {
         assertThat(decision.refundStatus()).isEqualTo(RefundStatus.NOT_REQUIRED);
     }
 
+    @Test
+    void unifiedCancellationFeeCanExceedTheCheaperRescheduledStay() {
+        Booking booking = Booking.builder()
+                .status(BookingStatus.CONFIRMED)
+                .checkInDate(CHECK_IN_DATE)
+                .totalAmount(300_000)
+                .termsVersion(UnifiedBookingPolicy.VERSION)
+                .originalFirstNightAmount(800_000L)
+                .build();
+
+        CancellationDecision decision = policy.evaluate(booking, PaymentStatus.SUCCESS, checkInInstant());
+
+        assertThat(decision.allowed()).isTrue();
+        assertThat(decision.refundAmount()).isZero();
+        assertThat(decision.feeAmount()).isEqualTo(800_000);
+    }
+
+    @Test
+    void unifiedCancellationUsesHalfOfFirstNightWhileRefundingOtherNightsAndServices() {
+        Booking booking = Booking.builder()
+                .status(BookingStatus.CONFIRMED)
+                .checkInDate(CHECK_IN_DATE)
+                .checkOutDate(CHECK_IN_DATE.plusDays(3))
+                .totalAmount(11_100_000)
+                .termsVersion(UnifiedBookingPolicy.VERSION)
+                .originalFirstNightAmount(2_450_000L)
+                .build();
+        CancellationDecision decision =
+                policy.evaluate(booking, PaymentStatus.SUCCESS, checkInInstant().minus(30, ChronoUnit.HOURS));
+        assertThat(decision.allowed()).isTrue();
+        assertThat(decision.feeAmount()).isEqualTo(1_225_000);
+        assertThat(decision.refundAmount()).isEqualTo(9_875_000);
+    }
+
     private CancellationDecision evaluateConfirmed(long hoursBeforeCheckIn, PaymentStatus paymentStatus) {
         return policy.evaluate(
                 confirmedBooking(), paymentStatus, checkInInstant().minus(hoursBeforeCheckIn, ChronoUnit.HOURS));

@@ -55,6 +55,20 @@ public class RoomAvailabilityCalculator {
 
     private Map<UUID, Long> countAvailableRooms(
             Collection<UUID> roomTypeIds, LocalDate checkIn, LocalDate checkOut, UUID excludedBookingId) {
+        return countAvailableRooms(roomTypeIds, checkIn, checkOut, excludedBookingId, null);
+    }
+
+    public Map<UUID, Long> countAvailableRoomsExcludingOrder(
+            Collection<UUID> roomTypeIds, LocalDate checkIn, LocalDate checkOut, UUID orderId) {
+        return countAvailableRooms(roomTypeIds, checkIn, checkOut, null, orderId);
+    }
+
+    private Map<UUID, Long> countAvailableRooms(
+            Collection<UUID> roomTypeIds,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            UUID excludedBookingId,
+            UUID excludedOrderId) {
         if (roomTypeIds.isEmpty()) {
             return Map.of();
         }
@@ -65,15 +79,22 @@ public class RoomAvailabilityCalculator {
                                 RoomRepository.RoomTypeRoomCount::getRoomTypeId,
                                 RoomRepository.RoomTypeRoomCount::getRoomCount));
 
-        Map<UUID, Long> overlappingBookingCounts = bookingRepository
-                .countPeakActiveBookingsByRoomTypeIds(
+        var counts = excludedOrderId == null
+                ? bookingRepository.countPeakActiveBookingsByRoomTypeIds(
                         roomTypeIds,
                         checkIn,
                         checkOut,
                         stayPolicy.overdueThrough(),
                         Instant.now(clock),
                         excludedBookingId)
-                .stream()
+                : bookingRepository.countPeakExcludingOrder(
+                        roomTypeIds,
+                        checkIn,
+                        checkOut,
+                        stayPolicy.overdueThrough(),
+                        Instant.now(clock),
+                        excludedOrderId);
+        Map<UUID, Long> overlappingBookingCounts = counts.stream()
                 .collect(Collectors.toMap(
                         BookingRepository.RoomTypeBookingCount::getRoomTypeId,
                         BookingRepository.RoomTypeBookingCount::getBookingCount));

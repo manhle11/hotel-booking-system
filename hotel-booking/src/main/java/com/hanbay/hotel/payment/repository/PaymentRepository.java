@@ -16,6 +16,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
+    @Query("select distinct p from Payment p left join p.allocations a "
+            + "where (p.order is null and p.booking.id = :bookingId) or a.booking.id = :bookingId order by p.id")
+    List<Payment> findAllForBookingSettlement(@Param("bookingId") UUID bookingId);
+
     @Query("select p.order.id from Payment p where p.paymentCode = :code")
     Optional<UUID> findOrderIdByPaymentCode(@Param("code") String code);
 

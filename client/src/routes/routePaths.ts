@@ -2,6 +2,7 @@ export const ROUTE_PATHS = {
   adminAccounts: '/admin/accounts',
   adminRoles: '/admin/roles',
   arrivals: '/front-desk/arrivals/today',
+  bookingRequests: '/front-desk/booking-requests',
   departures: '/front-desk/departures/today',
   payments: '/payment-monitoring/payments',
   webhookEvents: '/payment-monitoring/webhook-events',

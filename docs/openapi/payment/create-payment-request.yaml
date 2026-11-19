@@ -2,9 +2,9 @@ openapi: 3.0.3
 
 info:
   title: API tạo yêu cầu thanh toán
-  version: 1.1.0
+  version: 1.2.0
   description: >
-    Payment cho pending còn hạn hoặc confirmed/checked-in còn công nợ; đúng chủ hoặc token hợp lệ.
+    Payment cho pending còn hạn, confirmed/checked-in còn công nợ hoặc cancelled/no-show đã chốt phí còn thiếu; đúng chủ hoặc token hợp lệ.
     API phục vụ cả khách vãng lai sau khi đã nhập thông tin liên hệ khi tạo đặt phòng.
 
 servers:
@@ -15,13 +15,16 @@ paths:
     post:
       tags:
         - Thanh toán
-      summary: Tạo yêu cầu thanh toán cho đặt phòng đang chờ
+      summary: Tạo hoặc lấy lại yêu cầu thanh toán số dư booking
       description: >
         Tạo hoặc trả lại yêu cầu thanh toán PENDING còn hiệu lực cho một đặt phòng đang giữ phòng.
         Khách chưa đăng nhập phải gửi mã truy cập đặt phòng qua header X-Booking-Access-Token.
         API tính số còn thiếu ở server; pending hết hạn không xác nhận lại. Hạn payment≤hạn booking pending, mặc định hold15 phút theo cấu hình; tạo QR lại không kéo dài hold.14:00 không là hạn trả tiền hoặc cutoff đặt. Chỉ webhook hợp lệ đủ tiền xác nhận ban đầu; payment bổ sung không đổi trạng thái lưu trú.
+        QR thu phí chỉ dùng sau chốt quyết toán, không khôi phục cancelled/no-show. Payment còn hạn và đúng số dư dùng lại; hết hạn tạo mã mới. Phần phí còn thiếu tính từ tiền thực thu trừ hoàn đã trả/đang dành hoàn.
       operationId: createPaymentRequest
-      security: []
+      security:
+        - bearerAuth: []
+        - bookingAccessToken: []
       parameters:
         - in: header
           name: X-Booking-Access-Token
@@ -118,6 +121,15 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    bookingAccessToken:
+      type: apiKey
+      in: header
+      name: X-Booking-Access-Token
   schemas:
     CreatePaymentRequest:
       type: object
@@ -128,7 +140,12 @@ components:
         bookingId:
           type: string
           format: uuid
-          description: ID của đặt phòng PENDING cần thanh toán.
+          description: ID booking cần thanh toán theo các trạng thái được phép.
+        arrivalPolicyVersion:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: Phiên bản điều khoản khách chủ động chấp thuận ở bước thanh toán ban đầu.
 
     CreatePaymentRequestResponse:
       type: object
@@ -185,7 +202,7 @@ components:
           type: integer
           format: int64
           minimum: 1
-          description: So tien can thanh toan, lay tu booking.totalAmount, don vi VND.
+          description: Số dư cần thanh toán do server tính, đơn vị VND.
         currency:
           type: string
           enum:
@@ -202,7 +219,7 @@ components:
         expiredAt:
           type: string
           format: date-time
-          description: Thoi diem payment request het hieu luc, khong duoc vuot qua han giu booking.
+          description: Hạn payment; với booking PENDING không vượt hạn giữ chỗ.
         bankCode:
           type: string
           description: Ma ngan hang nhan tien dung de hien thi/chuyen khoan thu cong.

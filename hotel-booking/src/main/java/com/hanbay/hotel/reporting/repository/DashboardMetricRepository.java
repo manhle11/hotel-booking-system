@@ -104,6 +104,8 @@ public class DashboardMetricRepository {
                    COUNT(*) FILTER (WHERE status = 'CHECKED_OUT') AS checked_out_bookings,
                    COUNT(*) FILTER (WHERE status = 'CANCELLED') AS cancelled_bookings,
                    COUNT(*) FILTER (WHERE status = 'EXPIRED') AS expired_bookings,
+                   COUNT(*) FILTER (WHERE status = 'NO_SHOW') AS no_show_bookings,
+                   COALESCE(SUM(no_show_fee) FILTER (WHERE status = 'NO_SHOW'), 0) AS no_show_fee_amount,
                    COALESCE(SUM(total_amount), 0) AS total_booking_value
               FROM bookings
              WHERE created_at >= :fromInstant
@@ -183,7 +185,9 @@ public class DashboardMetricRepository {
                         rs.getLong("checked_out_bookings"),
                         rs.getLong("cancelled_bookings"),
                         rs.getLong("expired_bookings"),
-                        rs.getLong("total_booking_value")));
+                        rs.getLong("total_booking_value"),
+                        rs.getLong("no_show_bookings"),
+                        rs.getLong("no_show_fee_amount")));
     }
 
     public List<DailyBookingMetricResult> getDailyBookingMetrics(

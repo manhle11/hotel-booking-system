@@ -20,17 +20,23 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { MainHeader } from '@components/layout/MainHeader';
 import { MainFooter } from '@components/layout/MainFooter';
 import { BookingSteps } from '@components/booking/BookingSteps';
 import { RefundInformationForm } from '../../payment/components/refund-information-form';
+import { ARRIVAL_POLICY_VERSION } from '../arrival-policy';
+import { CustomerReschedule } from '../components/customer-reschedule';
+import { NoShowSettlementCard } from '../components/no-show-settlement-card';
+import { ArrivalPolicyNotice } from '../components/arrival-policy-notice';
 import type { RefundInformation } from '../../payment/types/refund';
 import {
   cancelBookingOrder,
+  claimBookingOrder,
   createOrderPayment,
   getBookingOrder,
   getOrderCancellationEligibility,
+  getOrderAccessToken,
   supplyOrderRefundInformation,
 } from '../api/booking-order-api';
 import type { BookingOrder, BookingOrderRoom } from '../types/booking-order';
@@ -40,6 +46,8 @@ import './create-booking-page.css';
 import './booking-order.css';
 import { ReviewAction } from '../../review/review-action';
 import { useAuth } from '../../authentication/providers/auth-context';
+import { createPaymentRequest } from '../api/booking-api';
+import { storePaymentResultToken } from '../utils/payment-result-storage';
 
 const ROOM_STATUS: Record<string, string> = {
   PENDING: 'Đang giữ',
@@ -48,6 +56,7 @@ const ROOM_STATUS: Record<string, string> = {
   CHECKED_OUT: 'Đã trả phòng',
   CANCELLED: 'Đã hủy',
   EXPIRED: 'Hết hạn',
+  NO_SHOW: 'Không đến',
 };
 const money = (value: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -59,12 +68,14 @@ const emptyRefund: RefundInformation = {
 };
 
 export function BookingOrderPage() {
+  const navigate = useNavigate();
   const { orderId = '' } = useParams();
   const { message } = App.useApp();
   const client = useQueryClient();
-  const { session } = useAuth();
+  const { session, isAuthenticated } = useAuth();
   const accountId = session?.user?.id ?? null;
   const [accepted, setAccepted] = useState(false);
+  const [policyReady, setPolicyReady] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [refund, setRefund] = useState<RefundInformation>(emptyRefund);
@@ -75,6 +86,7 @@ export function BookingOrderPage() {
     retry: false,
     refetchInterval: (query) =>
       query.state.data?.status === 'PENDING' ||
+      query.state.data?.paymentStatus === 'PENDING' ||
       query.state.data?.refundStatus === 'PENDING' ||
       query.state.data?.refundStatus === 'PROCESSING'
         ? 3000
@@ -85,9 +97,43 @@ export function BookingOrderPage() {
     void client.invalidateQueries({ queryKey: ['booking-order-history'] });
   };
   const payment = useMutation({
-    mutationFn: () => createOrderPayment(orderId),
+    mutationFn: () => createOrderPayment(orderId, ARRIVAL_POLICY_VERSION),
     onSuccess: onUpdated,
     onError: (error: Error) => void message.error(error.message),
+  });
+  const claim = useMutation({
+    mutationFn: () => claimBookingOrder(orderId),
+    onSuccess: (updated) => {
+      onUpdated(updated);
+      void client.invalidateQueries({ queryKey: ['booking-history'] });
+      void message.success('Đã lưu đơn vào lịch sử tài khoản.');
+    },
+    onError: (error: Error) => void message.error(error.message),
+  });
+  const balancePayment = useMutation({
+    mutationFn: (room: BookingOrderRoom) =>
+      createPaymentRequest(room.bookingId, getOrderAccessToken(orderId)),
+    onSuccess: (result) => {
+      const token = getOrderAccessToken(orderId);
+      if (token) storePaymentResultToken(result.paymentId, token);
+      navigate(`/payments/${result.paymentId}/result`);
+    },
+    onError: (error: Error) => void message.error(error.message),
+  });
+  const wholeBalancePayment = useMutation({
+    mutationFn: () => createOrderPayment(orderId),
+    onSuccess: (updated) => {
+      onUpdated(updated);
+      if (updated.payment) {
+        const token = getOrderAccessToken(orderId);
+        if (token) storePaymentResultToken(updated.payment.paymentId, token);
+        navigate(`/payments/${updated.payment.paymentId}/result`);
+      }
+    },
+    onError: (error: Error) => {
+      void message.error(error.message);
+      void orderQuery.refetch();
+    },
   });
   const supplyRefund = useMutation({
     mutationFn: () => supplyOrderRefundInformation(orderId, refund),
@@ -119,6 +165,18 @@ export function BookingOrderPage() {
   });
   const order = orderQuery.data;
   const pending = order?.status === 'PENDING' && dayjs(order.expiresAt).isAfter(dayjs());
+  const wholeBalanceAmount =
+    order?.rooms.reduce((sum, room) => sum + Math.max(room.totalAmount - room.paidAmount, 0), 0) ??
+    0;
+  const canPayWholeBalance =
+    order?.status === 'CONFIRMED' &&
+    wholeBalanceAmount > 0 &&
+    !order.rooms.some(
+      (room) =>
+        room.totalAmount > room.paidAmount &&
+        room.status !== 'CONFIRMED' &&
+        room.status !== 'CHECKED_IN',
+    );
   const validRefund =
     !eligibility.data?.refundAmount ||
     Boolean(
@@ -151,6 +209,29 @@ export function BookingOrderPage() {
           ) : (
             <>
               <BookingSteps current={2} style={{ marginBlock: 24 }} />
+              {order.claimable && (
+                <Alert
+                  type="info"
+                  showIcon
+                  title="Đơn này chưa được lưu vào tài khoản"
+                  description="Lưu đơn để xem lại trong lịch sử đặt phòng sau này."
+                  action={
+                    isAuthenticated ? (
+                      <Button loading={claim.isPending} onClick={() => claim.mutate()}>
+                        Lưu đơn vào lịch sử
+                      </Button>
+                    ) : (
+                      <Link
+                        to="/login"
+                        state={{ from: { pathname: `/booking-orders/${orderId}` } }}
+                      >
+                        <Button>Đăng nhập để lưu đơn</Button>
+                      </Link>
+                    )
+                  }
+                  style={{ marginBottom: 24 }}
+                />
+              )}
               {orderQuery.isError && (
                 <Alert
                   type="warning"
@@ -165,7 +246,7 @@ export function BookingOrderPage() {
                   type="success"
                   showIcon
                   title={`Đã xác nhận ${order.rooms.length} phòng`}
-                  description="Thanh toán đã được ghi nhận cho toàn bộ đơn. Bạn có thể nhận và trả từng phòng theo tình hình lưu trú."
+                  description={`Tình hình từng phòng: ${order.rooms.filter((r) => r.status === 'CONFIRMED').length} chờ đến, ${order.rooms.filter((r) => r.status === 'CHECKED_IN').length} đang ở, ${order.rooms.filter((r) => r.status === 'CHECKED_OUT').length} đã trả, ${order.rooms.filter((r) => r.status === 'NO_SHOW').length} không đến.`}
                   style={{ marginBottom: 24 }}
                 />
               )}
@@ -184,6 +265,12 @@ export function BookingOrderPage() {
                   showIcon
                   title="Đã hủy toàn bộ phòng trong đơn"
                   style={{ marginBottom: 24 }}
+                />
+              )}
+              {order.status === 'CANCELLED' && (
+                <ArrivalPolicyNotice
+                  codes={order.rooms.map((r) => r.bookingCode)}
+                  accessToken={getOrderAccessToken(orderId)}
                 />
               )}
               <Row gutter={[24, 24]}>
@@ -228,9 +315,52 @@ export function BookingOrderPage() {
                           dataIndex: 'status',
                           render: (status: string) => ROOM_STATUS[status] ?? status,
                         },
+                        {
+                          title: 'Thanh toán bổ sung',
+                          render: (_, room) =>
+                            room.status === 'CONFIRMED' && room.totalAmount > room.paidAmount ? (
+                              <Button
+                                disabled={wholeBalancePayment.isPending}
+                                loading={
+                                  balancePayment.isPending &&
+                                  balancePayment.variables?.bookingId === room.bookingId
+                                }
+                                onClick={() => balancePayment.mutate(room)}
+                              >
+                                Thanh toán chênh lệch
+                              </Button>
+                            ) : (
+                              '—'
+                            ),
+                        },
                       ]}
                     />
                   </Card>
+                  {order.status === 'CONFIRMED' &&
+                    order.rooms.every((room) => room.status === 'CONFIRMED') &&
+                    order.rooms[0] && (
+                      <CustomerReschedule
+                        code={order.rooms[0].bookingCode}
+                        accessToken={getOrderAccessToken(orderId)}
+                        roomCount={order.rooms.length}
+                        currentCheckInDate={order.checkInDate}
+                        currentCheckOutDate={order.checkOutDate}
+                      />
+                    )}
+                  {order.rooms
+                    .filter(
+                      (room) =>
+                        room.status === 'NO_SHOW' ||
+                        (room.status === 'CANCELLED' && room.staffCancellation),
+                    )
+                    .map((room) => (
+                      <NoShowSettlementCard
+                        key={room.bookingCode}
+                        bookingCode={room.bookingCode}
+                        accessToken={getOrderAccessToken(orderId)}
+                        kind={room.status === 'NO_SHOW' ? 'no-show' : 'cancellation'}
+                      />
+                    ))}
                   {order.reviewOwner === true &&
                     order.rooms.some((room) => room.status === 'CHECKED_OUT') && (
                       <Card title="Đánh giá sau lưu trú" style={{ marginTop: 24 }}>
@@ -295,15 +425,21 @@ export function BookingOrderPage() {
                             Chuyển khoản một lần cho tất cả phòng trong đơn. Hệ thống tự động xác
                             nhận khi nhận đủ tiền trước hạn.
                           </Typography.Paragraph>
+                          <ArrivalPolicyNotice
+                            codes={order.rooms.map((r) => r.bookingCode)}
+                            accessToken={getOrderAccessToken(orderId)}
+                            onReady={setPolicyReady}
+                          />
                           <Checkbox
                             checked={accepted}
                             onChange={(event) => setAccepted(event.target.checked)}
                           >
-                            Tôi đồng ý với điều khoản đặt phòng và chính sách hủy của HANBAY HOTEL.
+                            Tôi đồng ý với điều khoản đặt phòng, chính sách hủy/đổi lịch và chính
+                            sách đến muộn/không đến của HANBAY HOTEL.
                           </Checkbox>
                           <Button
                             type="primary"
-                            disabled={!accepted}
+                            disabled={!policyReady || !accepted}
                             loading={payment.isPending}
                             onClick={() => payment.mutate()}
                           >
@@ -366,7 +502,13 @@ export function BookingOrderPage() {
                       <Descriptions.Item label="Tiền đặt phòng ban đầu">
                         {money(order.bookedAmount)}
                       </Descriptions.Item>
-                      <Descriptions.Item label="Phí phát sinh">
+                      <Descriptions.Item
+                        label={
+                          order.additionalChargeAmount < 0
+                            ? 'Điều chỉnh giảm quyết toán'
+                            : 'Phí phát sinh'
+                        }
+                      >
                         {money(order.additionalChargeAmount)}
                       </Descriptions.Item>
                       <Descriptions.Item label="Đã thanh toán">
@@ -374,7 +516,7 @@ export function BookingOrderPage() {
                       </Descriptions.Item>
                       {(order.status === 'PENDING' || order.status === 'CONFIRMED') && (
                         <Descriptions.Item label="Còn phải thanh toán">
-                          {money(Math.max(0, order.totalAmount - order.paidAmount))}
+                          {money(wholeBalanceAmount)}
                         </Descriptions.Item>
                       )}
                     </Descriptions>
@@ -384,6 +526,23 @@ export function BookingOrderPage() {
                       formatter={(value) => money(Number(value))}
                       style={{ marginTop: 24 }}
                     />
+                    {canPayWholeBalance && (
+                      <Flex vertical gap={8} style={{ marginTop: 24 }}>
+                        <Button
+                          type="primary"
+                          size="large"
+                          block
+                          loading={wholeBalancePayment.isPending}
+                          disabled={balancePayment.isPending || orderQuery.isError}
+                          onClick={() => wholeBalancePayment.mutate()}
+                        >
+                          Thanh toán toàn bộ {money(wholeBalanceAmount)}
+                        </Button>
+                        <Typography.Text type="secondary">
+                          Chuyển khoản một lần cho toàn bộ khoản còn thiếu trong đơn.
+                        </Typography.Text>
+                      </Flex>
+                    )}
                     {pending && (
                       <Statistic.Countdown
                         title="Thời gian giữ phòng còn lại"

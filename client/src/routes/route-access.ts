@@ -28,6 +28,7 @@ const staffRoutes: Array<[string, UserRole[]]> = [
   [ROUTE_PATHS.addOnServices, ROUTE_ROLES.management],
   [ROUTE_PATHS.priceRules, ROUTE_ROLES.management],
   [ROUTE_PATHS.arrivals, ROUTE_ROLES.frontDesk],
+  [ROUTE_PATHS.bookingRequests, ROUTE_ROLES.frontDesk],
   [ROUTE_PATHS.departures, ROUTE_ROLES.frontDesk],
   [ROUTE_PATHS.payments, ROUTE_ROLES.management],
   [ROUTE_PATHS.webhookEvents, ROUTE_ROLES.management],
@@ -39,7 +40,11 @@ export function canAccessPostLoginPath(pathname: string, roles: UserRole[]): boo
     return false;
   const matches = (path: string) => matchPath({ path, end: true }, pathname) !== null;
   if (matches(ROUTE_PATHS.profile)) return true;
-  if (matches(ROUTE_PATHS.guestBookings) || matches(`${ROUTE_PATHS.guestBookings}/:bookingCode`)) {
+  if (
+    matches(ROUTE_PATHS.guestBookings) ||
+    matches(`${ROUTE_PATHS.guestBookings}/:bookingCode`) ||
+    matches('/booking-orders/:orderId')
+  ) {
     return roles.length === 0;
   }
   return staffRoutes.some(([path, allowed]) => matches(path) && hasRouteRole(roles, allowed));

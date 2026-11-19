@@ -112,6 +112,259 @@ public class Booking extends BaseEntity {
     @Column(name = "checked_out_at")
     private Instant checkedOutAt;
 
+    @Column(length = 50)
+    private String arrivalPolicyVersion;
+
+    private Instant arrivalHoldUntil;
+    private Instant arrivalHoldRequestedUntil;
+    private Instant expectedArrivalAt;
+    private Instant arrivalContactAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private ArrivalContact.Channel arrivalContactChannel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private ArrivalContact.Outcome arrivalContactOutcome;
+
+    @Column(length = 500)
+    private String arrivalContactNote;
+
+    private Instant noShowAt;
+    private Long noShowFee;
+    private Long noShowOriginalTotal;
+
+    @Column(length = 50)
+    private String noShowPolicyVersion;
+
+    private UUID replacementForBookingId;
+
+    @Builder.Default
+    private int stayRevision = 0;
+
+    private Long cancellationOriginalTotal;
+    private Long cancellationFee;
+    private Instant balanceDueAt;
+
+    public void setBalanceDueAt(Instant dueAt) {
+        balanceDueAt = dueAt;
+    }
+
+    public void recordSettledFeeCollection(long credited, User actor, String reason) {
+        if (!com.hanbay.hotel.booking.policy.ClosedBookingFeePolicy.applies(this)
+                || credited < 0
+                || credited > totalAmount)
+            throw new BookingValidationException("Booking không có phí đã quyết toán để ghi nhận thu tiền.");
+        paidAmount = credited;
+        recordStaffNote(actor, reason);
+    }
+
+    public void applyFeeReduction(long fee, long available, User actor, Instant now, String reason) {
+        long delta = fee - policyFeeTotal;
+        if (delta > 0) throw new BookingValidationException("Điều chỉnh chỉ được giảm/miễn phí đã phát sinh.");
+        recordPolicyFee(fee, "MANAGER_REDUCTION", actor, now, reason);
+        totalAmount = Math.addExact(totalAmount, delta);
+        paidAmount = Math.min(totalAmount, available);
+        if (status == BookingStatus.CANCELLED) cancellationFee = fee;
+        if (status == BookingStatus.NO_SHOW) noShowFee = fee;
+        recordStaffNote(actor, "Quản lý giảm phí: " + reason);
+    }
+
+    @Builder.Default
+    private boolean cancellationReviewRequired = false;
+
+    public void cancelForSettlementReview(User actor, Instant now, String reason) {
+        cancellationOriginalTotal = totalAmount;
+        cancellationReviewRequired = true;
+        cancellationFee = null;
+        totalAmount = 0; // No unaccepted fee is booked as debt.
+        assignedRoom = null;
+        arrivalHoldUntil = null;
+        arrivalHoldRequestedUntil = null;
+        cancel(actor, reason, now);
+    }
+
+    public void settleCancelledBooking(User actor, long fee, long credited, String reason) {
+        if (status != BookingStatus.CANCELLED
+                || !cancellationReviewRequired
+                || fee < 0
+                || (com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(this)
+                        ? fee > originalFirstNightAmount
+                        : fee > cancellationOriginalTotal))
+            throw new BookingValidationException("Booking không có quyết toán hủy chờ xem xét.");
+        cancellationReviewRequired = false;
+        cancellationFee = fee;
+        totalAmount = fee;
+        paidAmount = credited;
+        recordStaffNote(actor, reason);
+    }
+
+    @Column(length = 50)
+    private String termsVersion;
+
+    @Column(columnDefinition = "text")
+    private String acceptedTerms;
+
+    private Instant termsAcceptedAt;
+    private LocalDate originalCheckInDate;
+    private Long originalFirstNightAmount;
+
+    @Builder.Default
+    private long policyFeeTotal = 0;
+
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<BookingPolicyFee> policyFees = new ArrayList<>();
+
+    public void acceptStandardTerms(Instant now) {
+        if (status != BookingStatus.PENDING || termsVersion != null) return;
+        termsVersion = com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.VERSION;
+        acceptedTerms = com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.TERMS;
+        termsAcceptedAt = Objects.requireNonNull(now);
+        originalCheckInDate = checkInDate;
+        originalFirstNightAmount = com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.firstNight(this);
+    }
+
+    public void recordPolicyFee(long total, String event, User actor, Instant now, String reason) {
+        if (!com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(this)
+                || total < 0
+                || total > originalFirstNightAmount) {
+            throw new BookingValidationException("Tổng phí phải từ 0 đến căn cứ P gốc.");
+        }
+        policyFees.add(BookingPolicyFee.builder()
+                .booking(this)
+                .event(event)
+                .previousAmount(policyFeeTotal)
+                .amount(total - policyFeeTotal)
+                .totalAmount(total)
+                .actor(actor)
+                .occurredAt(now)
+                .reason(Objects.requireNonNull(reason))
+                .build());
+        policyFeeTotal = total;
+    }
+
+    public void recordStaffNote(User actor, String note) {
+        changeStatus(status, actor, note);
+    }
+
+    public void cancelAtFrontDesk(User actor, Instant now, long fee, long creditedAmount, String reason) {
+        if (status != BookingStatus.CONFIRMED
+                || checkedInAt != null
+                || fee < 0
+                || (com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(this)
+                        ? fee > originalFirstNightAmount
+                        : fee > totalAmount)) {
+            throw new InvalidBookingStateException("Booking không đủ điều kiện hủy tại quầy.");
+        }
+        cancellationOriginalTotal = totalAmount;
+        cancellationFee = fee;
+        totalAmount = fee;
+        paidAmount = creditedAmount;
+        assignedRoom = null;
+        arrivalHoldUntil = null;
+        arrivalHoldRequestedUntil = null;
+        cancel(actor, reason, now);
+    }
+
+    public void rescheduleConfirmed(
+            LocalDate arrival,
+            LocalDate departure,
+            List<BookingNight> repricedNights,
+            long newTotal,
+            long creditedAmount,
+            User actor,
+            String note) {
+        if (status != BookingStatus.CONFIRMED || checkedInAt != null) {
+            throw new InvalidBookingStateException("Chỉ booking đã xác nhận chưa nhận phòng được đổi lịch.");
+        }
+        if (!arrival.equals(checkInDate)) childAges = null;
+        checkInDate = arrival;
+        checkOutDate = departure;
+        totalAmount = newTotal;
+        paidAmount = creditedAmount;
+        assignedRoom = null;
+        arrivalHoldUntil = null;
+        arrivalHoldRequestedUntil = null;
+        stayRevision++;
+        expectedArrivalAt = null;
+        repricedNights.forEach(this::addNight);
+        recordStaffNote(actor, note);
+    }
+
+    public void acceptArrivalPolicy(String version) {
+        if (status == BookingStatus.PENDING) arrivalPolicyVersion = Objects.requireNonNull(version);
+    }
+
+    public void recordArrivalContact(User actor, String note) {
+        changeStatus(status, Objects.requireNonNull(actor), "Liên hệ khách chưa đến: " + note);
+    }
+
+    public void recordArrivalContact(
+            User actor, ArrivalContact.Channel channel, ArrivalContact.Outcome outcome, String note, Instant now) {
+        arrivalContactAt = now;
+        arrivalContactChannel = channel;
+        arrivalContactOutcome = outcome;
+        arrivalContactNote = note;
+        recordArrivalContact(actor, channel.label() + " / " + outcome.label() + (note.isBlank() ? "" : ": " + note));
+    }
+
+    public void updateExpectedArrival(Instant expectedAt, User actor, String note) {
+        expectedArrivalAt = expectedAt;
+        changeStatus(
+                status, actor, "Cập nhật giờ khách dự kiến đến: " + expectedAt + (note.isBlank() ? "" : "; " + note));
+    }
+
+    public void rejectArrivalHold(User actor, String note) {
+        arrivalHoldRequestedUntil = null;
+        changeStatus(status, actor, "Từ chối đề nghị nhận sau hạn: " + note);
+    }
+
+    public void holdArrival(Instant until, User actor, boolean approved, String note) {
+        if (status != BookingStatus.CONFIRMED) {
+            throw new InvalidBookingStateException("Chỉ booking đã xác nhận mới được giữ để đến muộn.");
+        }
+        arrivalHoldRequestedUntil = until;
+        if (approved) arrivalHoldUntil = until;
+        changeStatus(
+                status, actor, (approved ? "Duyệt giữ phòng đến " : "Đề nghị giữ phòng đến ") + until + ": " + note);
+    }
+
+    public void markNoShow(User actor, Instant now, long fee, String policyVersion, String reason) {
+        if (status != BookingStatus.CONFIRMED || checkedInAt != null) {
+            throw new InvalidBookingStateException("Chỉ booking chưa nhận phòng đã xác nhận mới được đóng no-show.");
+        }
+        if (fee < 0
+                || (com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(this)
+                        ? fee > originalFirstNightAmount
+                        : fee > totalAmount)) throw new BookingValidationException("Phí no-show không hợp lệ.");
+        noShowOriginalTotal = totalAmount;
+        noShowFee = fee;
+        noShowPolicyVersion = Objects.requireNonNull(policyVersion);
+        totalAmount = fee;
+        noShowAt = Objects.requireNonNull(now);
+        assignedRoom = null;
+        expiredAt = null;
+        arrivalHoldUntil = null;
+        arrivalHoldRequestedUntil = null;
+        changeStatus(BookingStatus.NO_SHOW, Objects.requireNonNull(actor), reason);
+    }
+
+    public void releaseArrivalHold(User actor, String note) {
+        arrivalHoldUntil = null;
+        arrivalHoldRequestedUntil = null;
+        changeStatus(status, actor, "Quản lý kết thúc thỏa thuận giữ phòng: " + note);
+    }
+
+    public void linkReplacement(Booking original, User creator) {
+        replacementForBookingId = Objects.requireNonNull(original.getId());
+        changeStatus(
+                status,
+                Objects.requireNonNull(creator),
+                "Quản lý tạo kỳ ở mới thay booking " + original.getBookingCode() + "; quyết toán tiền độc lập");
+    }
+
     @OneToMany(mappedBy = "booking", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BookingGuest> guests = new ArrayList<>();
@@ -144,6 +397,14 @@ public class Booking extends BaseEntity {
         this.order = Objects.requireNonNull(order);
         this.orderRoomNumber = roomNumber;
         this.expiredAt = order.getExpiresAt();
+    }
+
+    public void claimBy(User owner) {
+        Objects.requireNonNull(owner);
+        if (bookedBy != null && !bookedBy.getId().equals(owner.getId())) {
+            throw new InvalidBookingStateException("Đặt phòng đã thuộc tài khoản khác.");
+        }
+        bookedBy = owner;
     }
 
     public void addGuest(BookingGuest guest) {
@@ -381,6 +642,12 @@ public class Booking extends BaseEntity {
         if (updatedAges != null && updatedAges.size() != children) {
             throw new BookingValidationException("Số tuổi trẻ em phải khớp số trẻ em trong phòng.");
         }
+        termsVersion = null;
+        acceptedTerms = null;
+        termsAcceptedAt = null;
+        originalCheckInDate = null;
+        originalFirstNightAmount = null;
+        arrivalPolicyVersion = null;
         this.roomType = Objects.requireNonNull(roomType);
         this.checkInDate = Objects.requireNonNull(checkIn);
         this.checkOutDate = Objects.requireNonNull(checkOut);

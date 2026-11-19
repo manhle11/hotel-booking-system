@@ -84,6 +84,9 @@ class BookingOrderIntegrationTest {
     BookingOrderService service;
 
     @Autowired
+    BookingChangeService changes;
+
+    @Autowired
     org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @Autowired
@@ -470,6 +473,80 @@ class BookingOrderIntegrationTest {
     }
 
     @Test
+    void claimsPaidGuestOrderAndAllRoomsIntoAccountHistoryWithoutChangingPayment() {
+        var order = service.createPayment(create(deluxe, suite).orderId(), TOKEN);
+        webhook(transfer(order, 4000));
+        assertThat(service.get(order.orderId(), TOKEN).claimable()).isTrue();
+        UUID owner = transaction.execute(
+                status -> users.saveAndFlush(User.builder().build()).getId());
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken(owner.toString(), null, "ROLE_USER"));
+
+        var claimed = service.claim(order.orderId(), TOKEN);
+
+        assertThat(claimed.claimable()).isFalse();
+        assertThat(claimed.reviewOwner()).isTrue();
+        assertThat(claimed.paymentStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(claimed.status()).isEqualTo(BookingOrderStatus.CONFIRMED);
+        assertThat(claimed.paidAmount()).isEqualTo(4000);
+        assertThat(service.history(0, 10).content())
+                .extracting(BookingOrderResponse::orderId)
+                .contains(order.orderId());
+        assertThat(service.get(order.orderId(), null).rooms()).hasSize(2);
+        transaction.executeWithoutResult(status -> assertThat(
+                        orders.findById(order.orderId()).orElseThrow().getBookings())
+                .allSatisfy(booking -> assertThat(booking.getBookedBy().getId()).isEqualTo(owner)));
+        assertThat(service.claim(order.orderId(), TOKEN).orderId()).isEqualTo(order.orderId());
+    }
+
+    @Test
+    void cannotClaimWithoutAuthenticationOrProofOfAccessEvenWithMatchingContactEmail() {
+        var order = create(deluxe, suite);
+        assertThatThrownBy(() -> service.claim(order.orderId(), TOKEN)).isInstanceOf(BookingNotFoundException.class);
+        UUID owner = transaction.execute(status -> users.saveAndFlush(User.builder()
+                        .email("claim-" + UUID.randomUUID() + "@example.test")
+                        .build())
+                .getId());
+        transaction.executeWithoutResult(status -> jdbc.update(
+                "update booking_orders set contact_email = (select email from users where id = ?) where id = ?",
+                owner,
+                order.orderId()));
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken(owner.toString(), null, "ROLE_USER"));
+        assertThatThrownBy(() -> service.claim(order.orderId(), null)).isInstanceOf(BookingNotFoundException.class);
+        assertThatThrownBy(() -> service.claim(order.orderId(), "wrong-token"))
+                .isInstanceOf(BookingNotFoundException.class);
+        transaction.executeWithoutResult(status -> {
+            var unchanged = orders.findById(order.orderId()).orElseThrow();
+            assertThat(unchanged.getBookedBy()).isNull();
+            assertThat(unchanged.getBookings())
+                    .allSatisfy(booking -> assertThat(booking.getBookedBy()).isNull());
+        });
+    }
+
+    @Test
+    void cannotTakeAnOrderFromAnotherAccountEvenWithItsAccessToken() {
+        UUID owner = transaction.execute(
+                status -> users.saveAndFlush(User.builder().build()).getId());
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken(owner.toString(), null, "ROLE_USER"));
+        var order = create(deluxe, suite);
+        assertThat(order.claimable()).isFalse();
+        UUID other = transaction.execute(
+                status -> users.saveAndFlush(User.builder().build()).getId());
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken(other.toString(), null, "ROLE_USER"));
+        assertThatThrownBy(() -> service.claim(order.orderId(), TOKEN)).isInstanceOf(BookingNotFoundException.class);
+        transaction.executeWithoutResult(status -> {
+            var unchanged = orders.findById(order.orderId()).orElseThrow();
+            assertThat(unchanged.getBookedBy().getId()).isEqualTo(owner);
+            assertThat(unchanged.getBookings())
+                    .allSatisfy(
+                            booking -> assertThat(booking.getBookedBy().getId()).isEqualTo(owner));
+        });
+    }
+
+    @Test
     void receptionistCanCheckInOneRoomWithoutChangingTheOtherAndWholeOrderCancellationIsDenied() {
         var order = service.createPayment(create(deluxe, deluxe).orderId(), TOKEN);
         webhook(transfer(order, 4000));
@@ -750,6 +827,196 @@ class BookingOrderIntegrationTest {
                         .toList());
     }
 
+    private BookingOrderResponse orderWithAdditionalBalance() {
+        var initial = service.createPayment(
+                create(deluxe, deluxe, suite).orderId(),
+                TOKEN,
+                com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.VERSION);
+        webhook(transfer(initial, 6000));
+        when(pricing.calculateRoomPrice(any(), any(), any())).thenAnswer(invocation -> {
+            LocalDate start = invocation.getArgument(1), end = invocation.getArgument(2);
+            var nights = start.datesUntil(end)
+                    .map(date -> BookingNight.builder()
+                            .stayDate(date)
+                            .pricePerNight(1000)
+                            .build())
+                    .toList();
+            long amount = nights.size() * 1000L;
+            return new RoomPricingResult(nights, amount, 0, amount);
+        });
+        User manager =
+                users.saveAndFlush(User.builder().fullName("Quản lý đổi lịch").build());
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new TestingAuthenticationToken(manager.getId().toString(), "", "ROLE_MANAGER"));
+        var request = changes.create(
+                initial.rooms().get(0).bookingCode(),
+                new BookingChangeCommand.Create(
+                        BookingChangeRequest.Type.RESCHEDULE,
+                        CHECK_IN.plusDays(5),
+                        CHECK_IN.plusDays(8),
+                        "Khách tăng số đêm"));
+        var quote = changes.allowException(request.id(), "Quản lý đồng ý tăng số đêm");
+        changes.approve(
+                request.id(),
+                new BookingChangeCommand.Approve(
+                        quote.quoteToken(),
+                        null,
+                        "Khách chấp thuận giá mới",
+                        true,
+                        false,
+                        Map.of(),
+                        NOW.plusSeconds(86400)));
+        SecurityContextHolder.clearContext();
+        return service.get(initial.orderId(), TOKEN);
+    }
+
+    @Test
+    void paysAllConfirmedRoomBalancesWithOneQrAndNeverConfirmsTheOrderAgain() {
+        var changed = orderWithAdditionalBalance();
+        when(clock.instant()).thenReturn(NOW.plusSeconds(7200));
+        var payable = service.createPayment(changed.orderId(), TOKEN);
+        assertThat(payable.payment().amount()).isEqualTo(3000);
+        assertThat(payable.payment().remainingAmount()).isEqualTo(3000);
+        assertThat(payable.payment().expiredAt()).isEqualTo(NOW.plusSeconds(8100));
+        assertThat(service.createPayment(changed.orderId(), TOKEN).payment().paymentId())
+                .isEqualTo(payable.payment().paymentId());
+        var incoming = transfer(payable, 3000);
+        webhook(incoming);
+        webhook(incoming);
+        var settled = service.get(changed.orderId(), TOKEN);
+        assertThat(settled.status()).isEqualTo(BookingOrderStatus.CONFIRMED);
+        assertThat(settled.totalAmount()).isEqualTo(9000);
+        assertThat(settled.paidAmount()).isEqualTo(9000);
+        assertThat(settled.rooms())
+                .allSatisfy(room -> assertThat(room.paidAmount()).isEqualTo(3000));
+        var status = paymentService.getPaymentStatus(payable.payment().paymentId(), TOKEN);
+        assertThat(status.bookingCode()).isEqualTo(changed.orderCode());
+        assertThat(status.bookingId()).isEqualTo(changed.orderId());
+        assertThat(status.remainingAmount()).isZero();
+        transaction.executeWithoutResult(
+                ignored -> assertThat(payments.findById(payable.payment().paymentId())
+                                .orElseThrow()
+                                .getAllocations())
+                        .hasSize(3)
+                        .allSatisfy(allocation -> {
+                            assertThat(allocation.getAmount()).isEqualTo(1000);
+                            assertThat(allocation.getAppliedAmount()).isEqualTo(1000);
+                        }));
+    }
+
+    @Test
+    void partialWholeOrderPaymentsReuseTheQrAndOnlyCollectTheRemainingBalance() {
+        var changed = orderWithAdditionalBalance();
+        var payable = service.createPayment(changed.orderId(), TOKEN);
+        webhook(transfer(payable, 1500));
+        var partial = service.createPayment(changed.orderId(), TOKEN);
+        assertThat(partial.payment().paymentId()).isEqualTo(payable.payment().paymentId());
+        assertThat(partial.payment().remainingAmount()).isEqualTo(1500);
+        assertThat(partial.paidAmount()).isEqualTo(7500);
+        assertThat(paymentService
+                        .getPaymentStatus(payable.payment().paymentId(), TOKEN)
+                        .remainingAmount())
+                .isEqualTo(1500);
+        webhook(transfer(payable, 1500));
+        assertThat(service.get(changed.orderId(), TOKEN).paidAmount()).isEqualTo(9000);
+    }
+
+    @Test
+    void wholeOrderQrClosesRoomQrsAndRefundsLateRoomTransfersWithoutDoubleCredit() {
+        var changed = orderWithAdditionalBalance();
+        var roomQr = paymentService.createPaymentRequest(
+                new CreatePaymentRequest(changed.rooms().get(0).bookingId()), TOKEN);
+        var whole = service.createPayment(changed.orderId(), TOKEN);
+        assertThat(payments.findById(roomQr.paymentId()).orElseThrow().getStatus())
+                .isEqualTo(PaymentStatus.CANCELLED);
+        webhook(transfer(roomQr, 1000));
+        assertThat(service.get(changed.orderId(), TOKEN).paidAmount()).isEqualTo(6000);
+        transaction.executeWithoutResult(ignored -> assertThat(
+                        payments.findById(roomQr.paymentId()).orElseThrow().getRefunds())
+                .singleElement()
+                .satisfies(refund -> assertThat(refund.getAmount()).isEqualByComparingTo("1000")));
+        webhook(transfer(whole, 3000));
+        assertThat(service.get(changed.orderId(), TOKEN).paidAmount()).isEqualTo(9000);
+    }
+
+    @Test
+    void switchingToRoomPaymentReplacesWholeQrAndNewWholeQrExcludesAlreadyPaidRooms() {
+        var changed = orderWithAdditionalBalance();
+        var oldWhole = service.createPayment(changed.orderId(), TOKEN);
+        var roomQr = paymentService.createPaymentRequest(
+                new CreatePaymentRequest(changed.rooms().get(0).bookingId()), TOKEN);
+        assertThat(payments.findById(oldWhole.payment().paymentId())
+                        .orElseThrow()
+                        .getStatus())
+                .isEqualTo(PaymentStatus.CANCELLED);
+        webhook(transfer(roomQr, 1000));
+        var remaining = service.createPayment(changed.orderId(), TOKEN);
+        assertThat(remaining.payment().amount()).isEqualTo(2000);
+        transaction.executeWithoutResult(
+                ignored -> assertThat(payments.findById(remaining.payment().paymentId())
+                                .orElseThrow()
+                                .getAllocations())
+                        .hasSize(2));
+        webhook(transfer(oldWhole, 3000));
+        assertThat(service.get(changed.orderId(), TOKEN).paidAmount()).isEqualTo(7000);
+        webhook(transfer(remaining, 2000));
+        assertThat(service.get(changed.orderId(), TOKEN).paidAmount()).isEqualTo(9000);
+    }
+
+    @Test
+    void wholeOrderOverpaymentsAreRefundedAndLaterCancellationNeverReusesReservedRefunds() {
+        var changed = orderWithAdditionalBalance();
+        var whole = service.createPayment(changed.orderId(), TOKEN);
+        webhook(transfer(whole, 3500));
+        var settled = service.get(changed.orderId(), TOKEN);
+        assertThat(settled.paidAmount()).isEqualTo(9000);
+        assertThat(settled.refundAmount()).isEqualTo(500);
+        var cancelled =
+                service.cancel(changed.orderId(), TOKEN, new CancelBookingRequest("Khách hủy trước kỳ mới", null));
+        assertThat(cancelled.status()).isEqualTo(BookingOrderStatus.CANCELLED);
+        assertThat(cancelled.refundAmount()).isEqualTo(9500);
+    }
+
+    @Test
+    void expiredWholeBalanceQrCanBeRenewedAndLateTransfersDoNotReopenIt() {
+        var changed = orderWithAdditionalBalance();
+        var expired = service.createPayment(changed.orderId(), TOKEN);
+        when(clock.instant()).thenReturn(expired.payment().expiredAt().plusSeconds(1));
+        var renewed = service.createPayment(changed.orderId(), TOKEN);
+        assertThat(renewed.payment().paymentId()).isNotEqualTo(expired.payment().paymentId());
+        assertThat(renewed.payment().amount()).isEqualTo(3000);
+        webhook(transfer(expired, 3000));
+        assertThat(service.get(changed.orderId(), TOKEN).paidAmount()).isEqualTo(6000);
+        webhook(transfer(renewed, 3000));
+        var settled = service.get(changed.orderId(), TOKEN);
+        assertThat(settled.paidAmount()).isEqualTo(9000);
+        assertThat(settled.refundAmount()).isEqualTo(3000);
+    }
+
+    @Test
+    void concurrentWholeOrderQrCreationReturnsOneActivePayment() throws Exception {
+        var changed = orderWithAdditionalBalance();
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            CountDownLatch start = new CountDownLatch(1);
+            Callable<UUID> create = () -> {
+                start.await();
+                return service.createPayment(changed.orderId(), TOKEN).payment().paymentId();
+            };
+            var first = executor.submit(create);
+            var second = executor.submit(create);
+            start.countDown();
+            assertThat(first.get(20, TimeUnit.SECONDS)).isEqualTo(second.get(20, TimeUnit.SECONDS));
+            assertThat(payments.findAllByOrderIdOrderByCreatedAtDesc(changed.orderId()).stream()
+                            .filter(payment -> payment.getStatus() == PaymentStatus.PENDING)
+                            .count())
+                    .isEqualTo(1);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     private BookingOrderResponse create(UUID... types) {
         return service.create(request(types), UUID.randomUUID().toString(), TOKEN);
     }
@@ -787,6 +1054,11 @@ class BookingOrderIntegrationTest {
     }
 
     private SePayWebhookRequest transfer(BookingOrderResponse order, long amount) {
+        return transfer(order.payment(), amount);
+    }
+
+    private SePayWebhookRequest transfer(
+            com.hanbay.hotel.payment.dto.response.CreatePaymentRequestResponse payment, long amount) {
         long id = EVENT_IDS.incrementAndGet();
         return new SePayWebhookRequest(
                 id,
@@ -794,8 +1066,8 @@ class BookingOrderIntegrationTest {
                 LocalDateTime.ofInstant(clock.instant(), ZoneId.of("Asia/Ho_Chi_Minh")),
                 "123456789",
                 null,
-                order.payment().transactionRef(),
-                order.payment().transferContent(),
+                payment.transactionRef(),
+                payment.transferContent(),
                 SePayTransferType.IN,
                 amount,
                 0,

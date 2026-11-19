@@ -31,6 +31,8 @@ public class PaymentRefund extends BaseEntity {
     @JoinColumn(name = "payment_id", nullable = false)
     private Payment payment;
 
+    private UUID sourceBookingId;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "transaction_id", unique = true)
     private PaymentTransaction transaction;

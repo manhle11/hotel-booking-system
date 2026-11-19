@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.hanbay.hotel.booking.domain.Booking;
 import com.hanbay.hotel.booking.domain.BookingStatus;
+import com.hanbay.hotel.booking.policy.ArrivalPolicy;
 import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.booking.service.BookingAccessTokenService;
 import com.hanbay.hotel.common.security.CurrentUserProvider;
@@ -85,7 +86,9 @@ class PaymentServiceImplTest {
                 sePayService,
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 bookingAccessTokenService,
-                currentUserProvider);
+                currentUserProvider,
+                new com.hanbay.hotel.booking.service.BookingSettlementLedger(paymentRepository),
+                org.mockito.Mockito.mock(com.hanbay.hotel.booking.service.BookingOrderPaymentService.class));
     }
 
     @Test
@@ -98,7 +101,8 @@ class PaymentServiceImplTest {
         when(sePayService.generateQr(anyLong(), anyString()))
                 .thenAnswer(invocation -> qrInfo(invocation.getArgument(1)));
 
-        var response = service.createPaymentRequest(new CreatePaymentRequest(booking.getId()), "access-token");
+        var response = service.createPaymentRequest(
+                new CreatePaymentRequest(booking.getId(), ArrivalPolicy.VERSION), "access-token");
 
         ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository).save(paymentCaptor.capture());
@@ -116,7 +120,21 @@ class PaymentServiceImplTest {
         assertThat(response.accountName()).isEqualTo("HANBAY HOTEL DEV");
         assertThat(response.transferContent()).isEqualTo(payment.getPaymentCode());
         assertThat(booking.getStatus()).isEqualTo(BookingStatus.PENDING);
+        assertThat(booking.getArrivalPolicyVersion()).isEqualTo(ArrivalPolicy.VERSION);
         verify(sePayService).generateQr(2_450_000L, payment.getPaymentCode());
+    }
+
+    @Test
+    void additionalBalanceGetsAFreshQrDeadlineAfterTheOriginalBookingHoldHasExpired() {
+        Booking booking = booking(BookingStatus.CONFIRMED, NOW.minusSeconds(86400), 4_000_000L);
+        booking.recordPayment(2_800_000L);
+        when(bookingRepository.findByIdForUpdate(booking.getId())).thenReturn(Optional.of(booking));
+        when(paymentRepository.findAllByBookingIdAndStatusOrderByCreatedAtDesc(booking.getId(), PaymentStatus.PENDING))
+                .thenReturn(List.of());
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        var response = service.createPaymentRequest(new CreatePaymentRequest(booking.getId()), "access-token");
+        assertThat(response.amount()).isEqualTo(1_200_000);
+        assertThat(response.expiredAt()).isEqualTo(NOW.plusSeconds(900));
     }
 
     @Test

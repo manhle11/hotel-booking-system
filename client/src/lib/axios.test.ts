@@ -48,7 +48,40 @@ const successResponse = (config: InternalAxiosRequestConfig): AxiosResponse => (
 describe('apiClient refresh interceptor', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
     mockedRefreshAccessToken.mockReset();
+  });
+
+  it('retries order creation with its original payload and checkout headers after refreshing', async () => {
+    tokenStorage.setTokens('expired-access-token', 'current-refresh-token');
+    mockedRefreshAccessToken.mockResolvedValue({
+      accessToken: 'new-access-token',
+      refreshToken: 'new-refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: 900,
+    });
+    const attempts: InternalAxiosRequestConfig[] = [];
+    const adapter: AxiosAdapter = async (config) => {
+      attempts.push(config);
+      if (config.headers.get('Authorization') === 'Bearer expired-access-token') {
+        throw unauthorizedError(config);
+      }
+      return successResponse(config);
+    };
+    await apiClient.post(
+      '/booking-orders',
+      { rooms: [{ roomTypeId: 'deluxe' }] },
+      {
+        adapter,
+        headers: { 'Idempotency-Key': 'checkout-key', 'X-Booking-Access-Token': 'order-token' },
+      },
+    );
+    expect(attempts).toHaveLength(2);
+    expect(attempts[1].data).toBe(attempts[0].data);
+    expect(attempts[1].headers.get('Authorization')).toBe('Bearer new-access-token');
+    expect(attempts[1].headers.get('Idempotency-Key')).toBe('checkout-key');
+    expect(attempts[1].headers.get('X-Booking-Access-Token')).toBe('order-token');
+    expect(mockedRefreshAccessToken).toHaveBeenCalledTimes(1);
   });
 
   it('uses one refresh request for concurrent unauthorized responses', async () => {

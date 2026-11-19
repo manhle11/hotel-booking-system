@@ -45,10 +45,22 @@ public class BookingOrderController {
         return ApiResponse.success("Chi tiết đơn đặt phòng", service.get(id, token));
     }
 
+    @PostMapping("/{id}/claim")
+    public ApiResponse<BookingOrderResponse> claim(
+            @PathVariable UUID id,
+            @RequestHeader("X-Booking-Access-Token") @Pattern(regexp = "[A-Za-z0-9_-]{32,120}") String token) {
+        return ApiResponse.success("Đã lưu đơn vào lịch sử tài khoản", service.claim(id, token));
+    }
+
     @PostMapping("/{id}/payments")
     public ApiResponse<BookingOrderResponse> payment(
-            @PathVariable UUID id, @RequestHeader(value = "X-Booking-Access-Token", required = false) String token) {
-        return ApiResponse.success("Thông tin thanh toán toàn đơn", service.createPayment(id, token));
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-Booking-Access-Token", required = false) String token,
+            @Valid @RequestBody(required = false)
+                    com.hanbay.hotel.booking.dto.request.ArrivalHandlingRequest.Acceptance acceptance) {
+        return ApiResponse.success(
+                "Thông tin thanh toán toàn đơn",
+                service.createPayment(id, token, acceptance == null ? null : acceptance.arrivalPolicyVersion()));
     }
 
     @GetMapping("/{id}/cancellation-eligibility")

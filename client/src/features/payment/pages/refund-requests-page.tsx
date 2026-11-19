@@ -19,8 +19,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 
-import { confirmRefund, getPendingRefunds } from '../api/refund-api';
-import type { RefundRequest } from '../types/refund';
+import { confirmRefund, getPendingRefunds, supplyRefundDestination } from '../api/refund-api';
+import type { RefundInformation, RefundRequest } from '../types/refund';
+import { RefundInformationForm } from '../components/refund-information-form';
 
 const PAGE_SIZE = 10;
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
@@ -31,6 +32,24 @@ export function RefundRequestsPage() {
   const [page, setPage] = useState(0);
   const sorting = useTableSorting<RefundRequest>(() => setPage(0));
   const [selected, setSelected] = useState<RefundRequest | null>(null);
+  const [destinationFor, setDestinationFor] = useState<RefundRequest | null>(null);
+  const [information, setInformation] = useState<RefundInformation>({
+    method: 'BANK_TRANSFER',
+    bankName: '',
+    accountHolderName: '',
+    accountNumber: '',
+  });
+  const supplyDestination = useMutation({
+    mutationFn: () => supplyRefundDestination(destinationFor!.refundId, information),
+    onSuccess: async () => {
+      setDestinationFor(null);
+      void message.success('Đã bổ sung tài khoản nhận hoàn.');
+      await queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['booking-change-settlements'] });
+      void queryClient.invalidateQueries({ queryKey: ['booking-change-settlement'] });
+    },
+    onError: (error: Error) => void message.error(error.message),
+  });
   const [form] = Form.useForm<{ bankReference: string }>();
   const refundQuery = useQuery({
     queryKey: ['refund-requests', page, sorting.sort],
@@ -43,6 +62,8 @@ export function RefundRequestsPage() {
       setSelected(null);
       form.resetFields();
       await queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['booking-change-settlements'] });
+      void queryClient.invalidateQueries({ queryKey: ['booking-change-settlement'] });
     },
     onError: (error: Error) => void message.error(error.message),
   });
@@ -109,15 +130,32 @@ export function RefundRequestsPage() {
             {
               title: 'Thao tác',
               render: (_, refund) => (
-                <Button
-                  type="primary"
-                  onClick={() => {
-                    form.resetFields();
-                    setSelected(refund);
-                  }}
-                >
-                  Xác nhận đã hoàn
-                </Button>
+                <Space>
+                  {!refund.accountNumber && (
+                    <Button
+                      onClick={() => {
+                        setInformation({
+                          method: 'BANK_TRANSFER',
+                          bankName: '',
+                          accountHolderName: '',
+                          accountNumber: '',
+                        });
+                        setDestinationFor(refund);
+                      }}
+                    >
+                      Bổ sung tài khoản
+                    </Button>
+                  )}
+                  <Button
+                    type="primary"
+                    onClick={() => {
+                      form.resetFields();
+                      setSelected(refund);
+                    }}
+                  >
+                    Xác nhận đã hoàn
+                  </Button>
+                </Space>
               ),
             },
           ]}
@@ -133,6 +171,32 @@ export function RefundRequestsPage() {
           />
         )}
       </Card>
+      <Modal
+        title="Bổ sung tài khoản nhận hoàn"
+        open={destinationFor !== null}
+        onCancel={() => {
+          if (!supplyDestination.isPending) setDestinationFor(null);
+        }}
+        confirmLoading={supplyDestination.isPending}
+        okText="Lưu tài khoản"
+        cancelText="Đóng"
+        okButtonProps={{
+          disabled:
+            !information.bankName.trim() ||
+            !information.accountHolderName.trim() ||
+            information.accountNumber.length < 4,
+        }}
+        onOk={() => supplyDestination.mutate()}
+      >
+        <Typography.Paragraph>
+          Xác minh thông tin người nhận với khách trước khi lưu.
+        </Typography.Paragraph>
+        <RefundInformationForm
+          value={information}
+          onChange={setInformation}
+          disabled={supplyDestination.isPending}
+        />
+      </Modal>
       <Modal
         title="Xác nhận đã hoàn tiền"
         open={selected !== null}

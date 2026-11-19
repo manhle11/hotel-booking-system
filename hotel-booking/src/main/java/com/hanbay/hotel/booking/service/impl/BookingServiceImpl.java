@@ -85,6 +85,8 @@ public class BookingServiceImpl implements BookingService {
     private final BookingMapper bookingMapper;
     private final BookingCancellationPolicy cancellationPolicy;
     private final BookingAccessTokenService bookingAccessTokenService;
+    private final com.hanbay.hotel.booking.service.BookingSettlementLedger settlementLedger;
+    private final com.hanbay.hotel.booking.service.BookingChangeLifecycle changeLifecycle;
 
     @Override
     public CreatePendingBookingResponse createPendingBooking(CreatePendingBookingRequest request) {
@@ -187,8 +189,41 @@ public class BookingServiceImpl implements BookingService {
         Payment payment = paymentRepository.findAllByBookingIdInOrderByCreatedAtDesc(List.of(booking.getId())).stream()
                 .findFirst()
                 .orElse(null);
+        if (booking.getStatus() == BookingStatus.PENDING) {
+            long received =
+                    settlementLedger.available(booking, paymentRepository.findAllForBookingSettlement(booking.getId()));
+            return new CancellationEligibilityResponse(
+                    true,
+                    null,
+                    null,
+                    100,
+                    received,
+                    CURRENCY,
+                    "Hủy giữ chỗ không có phí; tiền đã nhận được đối soát hoàn, không tự mất cọc.",
+                    0,
+                    0);
+        }
         CancellationDecision decision =
                 cancellationPolicy.evaluate(booking, payment == null ? null : payment.getStatus(), clock.instant());
+        if (booking.getStayRevision() > 0 || com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(booking)) {
+            var contract = cancellationPolicy.evaluate(booking, PaymentStatus.SUCCESS, clock.instant());
+            if (!contract.allowed()) return toEligibilityResponse(contract);
+            long fee = contract.feeAmount();
+            long available =
+                    settlementLedger.available(booking, paymentRepository.findAllForBookingSettlement(booking.getId()));
+            long refund = Math.max(available - fee, 0);
+            return new CancellationEligibilityResponse(
+                    true,
+                    null,
+                    null,
+                    contract.refundPercent(),
+                    refund,
+                    CURRENCY,
+                    "Hủy giải phóng phòng ngay. Tổng phí còn hiệu lực " + fee + " VND; hoàn theo thực thu còn bù trừ. "
+                            + "Phí đã phát sinh không tự hoàn sau đổi lịch. Hoàn tiền chờ đối soát.",
+                    fee,
+                    Math.max(fee - available, 0));
+        }
         return toEligibilityResponse(decision);
     }
 
@@ -216,6 +251,35 @@ public class BookingServiceImpl implements BookingService {
         ensureBookingOwner(booking, userId);
         ensureStandaloneBooking(booking);
 
+        if (booking.getStatus() == BookingStatus.CONFIRMED
+                && (booking.getStayRevision() > 0
+                        || com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(booking)))
+            return cancelRescheduledBooking(booking, request);
+
+        if (booking.getStatus() == BookingStatus.PENDING) {
+            var ledger = settlementLedger.lockPayments(List.of(booking));
+            long refund = settlementLedger.refundExcess(
+                    booking,
+                    ledger,
+                    0,
+                    "pending-cancel",
+                    request.normalizedReason(),
+                    clock.instant(),
+                    request.refundInformation());
+            booking.cancel(booking.getBookedBy(), request.normalizedReason(), clock.instant());
+            changeLifecycle.afterCancellation(booking, booking.getBookedBy(), clock.instant());
+            return new CancelBookingResponse(
+                    booking.getId(),
+                    booking.getBookingCode(),
+                    booking.getStatus(),
+                    booking.getCancelledAt(),
+                    refund > 0
+                            ? com.hanbay.hotel.booking.dto.response.RefundStatus.PENDING
+                            : com.hanbay.hotel.booking.dto.response.RefundStatus.NOT_REQUIRED,
+                    100,
+                    refund,
+                    CURRENCY);
+        }
         Payment payment = paymentRepository
                 .findFirstByBookingIdAndStatusOrderByPaidAtDesc(booking.getId(), PaymentStatus.SUCCESS)
                 .orElseGet(() -> paymentRepository
@@ -233,6 +297,7 @@ public class BookingServiceImpl implements BookingService {
 
         String reason = request.normalizedReason();
         booking.cancel(booking.getBookedBy(), reason, now);
+        changeLifecycle.afterCancellation(booking, booking.getBookedBy(), now);
         if (payment != null && payment.getStatus() == PaymentStatus.PENDING) {
             payment.cancelPending(now);
         } else if (payment != null && payment.getStatus() == PaymentStatus.SUCCESS && decision.refundAmount() > 0) {
@@ -271,6 +336,45 @@ public class BookingServiceImpl implements BookingService {
                 decision.refundAmount(),
                 CURRENCY,
                 description);
+    }
+
+    private CancelBookingResponse cancelRescheduledBooking(Booking booking, CancelBookingRequest request) {
+        var contract = cancellationPolicy.evaluate(booking, PaymentStatus.SUCCESS, clock.instant());
+        if (!contract.allowed())
+            throw new BookingCancellationNotAllowedException(contract.denialCode(), contract.message());
+        var payments = settlementLedger.lockPayments(List.of(booking));
+        long fee = contract.feeAmount();
+        long available = settlementLedger.available(booking, payments);
+        long refund = Math.max(available - fee, 0);
+        if (refund > 0
+                && request.refundInformation() == null
+                && !com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(booking))
+            throw new BookingValidationException("REFUND_INFORMATION_REQUIRED: Cần cung cấp thông tin nhận hoàn tiền");
+        settlementLedger.refundExcess(
+                booking,
+                payments,
+                fee,
+                "pubcancel",
+                request.normalizedReason(),
+                clock.instant(),
+                request.refundInformation());
+        if (com.hanbay.hotel.booking.policy.UnifiedBookingPolicy.applies(booking))
+            booking.recordPolicyFee(
+                    fee, "CANCELLATION", booking.getBookedBy(), clock.instant(), request.normalizedReason());
+        booking.cancelAtFrontDesk(
+                booking.getBookedBy(), clock.instant(), fee, Math.min(available, fee), request.normalizedReason());
+        changeLifecycle.afterCancellation(booking, booking.getBookedBy(), clock.instant());
+        return new CancelBookingResponse(
+                booking.getId(),
+                booking.getBookingCode(),
+                booking.getStatus(),
+                booking.getCancelledAt(),
+                refund > 0
+                        ? com.hanbay.hotel.booking.dto.response.RefundStatus.PENDING
+                        : com.hanbay.hotel.booking.dto.response.RefundStatus.NOT_REQUIRED,
+                contract.refundPercent(),
+                refund,
+                CURRENCY);
     }
 
     private String describeRefundPolicy(int refundPercent) {
@@ -322,10 +426,29 @@ public class BookingServiceImpl implements BookingService {
                 payment == null ? null : payment.getStatus(),
                 latestRefund == null ? null : latestRefund.getStatus(),
                 latestRefund == null ? null : latestRefund.getAmount(),
-                booking.getCreatedAt());
+                booking.getCreatedAt(),
+                booking.getCancellationOriginalTotal() != null,
+                booking.getStayRevision() > 0);
     }
 
     private CreatePendingBookingResponse createPendingBookingInTransaction(CreatePendingBookingRequest request) {
+        Booking original = null;
+        if (request.replacementForBookingCode() != null) {
+            var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication();
+            if (authentication == null
+                    || authentication.getAuthorities().stream()
+                            .noneMatch(a -> a.getAuthority().equals("ROLE_MANAGER"))) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Chỉ quản lý được tạo booking thay thế no-show.");
+            }
+            original = bookingRepository
+                    .findByBookingCode(request.replacementForBookingCode())
+                    .orElseThrow(() -> new BookingNotFoundException("Không tìm thấy booking gốc"));
+            if (original.getStatus() != BookingStatus.NO_SHOW) {
+                throw new BookingValidationException("Booking gốc phải được quyết toán no-show trước khi đặt kỳ mới.");
+            }
+        }
         User guest = null;
         UUID authenticatedUserId = currentAuthenticatedUserIdOrNull();
         if (authenticatedUserId != null) {
@@ -343,13 +466,14 @@ public class BookingServiceImpl implements BookingService {
         String bookingCode = generateBookingCode();
 
         Booking booking = bookingFactory.createPendingBooking(
-                guest,
+                original == null ? guest : original.getBookedBy(),
                 bookingCode,
                 roomType,
                 request.checkInDate(),
                 request.checkOutDate(),
                 request.adults(),
                 request.children());
+        if (original != null) booking.linkReplacement(original, guest);
 
         String bookingAccessToken = bookingAccessTokenService.generate();
         booking.assignAccessTokenHash(bookingAccessTokenService.hash(bookingAccessToken));

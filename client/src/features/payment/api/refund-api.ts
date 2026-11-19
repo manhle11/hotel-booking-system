@@ -1,6 +1,19 @@
 import { apiClient } from '../../../lib/axios';
 import type { ApiResponse } from '../../../types/api';
 import type { RefundRequest, RefundRequestPage } from '../types/refund';
+import type { RefundInformation } from '../types/refund';
+
+export async function supplyRefundDestination(
+  refundId: string,
+  information: RefundInformation,
+): Promise<RefundRequest> {
+  return (
+    await apiClient.post<ApiResponse<RefundRequest>>(
+      `/payment-monitoring/refunds/${refundId}/destination`,
+      information,
+    )
+  ).data.data;
+}
 
 export async function getPendingRefunds(
   page: number,

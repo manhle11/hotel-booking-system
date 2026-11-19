@@ -3,7 +3,7 @@ documentId: HANBAY-PAYMENT-POLICY
 title: Payment Policy
 category: PAYMENT
 source: docs/knowledge-base/payment-policy.md
-version: 1.3
+version: 1.6
 hotel: HANBAY HOTEL
 language: vi
 ---
@@ -24,12 +24,32 @@ Mô tả cách payment được tạo, xác nhận và đối soát trong hệ t
 
 Payment request phục vụ booking `PENDING` còn hạn hoặc booking `CONFIRMED`/`CHECKED_IN`
 còn công nợ. Amount bằng `max(totalAmount - paidAmount, 0)`, currency `VND`, payment mới
-ở trạng thái `PENDING`. Không tạo payment request khi công nợ bằng 0 hoặc booking ở trạng
-thái khác. Payment chờ còn hạn và cùng amount có thể được tái sử dụng.
+ở trạng thái `PENDING`. Booking `NO_SHOW` hoặc `CANCELLED` đã chốt quyết toán tại quầy
+cũng có thể tạo QR để thu phần phí còn thiếu; số dư lấy từ giao dịch thực thu trừ các khoản
+đã hoàn/đang dành hoàn, không suy ra từ tiền trả gộp ban đầu. Booking cũ đang chờ quản lý
+quyết toán chưa được thu phí. Không tạo payment khi công nợ bằng 0.
+Payment chờ còn hạn và cùng amount được tái sử dụng; hết hạn tạo mã mới theo số dư hiện tại.
 
 Thời hạn payment theo cấu hình; với booking còn hạn giữ chỗ, hạn payment không vượt hạn
 booking. Payment `PENDING` không có nghĩa booking cũng `PENDING`: payment bổ sung có thể
 thuộc booking đã xác nhận hoặc đang lưu trú.
+
+### 3.1.1 Thanh toán chênh lệch toàn đơn nhiều phòng
+
+Đơn đã CONFIRMED có thể thanh toán một lần cho toàn bộ khoản còn thiếu của các phòng
+CONFIRMED/CHECKED_IN qua nút **Thanh toán toàn bộ** trên trang chi tiết đơn. Số tiền QR
+là tổng `max(totalAmount - paidAmount, 0)` từng phòng; không thu lại tiền đã trả và không
+tự lấy tiền của phòng khác đang dành hoàn để bù công nợ. Phòng đã đóng còn nợ cần quyết toán riêng.
+
+Một mã QR được phân bổ theo khoản còn thiếu của từng phòng. Chuyển từng phần được ghi nhận
+vào từng phần phân bổ, QR lần sau dùng số còn thiếu. Mở lại khi mã còn hạn và số dư không
+đổi sẽ dùng lại mã cũ; mã hết hạn hoặc số dư thay đổi tạo mã mới. Hạn QR theo cấu hình
+payment, độc lập với hạn giữ chỗ ban đầu của đơn đã xác nhận.
+
+Khi chuyển giữa thanh toán toàn đơn và thanh toán riêng, mã chờ trước đó được đóng; khoản
+đã nhận vẫn được giữ trong sổ tiền của phòng. Tiền đến mã đã đóng/hết hạn hoặc vượt công
+nợ thực tế được tạo hoàn PENDING; không ghi tăng tiền đã trả hai lần. Đổi/hủy kỳ ở đóng
+mã toàn đơn không còn phù hợp. Thanh toán chênh lệch không xác nhận đơn thêm lần nữa.
 
 ### 3.2 Xác nhận thanh toán
 
@@ -43,6 +63,10 @@ tại lúc xử lý webhook, payment thành `SUCCESS` và booking thành `CONFIR
 Với payment công nợ bổ sung do hệ thống tạo cho booking `CONFIRMED`/`CHECKED_IN`, webhook
 ghi nhận tiền và hoàn tất payment khi đủ amount; không đổi booking về `PENDING` và không
 thực hiện check-in thay lễ tân.
+
+QR thu phí hủy/no-show chỉ làm giảm công nợ phí; không khôi phục booking hoặc giữ chỗ.
+Chuyển từng phần được cộng dồn. Phần vượt số phí còn phải thu được dành hoàn;
+tiền vào QR đã đóng/hết hạn đi đối soát/hoàn, không ghi thu lần nữa.
 
 ### 3.3 Thiếu tiền
 
@@ -61,8 +85,8 @@ còn đủ điều kiện xác nhận cũng tạo refund `PENDING` theo event; h
 
 ### 3.5 Giới hạn phương thức
 
-Hệ thống hỗ trợ chuyển khoản theo QR/payment request và ghi nhận tiền mặt thực thu tại
-checkout. Khoản thu tại quầy giải quyết công nợ còn lại, ví dụ tiền gia hạn hoặc phí phát
+Hệ thống hỗ trợ chuyển khoản theo QR/payment request, ghi nhận tiền mặt thực thu tại
+checkout và thu phí hủy/no-show đã quyết toán. Khoản thu tại quầy giải quyết công nợ còn lại, ví dụ tiền gia hạn hoặc phí phát
 sinh; không phải lựa chọn bỏ qua thanh toán ban đầu cho booking `PENDING`.
 
 Nhân viên ghi số thực thu sau trả tiền thừa; không nhập lại khoản đã được webhook ghi nhận.
@@ -72,6 +96,10 @@ bằng 0 và không cho thu vượt công nợ. Khoản thu được lưu chứn
 Trả sớm còn bù trừ giá trị đêm chưa dùng theo chính sách trả phòng sớm trước khi thu/hoàn.
 Chưa có tích hợp máy POS hoặc tự động thu tiền mặt.
 
+Phí còn thiếu của booking đã đóng được lễ tân/quản lý thu ở màn Xử lý khách: nhập số thực nhận,
+ghi căn cứ và xác nhận đã nhận tiền. Không thu vượt công nợ. Gửi lại cùng xác nhận trả cùng
+kết quả, không tạo phiếu thu thứ hai. Thu tiền không thay đổi trạng thái CANCELLED/NO_SHOW.
+
 ### 3.6 Refund destination
 
 Cancellation và early checkout có refund sử dụng `BANK_TRANSFER`. Thông tin tối thiểu gồm
@@ -80,6 +108,16 @@ hàng, CVV hoặc PIN. Refund mới ở `PENDING`; trạng thái này không có
 tiền thành công. Role `MANAGER` xác nhận khoản hoàn đang `PENDING` bằng mã tham chiếu
 ngân hàng sau khi đối soát; hệ thống ghi nhận refund và giao dịch hoàn `SUCCESS`.
 Luồng này chưa tự chuyển tiền ra ngân hàng hoặc nhận callback hoàn tiền của provider.
+
+### 3.7 Quyết toán no-show
+
+Phí chuẩn bằng giá phòng đêm đầu đã chốt, quản lý có thể miễn/giảm. Tính tiền
+phải hoàn từ giao dịch thực thu và phân bổ từng booking, trừ tiền đã hoàn/đang
+dành cho hoàn khác. Không cộng phí lên toàn bộ tổng kỳ ở chưa sử dụng. Có thể
+đóng booking và tạo yêu cầu hoàn trước khi có tài khoản ngân hàng; khách hoặc
+quản lý bổ sung sau xác minh. Hoàn no-show phải có tài khoản nhận trước khi
+quản lý xác nhận đã chuyển tiền. QR phí mới thu đúng số còn thiếu; chuyển vào QR cũ đã đóng
+được đối soát/hoàn. Tiền đến sau khi đóng không khôi phục booking.
 
 ## 4. Quy trình
 

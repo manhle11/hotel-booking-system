@@ -135,7 +135,8 @@ class BookingPaymentControllerTest {
                         "PAY-20260814070244-E02D78616064F1D9FA5F7DD96F876D",
                         expiredAt,
                         null,
-                        2_450_000L));
+                        2_450_000L,
+                        false));
 
         mockMvc.perform(get("/api/v1/payments/{paymentId}/status", paymentId)
                         .header("X-Booking-Access-Token", "booking-access-token"))

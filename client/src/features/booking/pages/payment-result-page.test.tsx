@@ -88,6 +88,29 @@ afterEach(() => {
 });
 
 describe('PaymentResultPage', () => {
+  it('does not describe a superseded partial payment as full payment of the order', async () => {
+    vi.mocked(getPaymentStatus).mockResolvedValue({
+      ...successResponse,
+      bookingCode: 'ORD-TEST',
+      paidAmount: 1_000_000,
+      remainingAmount: 1_450_000,
+    });
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ConfigProvider>
+          <MemoryRouter initialEntries={['/payments/payment-id/result']}>
+            <Routes>
+              <Route path="/payments/:paymentId/result" element={<PaymentResultPage />} />
+            </Routes>
+          </MemoryRouter>
+        </ConfigProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('Đã ghi nhận thanh toán một phần')).toBeTruthy();
+    expect(screen.queryByText('Thanh toán thành công')).toBeNull();
+  });
   it('hiển thị số tiền còn thiếu và QR mới sau khi nhận thanh toán một phần', async () => {
     vi.mocked(getPaymentStatus).mockResolvedValue({
       ...successResponse,

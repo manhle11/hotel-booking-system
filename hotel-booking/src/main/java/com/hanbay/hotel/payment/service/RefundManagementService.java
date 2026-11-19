@@ -11,4 +11,7 @@ public interface RefundManagementService {
     PageResponse<RefundRequestResponse> getPendingRefunds(int page, int size, String sort);
 
     RefundRequestResponse confirmRefund(UUID refundId, ConfirmRefundRequest request);
+
+    RefundRequestResponse supplyDestination(
+            UUID refundId, com.hanbay.hotel.payment.dto.request.RefundInformationRequest request);
 }

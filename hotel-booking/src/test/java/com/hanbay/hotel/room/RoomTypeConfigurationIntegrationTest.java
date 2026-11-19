@@ -467,6 +467,11 @@ class RoomTypeConfigurationIntegrationTest {
                 .checkInDate(from)
                 .checkOutDate(to)
                 .status(status)
+                .noShowAt(status == BookingStatus.NO_SHOW ? java.time.Instant.now() : null)
+                .noShowFee(status == BookingStatus.NO_SHOW ? 0L : null)
+                .noShowOriginalTotal(status == BookingStatus.NO_SHOW ? 0L : null)
+                .noShowPolicyVersion(
+                        status == BookingStatus.NO_SHOW ? com.hanbay.hotel.booking.policy.ArrivalPolicy.VERSION : null)
                 .build());
     }
 

@@ -34,6 +34,19 @@ const arrival: TodayArrival = {
   childCount: 1,
   bookingStatus: 'CONFIRMED',
   createdAt: '2026-08-10T08:30:00Z',
+  progress: {
+    group: 'WAITING',
+    reasons: [],
+    expectedAt: '2026-08-19T12:00:00Z',
+    receptionDeadline: '2026-08-19T23:00:00Z',
+    canReceive: true,
+    holdPending: false,
+    lastContactAt: null,
+    lastContactChannel: null,
+    lastContactOutcome: null,
+    lastContactNote: null,
+    changeRequestId: null,
+  },
 };
 
 beforeEach(() => {
@@ -96,9 +109,9 @@ describe('TodayArrivalsPage', () => {
     expect(screen.getByText('Deluxe')).not.toBeNull();
     expect(screen.getByText('Nhận: 19/08/2026')).not.toBeNull();
     expect(screen.getByText('Trả: 21/08/2026')).not.toBeNull();
-    expect(screen.getByText('2 người lớn')).not.toBeNull();
-    expect(screen.getByText('Đã xác nhận')).not.toBeNull();
-    expect(useArrivals).toHaveBeenCalledWith({ page: 0, size: 20 }, 'today');
+    expect(screen.getByText('2 người lớn · 1 trẻ em')).not.toBeNull();
+    expect(screen.getByText('Chờ khách đến')).not.toBeNull();
+    expect(useArrivals).toHaveBeenCalledWith({ page: 0, size: 20 }, 'waiting');
   });
 
   it('chuyển page UI một-based thành page API zero-based', () => {
@@ -125,7 +138,7 @@ describe('TodayArrivalsPage', () => {
     expect(nextButton).not.toBeNull();
     fireEvent.click(nextButton!);
 
-    expect(useArrivals).toHaveBeenLastCalledWith({ page: 1, size: 20 }, 'today');
+    expect(useArrivals).toHaveBeenLastCalledWith({ page: 1, size: 20 }, 'waiting');
   });
 
   it('tự chuyển về trang còn dữ liệu khi trang hiện tại rỗng', () => {
@@ -163,9 +176,9 @@ describe('TodayArrivalsPage', () => {
     const nextButton = document.querySelector<HTMLButtonElement>('.ant-pagination-next button');
     fireEvent.click(nextButton!);
 
-    expect(screen.queryByText('Hôm nay không có khách dự kiến nhận phòng')).toBeNull();
+    expect(screen.queryByText('Không có booking trong nhóm này')).toBeNull();
     expect(document.querySelector('.ant-table-wrapper')).not.toBeNull();
-    expect(useArrivals).toHaveBeenLastCalledWith({ page: 0, size: 20 }, 'today');
+    expect(useArrivals).toHaveBeenLastCalledWith({ page: 0, size: 20 }, 'waiting');
   });
 
   it('mở nhận phòng với đúng mã booking', () => {
@@ -211,12 +224,10 @@ describe('TodayArrivalsPage', () => {
         <TodayArrivalsPage />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole('tab', { name: 'Chưa đến / quá giờ' }));
-    expect(useArrivals).toHaveBeenLastCalledWith({ page: 0, size: 20 }, 'overdue');
-    expect(screen.getByRole('link', { name: 'Xem booking' }).getAttribute('href')).toContain(
-      'HAN-20260819-001',
-    );
-    expect(screen.queryByRole('link', { name: 'Nhận phòng' })).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Cần xử lý' }));
+    expect(useArrivals).toHaveBeenLastCalledWith({ page: 0, size: 20 }, 'action');
+    expect(screen.getByRole('combobox', { name: 'Lý do cần xử lý' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Xử lý khách' })).toBeTruthy();
   });
 
   it('hiển thị cảnh báo khi booking thiếu khách chính', () => {
@@ -243,6 +254,97 @@ describe('TodayArrivalsPage', () => {
     expect(screen.getByText('Thiếu thông tin khách')).not.toBeNull();
   });
 
+  it('lọc lịch sử theo ngày xử lý, đặt lại phân trang và giữ bộ lọc khi đổi tab', () => {
+    vi.mocked(useArrivals).mockImplementation(
+      ({ page }) =>
+        queryResult({
+          data: {
+            content: [
+              {
+                ...arrival,
+                bookingStatus: 'NO_SHOW',
+                resolvedAt: '2026-11-12T23:30:00Z',
+                serverNow: '2026-11-18T05:00:00Z',
+                zone: 'Asia/Ho_Chi_Minh',
+                progress: { ...arrival.progress!, group: 'RESOLVED', canReceive: false },
+              },
+            ],
+            page,
+            size: 20,
+            totalElements: 21,
+            totalPages: 2,
+            first: page === 0,
+            last: page === 1,
+          },
+        }) as never,
+    );
+    render(
+      <MemoryRouter>
+        <TodayArrivalsPage />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByPlaceholderText('Từ ngày xử lý')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Đã xử lý' }));
+    expect(screen.getByPlaceholderText('Từ ngày xử lý').getAttribute('value')).toBe('18/11/2026');
+    expect(screen.getAllByText('Thời điểm xử lý').length).toBeGreaterThan(0);
+    expect(screen.getByText('13/11/2026 06:30')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Xem kết quả' })).toBeTruthy();
+    fireEvent.click(document.querySelector<HTMLButtonElement>('.ant-pagination-next button')!);
+    expect(useArrivals).toHaveBeenLastCalledWith({ page: 1, size: 20 }, 'resolved');
+    fireEvent.click(screen.getByRole('button', { name: '7 ngày qua' }));
+    expect(useArrivals).toHaveBeenLastCalledWith(
+      {
+        page: 0,
+        size: 20,
+        resolvedFrom: '2026-11-12',
+        resolvedTo: '2026-11-18',
+      },
+      'resolved',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Hôm qua' }));
+    expect(useArrivals).toHaveBeenLastCalledWith(
+      {
+        page: 0,
+        size: 20,
+        resolvedFrom: '2026-11-17',
+        resolvedTo: '2026-11-17',
+      },
+      'resolved',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Tháng này' }));
+    expect(useArrivals).toHaveBeenLastCalledWith(
+      {
+        page: 0,
+        size: 20,
+        resolvedFrom: '2026-11-01',
+        resolvedTo: '2026-11-18',
+      },
+      'resolved',
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Cần xử lý' }));
+    expect(useArrivals).toHaveBeenLastCalledWith({ page: 0, size: 20 }, 'action');
+    fireEvent.click(screen.getByRole('tab', { name: 'Đã xử lý' }));
+    expect(useArrivals).toHaveBeenLastCalledWith(
+      {
+        page: 0,
+        size: 20,
+        resolvedFrom: '2026-11-01',
+        resolvedTo: '2026-11-18',
+      },
+      'resolved',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Hôm nay' }));
+    expect(useArrivals).toHaveBeenLastCalledWith(
+      {
+        page: 0,
+        size: 20,
+        resolvedFrom: '2026-11-18',
+        resolvedTo: '2026-11-18',
+      },
+      'resolved',
+    );
+  });
+
   it('hiển thị empty state và cho phép làm mới', () => {
     vi.mocked(useArrivals).mockReturnValue(
       queryResult({
@@ -263,7 +365,7 @@ describe('TodayArrivalsPage', () => {
         <TodayArrivalsPage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Hôm nay không có khách dự kiến nhận phòng')).not.toBeNull();
+    expect(screen.getByText('Không có booking trong nhóm này')).not.toBeNull();
 
     fireEvent.click(screen.getAllByText('Làm mới')[0]);
     expect(refetch).toHaveBeenCalledTimes(1);
@@ -280,7 +382,7 @@ describe('TodayArrivalsPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Không thể tải danh sách khách đến hôm nay')).not.toBeNull();
+    expect(screen.getByText('Không thể tải danh sách khách đến')).not.toBeNull();
     expect(screen.getByText('Máy chủ không phản hồi')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Thử tải lại' }));
     expect(refetch).toHaveBeenCalledTimes(1);
@@ -295,7 +397,7 @@ describe('TodayArrivalsPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.queryByText('Hôm nay không có khách dự kiến nhận phòng')).toBeNull();
+    expect(screen.queryByText('Không có booking trong nhóm này')).toBeNull();
     expect(document.querySelector('.ant-table-wrapper')).not.toBeNull();
   });
 });

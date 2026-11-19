@@ -147,12 +147,12 @@ class PolicyPgVectorIntegrationTest {
         @Override
         public float[] embed(Document document) {
             // Use controlled document vectors: policy prose can mention multiple topics.
-            // Keyword-counting that prose makes this mechanics test depend on incidental wording.
+            // Categories can be shared (booking and no-show), so identify each policy by document ID.
             int topic =
-                    switch (document.getMetadata().get("category").toString()) {
-                        case "CHECK_IN" -> 0;
-                        case "CANCELLATION" -> 1;
-                        case "BOOKING" -> 2;
+                    switch (document.getMetadata().get("documentId").toString()) {
+                        case "HANBAY-CHECK-IN-POLICY" -> 0;
+                        case "HANBAY-CANCELLATION-POLICY" -> 1;
+                        case "HANBAY-BOOKING-POLICY" -> 2;
                         default -> 11;
                     };
             float[] vector = new float[DIMENSIONS];

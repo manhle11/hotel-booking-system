@@ -21,11 +21,18 @@ public class StandardBookingCancellationPolicy implements BookingCancellationPol
     @Override
     public CancellationDecision evaluate(Booking booking, PaymentStatus paymentStatus, Instant now) {
         if (booking.getStatus() == BookingStatus.PENDING) {
-            return CancellationDecision.allowed(0, 0, RefundStatus.NOT_REQUIRED);
+            return CancellationDecision.allowed(0, 0, 0, RefundStatus.NOT_REQUIRED);
         }
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
             return CancellationDecision.denied(
                     "BOOKING_CANCELLATION_NOT_ALLOWED", "Trạng thái hiện tại không cho phép hủy đặt phòng");
+        }
+
+        if (UnifiedBookingPolicy.applies(booking)) {
+            long fee = UnifiedBookingPolicy.target(booking, now, properties.zoneId(), properties.checkInTime());
+            long refundable = Math.max(booking.getTotalAmount() - fee, 0);
+            return CancellationDecision.allowed(
+                    0, refundable, fee, refundable > 0 ? RefundStatus.PENDING : RefundStatus.NOT_REQUIRED);
         }
 
         Instant checkIn = booking.getCheckInDate()
@@ -49,12 +56,13 @@ public class StandardBookingCancellationPolicy implements BookingCancellationPol
 
     private CancellationDecision refundableDecision(Booking booking, PaymentStatus paymentStatus, int refundPercent) {
         if (paymentStatus != PaymentStatus.SUCCESS) {
-            return CancellationDecision.allowed(0, 0, RefundStatus.NOT_REQUIRED);
+            return CancellationDecision.allowed(0, 0, booking.getTotalAmount(), RefundStatus.NOT_REQUIRED);
         }
         long refundAmount = BigDecimal.valueOf(booking.getTotalAmount())
                 .multiply(BigDecimal.valueOf(refundPercent))
                 .divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN)
                 .longValueExact();
-        return CancellationDecision.allowed(refundPercent, refundAmount, RefundStatus.PENDING);
+        return CancellationDecision.allowed(
+                refundPercent, refundAmount, booking.getTotalAmount() - refundAmount, RefundStatus.PENDING);
     }
 }

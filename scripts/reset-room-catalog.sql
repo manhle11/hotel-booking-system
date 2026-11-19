@@ -28,7 +28,7 @@ TRUNCATE TABLE
     room_type_reviews,
     payment_allocations, payment_refunds, payment_webhook_events, payment_transactions, payments,
     booking_night_price_rules, booking_nights, booking_add_ons, booking_guests,
-    booking_status_histories, bookings, booking_orders,
+    booking_status_histories, booking_change_requests, booking_policy_fees, bookings, booking_orders,
     maintenance_cost_history, maintenance_costs, maintenance_requests,
     price_rules, rooms, room_type_images, room_type_beds, room_type_amenities,
     room_types, room_categories, amenities, add_on_services;

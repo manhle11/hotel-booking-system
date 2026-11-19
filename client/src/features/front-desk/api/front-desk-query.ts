@@ -2,7 +2,7 @@ import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-quer
 import { useEffect } from 'react';
 
 import type { TodayArrivalsParams, ArrivalView } from '../types/today-arrivals';
-import { getTodayArrivals, getOverdueArrivals } from './front-desk-api';
+import { getTodayArrivals, getOverdueArrivals, getArrivalWork } from './front-desk-api';
 
 export const frontDeskKeys = {
   all: ['front-desk'] as const,
@@ -26,7 +26,11 @@ export function refreshArrivalsAfterCheckIn(client: QueryClient) {
 export function useArrivals(params: TodayArrivalsParams, view: ArrivalView = 'today') {
   const client = useQueryClient();
   const queryKey =
-    view === 'today' ? frontDeskKeys.todayArrivals(params) : frontDeskKeys.overdueArrivals(params);
+    view === 'today'
+      ? frontDeskKeys.todayArrivals(params)
+      : view === 'overdue'
+        ? frontDeskKeys.overdueArrivals(params)
+        : [...frontDeskKeys.all, 'arrival-work', view, params];
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === CHECK_IN_UPDATE_KEY && event.newValue) {
@@ -39,9 +43,25 @@ export function useArrivals(params: TodayArrivalsParams, view: ArrivalView = 'to
 
   return useQuery({
     queryKey,
-    queryFn: () => (view === 'today' ? getTodayArrivals(params) : getOverdueArrivals(params)),
+    queryFn: () =>
+      view === 'today'
+        ? getTodayArrivals(params)
+        : view === 'overdue'
+          ? getOverdueArrivals(params)
+          : getArrivalWork(
+              params,
+              view === 'waiting' ? 'WAITING' : view === 'action' ? 'ACTION_REQUIRED' : 'RESOLVED',
+            ),
     placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[1] === queryKey[1] ? previous : undefined,
+      previousQuery?.queryKey[1] === queryKey[1] &&
+      previousQuery?.queryKey[2] === queryKey[2] &&
+      (previousQuery?.queryKey[3] as TodayArrivalsParams | undefined)?.reason === params.reason &&
+      (previousQuery?.queryKey[3] as TodayArrivalsParams | undefined)?.resolvedFrom ===
+        params.resolvedFrom &&
+      (previousQuery?.queryKey[3] as TodayArrivalsParams | undefined)?.resolvedTo ===
+        params.resolvedTo
+        ? previous
+        : undefined,
     staleTime: 0,
     refetchInterval: 5_000,
     refetchOnWindowFocus: 'always',

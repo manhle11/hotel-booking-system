@@ -13,6 +13,7 @@ state CHECKED_IN
 state CHECKED_OUT
 state CANCELLED
 state EXPIRED
+state NO_SHOW
 
 PENDING --> CONFIRMED : payment confirmed\n[before expiredAt]
 PENDING --> CANCELLED : guest cancels
@@ -20,12 +21,14 @@ PENDING --> EXPIRED : payment timeout\n[now >= expiredAt]
 
 CONFIRMED --> CHECKED_IN : receptionist checks in\n[arrival window, early reason if needed, correct AVAILABLE room without conflict]
 CONFIRMED --> CANCELLED : cancellation accepted\n[policy allows]
+CONFIRMED --> NO_SHOW : staff confirms absence\n[cutoff reached, no active approved hold, fee preview verified]
 
 CHECKED_IN --> CHECKED_OUT : receptionist checks out\n[scheduled date reached, late note if needed, final debt zero]
 
 CANCELLED --> [*]
 EXPIRED --> [*]
 CHECKED_OUT --> [*]
+NO_SHOW --> [*]
 
 note right of PENDING
   A newly created booking holds inventory
@@ -54,6 +57,13 @@ note right of CHECKED_OUT
   The guest has left.
   The room becomes DIRTY. This is the
   terminal successful booking state.
+end note
+
+note right of NO_SHOW
+  Retain the approved first-night fee (manager may reduce/waive).
+  Release remaining inventory; keep original price snapshots.
+  Refunds are tracked separately and may still be pending.
+  No occupancy or dirty-room transition.
 end note
 
 note bottom of CANCELLED

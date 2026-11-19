@@ -1,3 +1,5 @@
+import { CustomerReschedule } from '../components/customer-reschedule';
+import { ArrivalPolicyNotice } from '../components/arrival-policy-notice';
 import { LeftOutlined } from '@ant-design/icons';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -46,6 +48,7 @@ import type {
 } from '../types/booking';
 import './booking-list.css';
 import { BookingOrderHistorySection } from '../components/booking-order-history';
+import { NoShowSettlementCard } from '../components/no-show-settlement-card';
 
 const PAGE_SIZE = 6;
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
@@ -57,6 +60,7 @@ const BOOKING_STATUS: Record<BookingStatus, { label: string; color: string }> = 
   CHECKED_IN: { label: 'Đã nhận phòng', color: 'blue' },
   CHECKED_OUT: { label: 'Đã trả phòng', color: 'cyan' },
   EXPIRED: { label: 'Đã hết hạn', color: 'default' },
+  NO_SHOW: { label: 'Không đến', color: 'red' },
 };
 
 const PAYMENT_STATUS: Record<BookingPaymentStatus, { label: string; color: string }> = {
@@ -367,6 +371,19 @@ export function BookingHistorySection({
         {selected && (
           <Space orientation="vertical" size="middle" className="booking-history-page__list">
             <BookingHistoryDetail booking={selected} />
+            <ArrivalPolicyNotice codes={[selected.bookingCode]} />
+            {selected.bookingStatus === 'CONFIRMED' && (
+              <CustomerReschedule code={selected.bookingCode} />
+            )}
+            {selected.bookingStatus === 'NO_SHOW' && (
+              <NoShowSettlementCard bookingCode={selected.bookingCode} />
+            )}
+            {selected.bookingStatus === 'CANCELLED' && selected.staffCancellation && (
+              <NoShowSettlementCard bookingCode={selected.bookingCode} kind="cancellation" />
+            )}
+            {selected.rescheduled && selected.bookingStatus === 'CONFIRMED' && (
+              <NoShowSettlementCard bookingCode={selected.bookingCode} kind="reschedule" />
+            )}
             {(selected.bookingStatus === 'CONFIRMED' ||
               selected.bookingStatus === 'CHECKED_IN') && (
               <Button
@@ -441,8 +458,7 @@ export function BookingHistorySection({
           {eligibilityQuery.data && eligibilityQuery.data.refundAmount > 0 && (
             <>
               <Typography.Text strong>
-                Số tiền dự kiến hoàn: {money.format(eligibilityQuery.data.refundAmount)} (
-                {eligibilityQuery.data.refundPercent}%)
+                Số tiền dự kiến hoàn: {money.format(eligibilityQuery.data.refundAmount)}
               </Typography.Text>
               <RefundInformationForm
                 value={refundInformation}

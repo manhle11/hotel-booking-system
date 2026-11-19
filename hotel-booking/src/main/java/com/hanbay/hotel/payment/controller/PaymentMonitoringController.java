@@ -99,4 +99,13 @@ public class PaymentMonitoringController {
         return ApiResponse.success(
                 "Xác nhận hoàn tiền thành công", refundManagementService.confirmRefund(refundId, request));
     }
+
+    @org.springframework.web.bind.annotation.PostMapping("/refunds/{refundId}/destination")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ApiResponse<RefundRequestResponse> supplyDestination(
+            @PathVariable UUID refundId,
+            @RequestBody @Valid com.hanbay.hotel.payment.dto.request.RefundInformationRequest request) {
+        return ApiResponse.success(
+                "Đã bổ sung tài khoản nhận hoàn", refundManagementService.supplyDestination(refundId, request));
+    }
 }
