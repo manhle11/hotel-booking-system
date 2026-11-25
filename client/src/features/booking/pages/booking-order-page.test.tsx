@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App, ConfigProvider } from 'antd';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -284,11 +284,19 @@ describe('BookingOrderPage regression flows', () => {
       amount: 800_000,
       remainingAmount: 800_000,
     });
-    mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'Thanh toán chênh lệch' }));
+    const client = mount();
+    const roomCode = await screen.findByText('BOOK-1');
+    // Avoid jsdom's costly computed-style checks for a role query in this table.
+    const payButton = within(roomCode.closest('tr')!)
+      .getByText('Thanh toán chênh lệch')
+      .closest('button')!;
+    expect(payButton).toBeEnabled();
+    fireEvent.click(payButton);
     await screen.findByText('Kết quả thanh toán chênh lệch');
     expect(createPaymentRequest).toHaveBeenCalledExactlyOnceWith('booking-1', 'group-access-token');
+    expect(createOrderPayment).not.toHaveBeenCalled();
     expect(getPaymentResultToken('balance-payment')).toBe('group-access-token');
+    client.clear();
   });
 
   it('never reuses another account or guest review ownership from a fresh order cache', async () => {
