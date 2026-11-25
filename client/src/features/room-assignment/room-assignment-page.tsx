@@ -116,7 +116,7 @@ export function RoomAssignmentPage() {
   const [chosenRoom, setChosenRoom] = useState<string>();
   const [locked, setLocked] = useState(false);
   const [reason, setReason] = useState('');
-  const [tick, setTick] = useState(Date.now());
+  const [tick, setTick] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setTick(Date.now()), 1000);
     return () => window.clearInterval(timer);
