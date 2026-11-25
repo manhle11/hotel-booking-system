@@ -34,7 +34,17 @@ class RoomTypeCatalogControllerTest {
         var from = LocalDate.of(2026, 11, 10);
         var to = from.plusDays(1);
         when(availableRoomTypeSearchService.search(
-                        from, to, 2, 0, null, 0, 6, com.hanbay.hotel.room.domain.RoomViewType.CITY, false, false))
+                        from,
+                        to,
+                        2,
+                        0,
+                        null,
+                        0,
+                        6,
+                        com.hanbay.hotel.room.domain.RoomViewType.CITY,
+                        false,
+                        false,
+                        false))
                 .thenReturn(new PageResponse<>(List.of(), 0, 6, 0, 0, true, true));
         mockMvc.perform(get("/api/v1/room-types/available")
                         .param("checkIn", from.toString())
@@ -159,7 +169,7 @@ class RoomTypeCatalogControllerTest {
                 null,
                 null);
         PageResponse<AvailableRoomTypeResponse> page = new PageResponse<>(List.of(item), 0, 1, 1, 1, true, true);
-        when(availableRoomTypeSearchService.search(checkIn, checkOut, 2, 1, roomTypeId, 0, 1, null, null, null))
+        when(availableRoomTypeSearchService.search(checkIn, checkOut, 2, 1, roomTypeId, 0, 1, null, null, null, false))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/room-types/available")
@@ -187,6 +197,24 @@ class RoomTypeCatalogControllerTest {
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.totalPages").value(1));
 
-        verify(availableRoomTypeSearchService).search(checkIn, checkOut, 2, 1, roomTypeId, 0, 1, null, null, null);
+        verify(availableRoomTypeSearchService)
+                .search(checkIn, checkOut, 2, 1, roomTypeId, 0, 1, null, null, null, false);
+    }
+
+    @Test
+    void searchCanIncludeSoldOutRoomTypes() throws Exception {
+        LocalDate checkIn = LocalDate.of(2026, 8, 12);
+        LocalDate checkOut = checkIn.plusDays(2);
+        when(availableRoomTypeSearchService.search(checkIn, checkOut, 2, 0, null, 0, 6, null, null, null, true))
+                .thenReturn(new PageResponse<>(List.of(), 0, 6, 0, 0, true, true));
+
+        mockMvc.perform(get("/api/v1/room-types/available")
+                        .param("checkIn", checkIn.toString())
+                        .param("checkOut", checkOut.toString())
+                        .param("adults", "2")
+                        .param("includeSoldOut", "true"))
+                .andExpect(status().isOk());
+
+        verify(availableRoomTypeSearchService).search(checkIn, checkOut, 2, 0, null, 0, 6, null, null, null, true);
     }
 }

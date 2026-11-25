@@ -130,10 +130,16 @@ public class CheckInServiceImpl implements CheckInService {
                 .orElseThrow(() -> new CheckInBookingNotFoundException("Không tìm thấy booking"));
         validateBooking(booking);
 
+        var planned = bookingRepository.findActivePlannedRoomId(booking.getId());
+
         return roomRepository
                 .findAllByRoomTypeIdAndStatusOrderByFloorAscRoomNumberAsc(
                         booking.getRoomType().getId(), RoomStatus.AVAILABLE)
                 .stream()
+                .filter(room -> planned.isEmpty() || planned.get().equals(room.getId()))
+                .filter(room -> bookingRepository.countPlannedRoomConflicts(
+                                room.getId(), booking.getId(), stayPolicy.today(), booking.getCheckOutDate())
+                        == 0)
                 .filter(room -> bookingRepository.countAssignedRoomConflicts(
                                 room.getId(),
                                 booking.getId(),
@@ -158,6 +164,9 @@ public class CheckInServiceImpl implements CheckInService {
     }
 
     private void validateRoom(Booking booking, Room room) {
+        var planned = bookingRepository.findActivePlannedRoomId(booking.getId());
+        if (planned.isPresent() && !planned.get().equals(room.getId()))
+            throw CheckInConflictException.roomNotAvailable();
         if (!booking.getRoomType().getId().equals(room.getRoomType().getId())) {
             throw CheckInConflictException.roomTypeMismatch();
         }
@@ -165,12 +174,15 @@ public class CheckInServiceImpl implements CheckInService {
             throw CheckInConflictException.roomNotAvailable();
         }
         if (bookingRepository.countAssignedRoomConflicts(
-                        room.getId(),
-                        booking.getId(),
-                        stayPolicy.today(),
-                        booking.getCheckOutDate(),
-                        List.of(BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN))
-                > 0) {
+                                room.getId(),
+                                booking.getId(),
+                                stayPolicy.today(),
+                                booking.getCheckOutDate(),
+                                List.of(BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN))
+                        > 0
+                || bookingRepository.countPlannedRoomConflicts(
+                                room.getId(), booking.getId(), stayPolicy.today(), booking.getCheckOutDate())
+                        > 0) {
             throw CheckInConflictException.roomNotAvailable();
         }
     }

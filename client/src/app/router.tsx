@@ -267,6 +267,15 @@ export const router = createBrowserRouter([
                 },
               },
               {
+                path: ROUTE_PATHS.roomAssignments,
+                hydrateFallbackElement: routeHydrationFallback,
+                lazy: async () => {
+                  const { RoomAssignmentPage } =
+                    await import('@features/room-assignment/room-assignment-page');
+                  return { Component: RoomAssignmentPage };
+                },
+              },
+              {
                 path: ROUTE_PATHS.departures,
                 hydrateFallbackElement: routeHydrationFallback,
                 lazy: async () => {

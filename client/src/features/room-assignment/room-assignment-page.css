@@ -1,0 +1,304 @@
+.assignment-page {
+  --assignment-room-column: 185px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  font-size: 1rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.assignment-page > .ant-card {
+  min-width: 0;
+}
+.assignment-heading,
+.assignment-plan-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.assignment-heading h2 {
+  margin: 0 0 8px;
+}
+.assignment-heading .ant-typography {
+  margin-bottom: 0;
+}
+.assignment-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.875rem;
+}
+.assignment-legend {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+.assignment-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 20px;
+  align-items: start;
+}
+.assignment-calendar-card,
+.assignment-calendar-card .ant-card-body {
+  min-width: 0;
+}
+.assignment-calendar-card .ant-card-body {
+  padding: 0;
+}
+.assignment-calendar-scroll {
+  max-height: 650px;
+  overflow: auto;
+  position: relative;
+  border-radius: 0 0 8px 8px;
+}
+.assignment-calendar-row {
+  display: grid;
+  grid-template-columns: var(--assignment-room-column) 1fr;
+  border-bottom: 1px solid #e4e9f1;
+  min-height: 88px;
+}
+.assignment-calendar-header {
+  min-height: 62px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #f2f6fc;
+}
+.assignment-room-label {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #fff;
+  border-right: 1px solid #dce4ef;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  font-size: 0.875rem;
+}
+.assignment-room-label strong {
+  color: #193b62;
+  font-size: 1rem;
+}
+.assignment-room-label .ant-tag {
+  font-size: 0.8125rem;
+  margin: 0;
+}
+.assignment-room-label span:not(.ant-tag) {
+  color: #5b6778;
+}
+.assignment-calendar-header .assignment-room-label {
+  background: #f2f6fc;
+  justify-content: center;
+}
+.assignment-day-grid {
+  display: grid;
+  position: relative;
+  align-items: stretch;
+}
+.assignment-calendar-header .assignment-day-grid > div {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-size: 0.875rem;
+  gap: 4px;
+  border-right: 1px solid #e0e7f0;
+}
+.assignment-calendar-header .assignment-day-grid > div span {
+  color: #62738a;
+}
+.assignment-today {
+  background: #dceafd;
+  color: #124c91;
+  box-shadow: inset 0 3px #2661ad;
+}
+.assignment-room-track {
+  background: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent 51px,
+    #e8edf4 51px,
+    #e8edf4 52px
+  );
+  padding: 6px 0;
+}
+.assignment-booking {
+  grid-row: 1;
+  margin: 0 2px;
+  border: 1px solid #9ebfe8;
+  border-radius: 6px;
+  background: #eaf2ff;
+  color: #163f73;
+  padding: 7px 10px;
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.875rem;
+}
+.assignment-booking strong,
+.assignment-booking span,
+.assignment-booking small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assignment-booking small {
+  font-size: 0.8125rem;
+}
+.assignment-booking:hover {
+  filter: brightness(0.96);
+}
+.assignment-booking:focus-visible,
+.assignment-unassigned-item:focus-visible {
+  outline: 3px solid #2567ba;
+  outline-offset: -3px;
+}
+.assignment-booking--locked {
+  background: #fff3d7;
+  border-color: #d9af49;
+  color: #6e4b08;
+}
+.assignment-booking--occupied {
+  background: #e2f4e9;
+  border-color: #80b897;
+  color: #205139;
+}
+.assignment-room-blocked {
+  background: repeating-linear-gradient(135deg, #f5f5f5 0, #f5f5f5 8px, #eaeef3 8px, #eaeef3 16px);
+}
+.assignment-block-label {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  align-self: center;
+  padding: 16px;
+  color: #566377;
+  font-size: 0.875rem;
+}
+.assignment-unassigned-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 570px;
+  overflow: auto;
+}
+.assignment-unassigned-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  background: #fafcff;
+  border: 1px solid #d9e4f2;
+  padding: 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: #243b57;
+  font: inherit;
+  font-size: 0.875rem;
+}
+.assignment-unassigned-item .ant-tag {
+  width: fit-content;
+}
+.assignment-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+.assignment-metrics > div {
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.assignment-metrics span {
+  color: #5d6c80;
+  font-size: 0.875rem;
+}
+.assignment-metrics strong {
+  color: #173b65;
+  font-size: 1.5rem;
+}
+.assignment-plan-footer {
+  padding-top: 16px;
+}
+.assignment-editor-label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+.assignment-editor-label .ant-input-textarea-show-count {
+  margin-bottom: 1rem;
+}
+.assignment-history {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.assignment-history article {
+  border-bottom: 1px solid #e4eaf3;
+  padding-bottom: 16px;
+}
+.assignment-history article .ant-typography {
+  margin-bottom: 6px;
+}
+@media (max-width: 1150px) {
+  .assignment-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .assignment-unassigned-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  .assignment-page {
+    --assignment-room-column: 140px;
+  }
+  .assignment-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .assignment-heading {
+    align-items: flex-start;
+  }
+  .assignment-toolbar label {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .assignment-toolbar .ant-space {
+    display: flex;
+    width: 100%;
+  }
+  .assignment-toolbar .ant-space-item {
+    width: 100%;
+    min-width: 0;
+  }
+  .assignment-toolbar label .ant-select,
+  .assignment-toolbar label .ant-picker {
+    width: 100%;
+    min-width: 0 !important;
+    max-width: 100%;
+  }
+  .assignment-toolbar .ant-space-item > .ant-btn {
+    width: 100%;
+  }
+  .assignment-unassigned-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

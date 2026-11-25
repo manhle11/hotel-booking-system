@@ -49,6 +49,23 @@ public class AvailableRoomTypeSearchService {
             RoomViewType viewType,
             Boolean hasBalcony,
             Boolean highFloor) {
+        return search(
+                checkIn, checkOut, adults, children, roomTypeId, page, size, viewType, hasBalcony, highFloor, false);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AvailableRoomTypeResponse> search(
+            LocalDate checkIn,
+            LocalDate checkOut,
+            int adults,
+            int children,
+            UUID roomTypeId,
+            int page,
+            int size,
+            RoomViewType viewType,
+            Boolean hasBalcony,
+            Boolean highFloor,
+            boolean includeSoldOut) {
         validateSearchCriteria(checkIn, checkOut, adults, children);
         PaginationValidator.validate(page, size, MAX_PAGE_SIZE);
 
@@ -65,14 +82,14 @@ public class AvailableRoomTypeSearchService {
         Map<UUID, Long> availableRoomCounts = roomAvailabilityCalculator.countAvailableRooms(
                 candidateRoomTypes.stream().map(RoomType::getId).toList(), checkIn, checkOut);
 
-        List<RoomType> availableRoomTypes = candidateRoomTypes.stream()
-                .filter(roomType -> availableRoomCounts.getOrDefault(roomType.getId(), 0L) > 0)
+        List<RoomType> matchingRoomTypes = candidateRoomTypes.stream()
+                .filter(roomType -> includeSoldOut || availableRoomCounts.getOrDefault(roomType.getId(), 0L) > 0)
                 .toList();
 
-        int totalElements = availableRoomTypes.size();
+        int totalElements = matchingRoomTypes.size();
         int fromIndex = (int) Math.min((long) page * size, totalElements);
         int toIndex = Math.min(fromIndex + size, totalElements);
-        List<RoomType> pageRoomTypes = availableRoomTypes.subList(fromIndex, toIndex);
+        List<RoomType> pageRoomTypes = matchingRoomTypes.subList(fromIndex, toIndex);
         Map<UUID, Long> readyRoomCounts = roomAvailabilityCalculator.countReadyRooms(
                 pageRoomTypes.stream().map(RoomType::getId).toList());
         List<AvailableRoomTypeResponse> content = pageRoomTypes.stream()

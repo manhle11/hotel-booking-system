@@ -6,6 +6,7 @@ import { hasRouteRole, ROUTE_ROLES } from '../../routes/route-access';
 import { roomStatuses, useStaffMap, type MapRoom, type RoomStatus } from './api';
 import { HotelFloorMap } from './hotel-floor-map';
 import { RoomMapDetails } from './room-map-details';
+import { ROUTE_PATHS } from '../../routes/routePaths';
 
 export function StaffRoomMapPage() {
   const query = useStaffMap();
@@ -29,6 +30,9 @@ export function StaffRoomMapPage() {
         kiện.
       </Typography.Paragraph>
       <Space wrap className="room-map-toolbar">
+        <Link to={ROUTE_PATHS.roomAssignments}>
+          <Button>Lịch gán phòng</Button>
+        </Link>
         <Input
           aria-label="Tìm số phòng"
           placeholder="Tìm số phòng"

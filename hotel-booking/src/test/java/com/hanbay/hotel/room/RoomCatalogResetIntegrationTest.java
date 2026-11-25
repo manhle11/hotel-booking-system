@@ -259,6 +259,28 @@ class RoomCatalogResetIntegrationTest {
                 owner);
         insertReviewFixture(owner, type, false);
         insertReviewFixture(owner, type, true);
+        jdbc.update(
+                """
+                INSERT INTO room_allocations(booking_id, room_id, check_in, check_out, status)
+                SELECT id, assigned_room_id, check_in_date, check_out_date, 'LOCKED' FROM bookings WHERE id = ?
+                """,
+                booking);
+        jdbc.update(
+                """
+                INSERT INTO room_assignment_plans(id, room_type_id, payload, created_by, created_at, valid_until)
+                VALUES (gen_random_uuid(), ?, '{}', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '5 minutes')
+                """,
+                type,
+                owner);
+        jdbc.update(
+                """
+                INSERT INTO room_assignment_history(booking_id, room_type_id, action, actor_id, reason)
+                VALUES (?, ?, 'ROOM_LOCKED', ?, 'Reset fixture')
+                """,
+                booking,
+                type,
+                owner);
+        jdbc.update("INSERT INTO room_assignment_refresh_queue(room_type_id) VALUES (?)", type);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM room_type_reviews", Integer.class))
                 .isEqualTo(2);
         assertThat(jdbc.queryForObject(
@@ -271,6 +293,10 @@ class RoomCatalogResetIntegrationTest {
 
         assertThat(snapshots(protectedBefore.keySet())).isEqualTo(protectedBefore);
         for (String table : List.of(
+                "room_allocations",
+                "room_assignment_plans",
+                "room_assignment_history",
+                "room_assignment_refresh_queue",
                 "room_type_reviews",
                 "bookings",
                 "booking_orders",

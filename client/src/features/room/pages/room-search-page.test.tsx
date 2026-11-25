@@ -159,6 +159,7 @@ describe('RoomSearchPage inventory synchronization', () => {
       checkOut: '2026-11-08',
       adults: 2,
       children: 0,
+      includeSoldOut: true,
       page: 0,
       size: 6,
     });
@@ -171,6 +172,30 @@ describe('RoomSearchPage inventory synchronization', () => {
 
     expect(await screen.findByText('Còn 12 phòng')).toBeTruthy();
     expect(screen.queryByText('Còn 0 phòng')).toBeNull();
+  });
+
+  it('keeps sold-out room types visible and enables booking again when inventory returns', async () => {
+    respondWithCount(0);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
+
+    expect(await screen.findByText('Hết phòng')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Junior Suite' })).toBeTruthy();
+    expect(screen.queryByText('Còn 0 phòng')).toBeNull();
+    expect(screen.getByRole('button', { name: /Chọn phòng/ })).toHaveProperty('disabled', true);
+    expect(searchAvailableRoomTypes).toHaveBeenLastCalledWith(
+      expect.objectContaining({ includeSoldOut: true }),
+    );
+
+    respondWithCount(2);
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+
+    expect(await screen.findByText('Còn 2 phòng')).toBeTruthy();
+    expect(screen.queryByText('Hết phòng')).toBeNull();
+    expect(screen.getByRole('button', { name: /Chọn phòng/ })).toHaveProperty('disabled', false);
   });
 
   it('refreshes the displayed room count when returning to the tab', async () => {
@@ -228,6 +253,7 @@ describe('RoomSearchPage inventory synchronization', () => {
       checkOut: '2026-11-05',
       adults: 2,
       children: 0,
+      includeSoldOut: true,
       page: 0,
       size: 6,
     });

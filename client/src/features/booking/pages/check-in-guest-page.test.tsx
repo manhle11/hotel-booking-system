@@ -18,6 +18,7 @@ import {
   getCheckInBookingContext,
 } from '../api/booking-api';
 import { CheckInGuestPage } from './check-in-guest-page';
+import { getSuggestedRoom } from '../../room-assignment/api';
 import { frontDeskKeys } from '../../front-desk/api/front-desk-query';
 import {
   useStaffMap,
@@ -36,6 +37,8 @@ vi.mock('../api/booking-api', () => ({
   getAvailablePhysicalRooms: vi.fn(),
   getCheckInBookingContext: vi.fn(),
 }));
+
+vi.mock('../../room-assignment/api', () => ({ getSuggestedRoom: vi.fn().mockResolvedValue(null) }));
 
 const ROOM_ID = '30000000-0000-4000-8000-000000000001';
 
@@ -135,6 +138,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(getSuggestedRoom).mockReset().mockResolvedValue(null);
   focusManager.setFocused(true);
   onlineManager.setOnline(true);
   vi.mocked(getCheckInBookingContext)
@@ -206,6 +210,25 @@ afterEach(() => {
 });
 
 describe('CheckInGuestPage', () => {
+  it.each([true, false])('chỉ điền sẵn phòng đã gán khi phòng sẵn sàng: %s', async (ready) => {
+    vi.mocked(getAvailablePhysicalRooms).mockResolvedValue([
+      { roomId: ROOM_ID, roomNumber: '0501', floor: 5 },
+    ]);
+    vi.mocked(getSuggestedRoom).mockResolvedValueOnce({
+      bookingId: 'booking-id',
+      roomId: ROOM_ID,
+      roomNumber: '0501',
+      allocationStatus: 'LOCKED',
+      ready,
+    });
+    renderPage();
+    fireEvent.change(screen.getByLabelText('Mã booking'), { target: { value: 'BK-PLANNED' } });
+    fireEvent.click(screen.getByRole('button', { name: /Tìm phòng khả dụng/ }));
+    await screen.findByText('Phòng đã gán: 0501');
+    const radio = await screen.findByRole('radio', { name: /Phòng 0501/ });
+    await waitFor(() => expect((radio as HTMLInputElement).checked).toBe(ready));
+    expect(checkInGuest).not.toHaveBeenCalled();
+  });
   it.each(['background', 'focus', 'reconnect'] as const)(
     'hoàn tất khôi phục qua %s, reset form và làm mới danh sách đúng một lần',
     async (trigger) => {

@@ -31,6 +31,7 @@ function getSearchParams({
     checkOut: checkOut.format('YYYY-MM-DD'),
     adults: values.adults,
     children: values.children,
+    includeSoldOut: true,
     ...(values.viewType ? { viewType: values.viewType } : {}),
     ...(values.hasBalcony !== undefined ? { hasBalcony: values.hasBalcony } : {}),
     ...(values.highFloor !== undefined ? { highFloor: values.highFloor } : {}),
@@ -78,7 +79,7 @@ export function RoomSearchPage() {
       });
       if (page !== 0) return;
       if (rooms.totalElements) {
-        void message.success('Đã cập nhật danh sách hạng phòng còn trống.');
+        void message.success('Đã cập nhật danh sách hạng phòng.');
       } else {
         void message.info('Không tìm thấy hạng phòng phù hợp với tiêu chí đã chọn.');
       }
