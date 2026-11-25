@@ -9,6 +9,100 @@ describe('streamAiMessage', () => {
     vi.spyOn(tokenStorage, 'getAccessToken').mockReturnValue('access-token');
   });
 
+  it('forwards backend recommendation payloads instead of parsing cards from model prose', async () => {
+    const recommendations = {
+      status: 'NEEDS_CLARIFICATION',
+      criteria: {},
+      evaluatedAt: '2026-11-25T08:00:00Z',
+      currency: 'VND',
+      priceScope: 'ROOM_ONLY',
+      scoringVersion: 'v1',
+      recommendations: [],
+      questions: ['Ngày nhận phòng?'],
+      rejections: [],
+      suggestions: [],
+      warnings: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            `data:${JSON.stringify({ type: 'recommendations', content: '', recommendations })}\n\ndata:{"type":"done","content":""}\n\n`,
+          ),
+        ),
+    );
+    const onRecommendations = vi.fn();
+    await streamAiMessage(
+      { conversationId: 'conversation', message: 'Tìm phòng' },
+      { onDelta: vi.fn(), onRecommendations },
+    );
+    expect(onRecommendations).toHaveBeenCalledWith(recommendations);
+  });
+
+  it('forwards progress and follow-up suggestions separately from assistant text', async () => {
+    const onStatus = vi.fn(),
+      onSuggestions = vi.fn(),
+      onDelta = vi.fn();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          [
+            { type: 'status', content: 'Mình đang kiểm tra lịch phòng…' },
+            { type: 'delta', content: 'Bạn muốn mình so sánh không?' },
+            { type: 'suggestions', content: '', suggestions: ['So sánh hai phòng đầu giúp tôi'] },
+            { type: 'done', content: '' },
+          ]
+            .map((event) => `data:${JSON.stringify(event)}\n\n`)
+            .join(''),
+        ),
+      ),
+    );
+    await streamAiMessage(
+      { conversationId: 'conversation', message: 'Tìm phòng' },
+      { onDelta, onStatus, onSuggestions },
+    );
+    expect(onStatus).toHaveBeenCalledWith('Mình đang kiểm tra lịch phòng…');
+    expect(onDelta).toHaveBeenCalledTimes(1);
+    expect(onSuggestions).toHaveBeenCalledWith(['So sánh hai phòng đầu giúp tôi']);
+  });
+
+  it('rejects non-text follow-up suggestions', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response('data:{"type":"suggestions","content":"","suggestions":[{}]}\n\n'),
+        ),
+    );
+    await expect(
+      streamAiMessage(
+        { conversationId: 'conversation', message: 'Tìm phòng' },
+        { onDelta: vi.fn() },
+      ),
+    ).rejects.toThrow('Gợi ý từ trợ lý AI không hợp lệ');
+  });
+
+  it('rejects malformed recommendation payloads before rendering', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response('data:{"type":"recommendations","content":"","recommendations":{}}\n\n'),
+        ),
+    );
+    await expect(
+      streamAiMessage(
+        { conversationId: 'conversation', message: 'Tìm phòng' },
+        { onDelta: vi.fn() },
+      ),
+    ).rejects.toThrow('Dữ liệu tư vấn phòng không hợp lệ');
+  });
+
   it('emits deltas from SSE frames split across network chunks', async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream({

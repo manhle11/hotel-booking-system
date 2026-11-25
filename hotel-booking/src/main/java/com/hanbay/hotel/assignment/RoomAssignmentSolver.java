@@ -77,6 +77,19 @@ public class RoomAssignmentSolver {
             LocalDate from,
             LocalDate to,
             boolean optimize) {
+        return solve(snapshot, movable, forced, from, to, optimize, seconds);
+    }
+
+    /** Read-only admission checks may use a smaller per-request budget. */
+    public Solution solve(
+            Snapshot snapshot,
+            Set<UUID> movable,
+            Map<UUID, UUID> forced,
+            LocalDate from,
+            LocalDate to,
+            boolean optimize,
+            double maxSeconds) {
+        if (!Double.isFinite(maxSeconds) || maxSeconds <= 0) throw new IllegalArgumentException("Invalid solve budget");
         Map<UUID, UUID> baseline = greedy(snapshot, Set.of(), forced);
         Map<UUID, UUID> greedy = greedy(snapshot, movable, forced);
         Map<UUID, UUID> fallback = best(snapshot, baseline, greedy, from, to);
@@ -119,7 +132,7 @@ public class RoomAssignmentSolver {
             if (optimize) addObjective(model, snapshot, choices, from, to);
             CpSolver solver = new CpSolver();
             solver.getParameters()
-                    .setMaxTimeInSeconds(seconds)
+                    .setMaxTimeInSeconds(Math.min(seconds, maxSeconds))
                     .setNumSearchWorkers(2)
                     .setRandomSeed(0);
             CpSolverStatus status = solver.solve(model);

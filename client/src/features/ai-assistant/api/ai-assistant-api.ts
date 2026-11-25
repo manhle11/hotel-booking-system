@@ -2,19 +2,34 @@ import { env } from '../../../config/env';
 import { tokenStorage } from '../../../lib/storage';
 import { ApiClientError } from '../../../types/api';
 import type { AiChatRequest, AiPolicySource, AiUiAction } from '../types/ai-assistant';
+import type { RoomRecommendationResult } from '../types/room-recommendation';
+import { parseRoomRecommendationResult } from './room-recommendation-schema';
 
 interface AiChatStreamEvent {
-  type: 'delta' | 'action' | 'sources' | 'done' | 'error';
+  type:
+    | 'delta'
+    | 'action'
+    | 'sources'
+    | 'recommendations'
+    | 'status'
+    | 'suggestions'
+    | 'done'
+    | 'error';
   content: string;
   action?: AiUiAction;
   sources?: AiPolicySource[];
+  recommendations?: RoomRecommendationResult;
+  suggestions?: string[];
 }
 
 export interface StreamAiMessageOptions {
   signal?: AbortSignal;
   onDelta: (content: string) => void;
+  onStatus?: (content: string) => void;
+  onSuggestions?: (suggestions: string[]) => void;
   onAction?: (action: AiUiAction) => void;
   onSources?: (sources: AiPolicySource[]) => void;
+  onRecommendations?: (result: RoomRecommendationResult) => void;
 }
 
 export async function streamAiMessage(
@@ -22,7 +37,7 @@ export async function streamAiMessage(
   options: StreamAiMessageOptions,
 ): Promise<void> {
   const timeoutController = new AbortController();
-  const timeout = globalThis.setTimeout(() => timeoutController.abort(), 30_000);
+  const timeout = globalThis.setTimeout(() => timeoutController.abort(), 60_000);
   const abort = () => timeoutController.abort();
   options.signal?.addEventListener('abort', abort, { once: true });
   try {
@@ -121,15 +136,42 @@ function processSseFrame(frame: string, options: StreamAiMessageOptions) {
       kind: 'api',
     });
   }
-  if (!['delta', 'action', 'sources', 'done', 'error'].includes(event.type)) {
+  if (
+    !event ||
+    ![
+      'delta',
+      'action',
+      'sources',
+      'recommendations',
+      'status',
+      'suggestions',
+      'done',
+      'error',
+    ].includes(event.type)
+  ) {
     throw new ApiClientError({ message: 'Phản hồi từ trợ lý AI không hợp lệ.', kind: 'api' });
   }
   if (typeof event.content !== 'string') {
     throw new ApiClientError({ message: 'Phản hồi từ trợ lý AI không hợp lệ.', kind: 'api' });
   }
+  if (event.type === 'status') options.onStatus?.(event.content);
+  if (event.type === 'suggestions') {
+    if (
+      !Array.isArray(event.suggestions) ||
+      event.suggestions.length > 3 ||
+      event.suggestions.some((s) => typeof s !== 'string' || !s.trim() || s.length > 200)
+    ) {
+      throw new ApiClientError({ message: 'Gợi ý từ trợ lý AI không hợp lệ.', kind: 'api' });
+    }
+    options.onSuggestions?.(event.suggestions);
+  }
   if (event.type === 'delta') options.onDelta(event.content);
   if (event.type === 'action' && event.action) options.onAction?.(event.action);
   if (event.type === 'sources' && Array.isArray(event.sources)) options.onSources?.(event.sources);
+  if (event.type === 'recommendations') {
+    const result = parseRoomRecommendationResult(event.recommendations);
+    options.onRecommendations?.(result);
+  }
   if (event.type === 'error') {
     throw new ApiClientError({ message: event.content, kind: 'api' });
   }

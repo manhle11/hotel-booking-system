@@ -1505,7 +1505,9 @@ Content-Type: application/json
 - Đây là conversational entry point duy nhất và yêu cầu authentication.
 - `conversationId` là UUID bắt buộc; `message` bắt buộc và không rỗng.
 - Model tự chọn normal chat, semantic policy RAG, read-only tool calling hoặc kết hợp chúng.
-- SSE event ổn định: `delta`, `action`, `sources`, `done`, `error`.
+- SSE event: `status`, `delta`, `action`, `sources`, `recommendations`, `suggestions`, `done`, `error`. `status` là tiến độ; `suggestions` chứa tối đa ba câu nhắn tiếp vào cùng phiên chat.
+- `recommendations` chứa kết quả engine Java gồm tiêu chí, tối đa ba loại phòng, giá từng đêm,
+  điểm và lý do đã kiểm chứng. Không parse thẻ phòng từ câu trả lời tự do của model.
 - `sources` chỉ chứa `title`, `category`, `section` từ retrieved chunk; không expose database ID,
   vector, prompt hoặc provider response.
 - Validation sai trả `400 VALIDATION_FAILED`.
@@ -1516,6 +1518,16 @@ Content-Type: application/json
 
 Các endpoint cũ `POST /api/v1/ai/chat` và `POST /api/v1/ai/policy-assistant` đã bị xóa và trả `404`.
 OpenAPI chi tiết: [`openapi/ai/unified-chat.yaml`](./openapi/ai/unified-chat.yaml).
+
+## Room Recommendation API có cấu trúc
+
+`POST /api/v1/room-recommendations` yêu cầu đăng nhập, là API có cấu trúc của cùng engine với chat và giới hạn
+request theo tài khoản. Không gọi OpenAI. Request là nhu cầu có cấu trúc, response theo
+`ApiResponse` với trạng thái `NEEDS_CLARIFICATION`, `RECOMMENDED`, `NO_MATCH` hoặc
+`TEMPORARILY_UNAVAILABLE`. Dữ liệu sai trả `400 ROOM_VALIDATION_FAILED`; chưa đăng nhập trả
+`401`; vượt giới hạn trả `429`. Tư vấn không giữ chỗ hoặc tạo/sửa booking.
+
+Widget chỉ dùng chat; action checkout do tool chọn phòng phát sau khi kiểm tra lại, kèm `childAges` nếu có trẻ. Contract, ví dụ và công thức scoring: [AI Room Recommendation](33-ai-room-recommendation.md).
 
 ---
 

@@ -19,29 +19,27 @@ AI features:
 
 # 2. AI Room Recommendation
 
-User input:
+Chức năng hiện dùng engine Java để lọc điều kiện bắt buộc, kiểm tra khả thi lịch phòng và xếp hạng tối đa ba room type. Widget dùng một luồng chat với `recommend_rooms`, `inspect_recommended_room`, `compare_recommended_rooms`, `select_recommended_room`. Trợ lý nhớ thứ tự phòng, hỏi bổ sung và phát nút checkout sau khi khách chọn và backend kiểm tra lại; không còn tab form riêng. `POST /api/v1/room-recommendations` giữ vai trò API engine có cấu trúc. Giá/ảnh/giường/amenities và thẻ kết quả do backend cung cấp. Xem [thiết kế và contract triển khai](33-ai-room-recommendation.md) cho ngân sách, scoring, Redis context và giới hạn một phòng mỗi phương án.
+
+Ví dụ hội thoại trong catalog kiểm thử (giá minh họa do Java trả, không phải cam kết giá thực tế):
 
 ```text
-Family of 4, staying for 3 nights, wants quiet room, budget around 4 million VND.
+Khách: Gia đình mình muốn đi nghỉ, bạn tư vấn giúp nhé.
+AI: Bạn dự định nhận/trả ngày nào và có bao nhiêu người lớn, trẻ em đi cùng?
+Khách: 01–03/12/2026, hai người lớn và một bé 5 tuổi, đúng hai giường đơn,
+       tổng tiền phòng không vượt 6 triệu, ưu tiên phòng rộng.
+Backend: Kiểm tra ngày/sức chứa/giường/ngân sách/tồn và xếp hạng:
+         Deluxe Twin 36 m², tổng 5.000.000 VND; Superior Twin 30 m², tổng 3.400.000 VND.
+AI: Giới thiệu hai phương án từ facts và nói rõ đánh đổi về diện tích.
+Khách: So sánh hai phòng đó giúp mình.
+Backend: Refresh cả hai, tính chênh lệch 1.600.000 VND và 6 m².
+Khách: Phòng thứ hai có giường và tiện nghi gì?
+AI: Resolve phòng thứ hai theo danh sách đã hiển thị, lấy dữ kiện mới từ engine.
+Khách: Mình chọn phòng này.
+Backend: Kiểm tra lại phòng đang nhắc tới, phát nút tiếp tục đặt phòng.
 ```
 
-System context:
-
-- Available room types
-- Capacity
-- Price
-- Amenities
-- Policies
-
-Expected output:
-
-```json
-{
-  "recommendedRoomType": "Family Room",
-  "reason": "Suitable for 4 guests and within budget",
-  "estimatedPrice": 3900000
-}
-```
+Chưa đủ dữ liệu thì hỏi bổ sung; không kết luận giá hay tồn. “Yên tĩnh tuyệt đối” hoặc đặc điểm chưa có dữ liệu được hỏi làm rõ, không bịa xác nhận. JSON tool arguments, câu trả lời LLM và payload thẻ là các contract riêng; xem tài liệu triển khai được dẫn ở trên.
 
 ---
 
@@ -76,7 +74,12 @@ flowchart TD
     F --> G[OpenAI Embedding]
     G --> H[PostgreSQL + pgvector]
     H --> C
-    C --> I[SSE delta/action/sources/done/error]
+    C --> R[Room recommendation tools]
+    R --> J[Java filtering, scoring and stay feasibility]
+    J --> K[Existing room catalog, pricing and availability]
+    J --> L[LLM composition with verified fact references]
+    L --> C
+    C --> I[SSE status/delta/cards/suggestions/action/sources/done/error]
 ```
 
 ---
@@ -101,7 +104,7 @@ The system prompt should:
 
 ## Function Calling API
 
-Backend exposes authenticated endpoints. The frontend uses the SSE endpoint so users see the answer as it is generated:
+Backend exposes authenticated endpoints. The frontend uses the SSE endpoint for progress updates and validated answer paragraphs:
 
 ```http
 POST /api/v1/ai/chat/stream
@@ -110,9 +113,11 @@ Accept: text/event-stream
 Content-Type: application/json
 ```
 
-The stream emits `delta`, `action`, `sources`, `done`, or `error` events. Đây là conversational
+The stream emits `status`, `delta`, `action`, `sources`, `recommendations`, `suggestions`, `done`, or `error` events. Đây là conversational
 endpoint duy nhất. AI concierge là floating widget duy nhất; unauthenticated users được yêu cầu
 đăng nhập. Frontend chuẩn hóa malformed, empty và partial stream thành application error.
+
+Room recommendation phát thẻ từ payload `recommendations` của backend; `suggestions` gửi câu hỏi tiếp vào cùng phiên. `status` phản ánh tiến độ trước khi phát đoạn trả lời đã kiểm tra. API engine có cấu trúc không phải conversational endpoint mới và không phụ thuộc OpenAI.
 
 Production Policy RAG dùng OpenAI embedding và cần các biến môi trường sau. Local mặc định tắt RAG
 (`AI_POLICY_RAG_ENABLED=false`); policy tool trả no-evidence an toàn, không dùng fake embedding:

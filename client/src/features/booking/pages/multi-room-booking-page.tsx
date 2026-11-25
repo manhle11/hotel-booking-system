@@ -70,6 +70,7 @@ export function MultiRoomBookingPage() {
             roomTypeId,
             adults: Number(params.get('adults')) || 2,
             children: Number(params.get('children')) || 0,
+            childAges: params.get('childAges')?.split(',').filter(Boolean).map(Number),
             addOns: [],
           },
         ]

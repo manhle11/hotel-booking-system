@@ -65,13 +65,13 @@ beforeAll(() => {
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
-function mount() {
+function mount(entry = '/bookings/new?checkIn=2026-11-10&checkOut=2026-11-12') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <ConfigProvider>
         <App>
-          <MemoryRouter initialEntries={['/bookings/new?checkIn=2026-11-10&checkOut=2026-11-12']}>
+          <MemoryRouter initialEntries={[entry]}>
             <Routes>
               <Route path="/bookings/new" element={<MultiRoomBookingPage />} />
               <Route path="/booking-orders/:orderId" element={<div>Chi tiết đơn đã tạo</div>} />
@@ -84,6 +84,14 @@ function mount() {
 }
 
 describe('multi-room checkout', () => {
+  it('prefills the selected recommendation including child ages', async () => {
+    mount(
+      '/bookings/new?checkIn=2026-12-01&checkOut=2026-12-03&roomTypeId=deluxe&adults=2&children=1&childAges=5',
+    );
+    expect(await screen.findByRole('spinbutton', { name: 'Tuổi trẻ em 1 phòng 1' })).toHaveValue(
+      '5',
+    );
+  });
   it('automatically prices meal quantities, blocks invalid days and sends only booking data', async () => {
     vi.mocked(getAddOns).mockResolvedValueOnce([
       {

@@ -1,3 +1,5 @@
+import type { RoomRecommendationResult } from './room-recommendation';
+
 export interface AiChatRequest {
   conversationId: string;
   message: string;
@@ -19,6 +21,7 @@ export type AiUiAction =
         checkOut: string;
         adults: number;
         children: number;
+        childAges?: number[];
       };
     }
   | {
@@ -38,4 +41,6 @@ export interface AiChatMessage {
   content: string;
   action?: AiUiAction;
   sources?: AiPolicySource[];
+  recommendations?: RoomRecommendationResult;
+  suggestions?: string[];
 }

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: HANBAY Unified AI Chat
-  version: 1.0.0
+  version: 1.2.0
 paths:
   /api/v1/ai/chat/stream:
     post:
@@ -25,7 +25,11 @@ paths:
                   minLength: 1
       responses:
         '200':
-          description: SSE events of type delta, action, sources, done, or error
+          description: >-
+            SSE events of type status, delta, action, sources, recommendations, suggestions, done, or error.
+            The recommendations event carries a backend-validated RoomRecommendationResult,
+            including criteria, status, evaluatedAt and up to three room types with prices,
+            amenities, scores and evidence-based reasons. Scores remain internal to ranking and are not displayed by chat. Status contains progress text; suggestions contains at most three follow-up messages. Booking action is produced after explicit selection and backend revalidation, with childAges when applicable. See docs/33-ai-room-recommendation.md.
           content:
             text/event-stream:
               schema:

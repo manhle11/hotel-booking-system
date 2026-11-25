@@ -18,6 +18,80 @@
   background: #fbfdfe;
 }
 
+.ai-widget__body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.ai-recommendations {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+}
+.ai-room-card {
+  width: 100%;
+  overflow: hidden;
+}
+.ai-room-card__overview {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.ai-room-card__overview > div {
+  min-width: 0;
+}
+.ai-room-card .ant-image {
+  width: 100px;
+  min-width: 100px;
+}
+.ai-room-card .ant-image-img {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.ai-room-card__reason {
+  margin-block: 8px;
+}
+.ai-room-card__notice {
+  font-size: 12px;
+}
+.ai-message__suggestions .ant-btn {
+  height: auto;
+  white-space: normal;
+  text-align: left;
+}
+.ai-message__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-message[hidden] {
+  display: none;
+}
+.ai-room-reasons {
+  padding-left: 20px;
+  margin-block: 4px;
+}
+.ai-room-amenities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ai-recommendations summary {
+  cursor: pointer;
+}
+.ai-recommendations ul {
+  padding-left: 20px;
+}
+.ai-message__content:has(.ai-recommendations) {
+  width: 100%;
+  max-width: calc(100% - 42px);
+}
+
 .ai-widget__messages {
   min-height: 0;
   overflow-y: auto;
@@ -108,7 +182,7 @@
 .ai-message__typing {
   display: flex;
   gap: 5px;
-  width: 58px;
+  flex: 0 0 auto;
   padding-block: 17px;
 }
 
@@ -170,7 +244,43 @@
     bottom: 18px;
   }
 
-  .ai-message__bubble {
-    max-width: 84%;
+  .ai-widget .ant-drawer-header {
+    padding: 16px 12px;
+  }
+  .ai-widget .ant-drawer-title {
+    font-size: 14px;
+  }
+  .ai-widget .ant-drawer-header-title {
+    gap: 0;
+  }
+  .ai-widget__messages {
+    padding: 18px 12px;
+  }
+  .ai-widget__composer {
+    padding: 12px;
+  }
+  .ai-message__content {
+    max-width: calc(100% - 42px);
+    min-width: 0;
+  }
+  .ai-room-card .ant-image {
+    width: 72px;
+    min-width: 72px;
+  }
+  .ai-room-card .ant-image-img {
+    width: 72px;
+    height: 84px;
+  }
+  .ai-widget .ant-drawer-content-wrapper {
+    width: 100% !important;
+  }
+  .ai-widget .ant-space {
+    min-width: 0;
+  }
+  .ai-widget .ant-typography {
+    overflow-wrap: anywhere;
+  }
+  .ai-message__status {
+    align-items: flex-start;
   }
 }

@@ -17,6 +17,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface RoomTypeRepository extends JpaRepository<RoomType, UUID> {
 
+    @Query(
+            "SELECT DISTINCT rt FROM RoomType rt LEFT JOIN FETCH rt.amenities WHERE rt.id IN :ids AND rt.status = :status")
+    List<RoomType> findRecommendationDetails(@Param("ids") List<UUID> ids, @Param("status") RoomTypeStatus status);
+
     // All statuses count: completed/cancelled bookings also carry historical room information.
     @Query(value = "SELECT EXISTS (SELECT 1 FROM bookings WHERE room_type_id = :id)", nativeQuery = true)
     boolean hasBookingHistory(@Param("id") UUID id);

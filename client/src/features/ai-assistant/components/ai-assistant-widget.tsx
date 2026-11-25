@@ -12,6 +12,7 @@ import { useAuth } from '../../authentication/providers/auth-context';
 import { ApiClientError } from '../../../types/api';
 import { useAiAssistant } from '../hooks/use-ai-assistant';
 import type { AiChatMessage, AiUiAction } from '../types/ai-assistant';
+import { RoomRecommendationResults } from './room-recommendation-results';
 
 import './ai-assistant-widget.css';
 
@@ -37,6 +38,8 @@ function actionLocation(action: AiUiAction): string {
         adults: String(action.params.adults),
         children: String(action.params.children),
       });
+      if (action.params.childAges?.length)
+        query.set('childAges', action.params.childAges.join(','));
       return `/bookings/new?${query.toString()}`;
     }
     case 'REVIEW_CANCELLATION':
@@ -49,22 +52,34 @@ function actionLocation(action: AiUiAction): string {
 }
 
 const suggestedQuestions = [
+  'Gia đình tôi muốn nghỉ dưỡng, bạn tư vấn giúp nhé',
+  'Tôi muốn một phòng tiết kiệm cho chuyến công tác',
   'Khách sạn check-in lúc mấy giờ?',
-  'Tìm phòng cho 2 người trong 3 đêm tới',
-  'Cho tôi xem các booking của mình',
-  'Các dịch vụ bổ sung đang có là gì?',
 ];
 
 const initialMessage: AiChatMessage = {
   id: 'welcome',
   role: 'assistant',
   content:
-    'Xin chào! Tôi có thể giúp bạn tìm phòng, tính giá, xem booking, thanh toán và kiểm tra điều kiện hủy phòng.',
+    'Chào bạn, mình là trợ lý HANBAY. Bạn đang lên kế hoạch cho chuyến đi như thế nào? Mình sẽ cùng bạn tìm phòng phù hợp, so sánh các lựa chọn và giải đáp thông tin khách sạn.',
 };
 
 export function AiAssistantWidget({ navigateTo }: { navigateTo: (location: string) => void }) {
+  const { session, isAuthenticated } = useAuth();
+  return (
+    <AiAssistantContent
+      key={session?.user?.id ?? String(isAuthenticated)}
+      navigateTo={navigateTo}
+    />
+  );
+}
+
+function AiAssistantContent({ navigateTo }: { navigateTo: (location: string) => void }) {
   const { isAuthenticated, roles } = useAuth();
   const [open, setOpen] = useState(false);
+  const [status, setStatus] = useState('');
+  const requestRef = useRef<AbortController | null>(null);
+  useEffect(() => () => requestRef.current?.abort(), []);
   const [input, setInput] = useState('');
   const [lastSubmitted, setLastSubmitted] = useState('');
   const [messages, setMessages] = useState<AiChatMessage[]>([initialMessage]);
@@ -80,6 +95,8 @@ export function AiAssistantWidget({ navigateTo }: { navigateTo: (location: strin
     if (!message || mutation.isPending || !isAuthenticated) return;
 
     const assistantMessageId = crypto.randomUUID();
+    requestRef.current = new AbortController();
+    setStatus('Mình đang xem yêu cầu của bạn…');
     setLastSubmitted(message);
     setMessages((current) => [
       ...current,
@@ -91,6 +108,22 @@ export function AiAssistantWidget({ navigateTo }: { navigateTo: (location: strin
       {
         payload: { conversationId: getConversationId(), message },
         options: {
+          signal: requestRef.current.signal,
+          onStatus: setStatus,
+          onSuggestions: (suggestions) => {
+            setMessages((current) =>
+              current.map((item) =>
+                item.id === assistantMessageId ? { ...item, suggestions } : item,
+              ),
+            );
+          },
+          onRecommendations: (recommendations) => {
+            setMessages((current) =>
+              current.map((item) =>
+                item.id === assistantMessageId ? { ...item, recommendations } : item,
+              ),
+            );
+          },
           onDelta: (content) => {
             setMessages((current) =>
               current.map((item) =>
@@ -184,112 +217,145 @@ export function AiAssistantWidget({ navigateTo }: { navigateTo: (location: strin
             </Button>
           </div>
         ) : (
-          <div className="ai-widget__chat">
-            <div
-              className="ai-widget__messages"
-              aria-live="polite"
-              aria-label="Nội dung trò chuyện"
-            >
-              {messages.map((message) => (
-                <article className={`ai-message ai-message--${message.role}`} key={message.id}>
-                  <Avatar
-                    className="ai-message__avatar"
-                    icon={message.role === 'assistant' ? <RobotOutlined /> : <UserOutlined />}
-                  />
-                  <div className="ai-message__content">
-                    <div className="ai-message__bubble">{message.content}</div>
-                    {message.action && (
-                      <Button
-                        className="ai-message__action"
-                        type="primary"
-                        onClick={() => {
-                          setOpen(false);
-                          navigateTo(actionLocation(message.action!));
-                        }}
-                      >
-                        {message.action.label}
-                      </Button>
-                    )}
-                    {!!message.sources?.length && (
-                      <div className="ai-message__sources" aria-label="Nguồn chính sách">
-                        <Text type="secondary">Nguồn:</Text>
-                        {message.sources.map((source) => (
-                          <Text key={`${source.title}-${source.section}`} type="secondary">
-                            {source.title} — {source.section}
-                          </Text>
-                        ))}
+          <div className="ai-widget__body">
+            <div className="ai-widget__chat">
+              <div
+                className="ai-widget__messages"
+                aria-live="polite"
+                aria-label="Nội dung trò chuyện"
+              >
+                {messages.map((message) => (
+                  <article
+                    hidden={!message.content && !message.recommendations && !message.action}
+                    className={`ai-message ai-message--${message.role}`}
+                    key={message.id}
+                  >
+                    <Avatar
+                      className="ai-message__avatar"
+                      icon={message.role === 'assistant' ? <RobotOutlined /> : <UserOutlined />}
+                    />
+                    <div className="ai-message__content">
+                      {message.content && (
+                        <div className="ai-message__bubble">{message.content}</div>
+                      )}
+                      {message.recommendations && (
+                        <RoomRecommendationResults
+                          result={message.recommendations}
+                          onAsk={submit}
+                          disabled={mutation.isPending}
+                        />
+                      )}
+                      {message.action && message.id === messages.at(-1)?.id && (
+                        <Button
+                          className="ai-message__action"
+                          disabled={mutation.isPending}
+                          type="primary"
+                          onClick={() => {
+                            setOpen(false);
+                            navigateTo(actionLocation(message.action!));
+                          }}
+                        >
+                          {message.action.label}
+                        </Button>
+                      )}
+                      {message.id === messages.at(-1)?.id && !!message.suggestions?.length && (
+                        <Space wrap className="ai-message__suggestions">
+                          {message.suggestions.map((suggestion) => (
+                            <Button
+                              key={suggestion}
+                              size="small"
+                              disabled={mutation.isPending}
+                              onClick={() => submit(suggestion)}
+                            >
+                              {suggestion}
+                            </Button>
+                          ))}
+                        </Space>
+                      )}
+                      {!!message.sources?.length && (
+                        <div className="ai-message__sources" aria-label="Nguồn chính sách">
+                          <Text type="secondary">Nguồn:</Text>
+                          {message.sources.map((source) => (
+                            <Text key={`${source.title}-${source.section}`} type="secondary">
+                              {source.title} — {source.section}
+                            </Text>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                ))}
+                {mutation.isPending && messages.at(-1)?.content === '' && (
+                  <article className="ai-message ai-message--assistant" aria-label="AI đang xử lý">
+                    <Avatar className="ai-message__avatar" icon={<RobotOutlined />} />
+                    <div className="ai-message__bubble ai-message__status" role="status">
+                      <div className="ai-message__typing">
+                        <span />
+                        <span />
+                        <span />
                       </div>
-                    )}
-                  </div>
-                </article>
-              ))}
-              {mutation.isPending && messages.at(-1)?.content === '' && (
-                <article className="ai-message ai-message--assistant" aria-label="AI đang xử lý">
-                  <Avatar className="ai-message__avatar" icon={<RobotOutlined />} />
-                  <div className="ai-message__bubble ai-message__typing">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                </article>
-              )}
-              <div ref={messageEndRef} />
-            </div>
-
-            <div className="ai-widget__composer">
-              {errorMessage && (
-                <Alert
-                  showIcon
-                  closable
-                  type="error"
-                  message={errorMessage}
-                  action={
-                    lastSubmitted ? (
-                      <Button size="small" onClick={() => submit(lastSubmitted)}>
-                        Thử lại
-                      </Button>
-                    ) : undefined
-                  }
-                  onClose={() => mutation.reset()}
-                />
-              )}
-              {messages.length === 1 && (
-                <Space wrap size={[8, 8]}>
-                  {suggestedQuestions.map((question) => (
-                    <Button key={question} size="small" onClick={() => submit(question)}>
-                      {question}
-                    </Button>
-                  ))}
-                </Space>
-              )}
-              <div className="ai-widget__input-row">
-                <TextArea
-                  autoSize={{ minRows: 1, maxRows: 4 }}
-                  maxLength={2_000}
-                  placeholder="Hỏi về chính sách, phòng, giá hoặc booking..."
-                  value={input}
-                  disabled={mutation.isPending}
-                  aria-label="Tin nhắn cho trợ lý AI"
-                  onChange={(event) => setInput(event.target.value)}
-                  onPressEnter={(event) => {
-                    if (!event.shiftKey) {
-                      event.preventDefault();
-                      submit(input);
-                    }
-                  }}
-                />
-                <Button
-                  type="primary"
-                  icon={<SendOutlined />}
-                  loading={mutation.isPending}
-                  disabled={!input.trim()}
-                  aria-label="Gửi tin nhắn"
-                  onClick={() => submit(input)}
-                />
+                      <Text type="secondary">{status}</Text>
+                    </div>
+                  </article>
+                )}
+                <div ref={messageEndRef} />
               </div>
-              <Text type="secondary" className="ai-widget__notice">
-                AI có thể mắc lỗi. Hãy kiểm tra lại thông tin quan trọng.
-              </Text>
+
+              <div className="ai-widget__composer">
+                {errorMessage && (
+                  <Alert
+                    showIcon
+                    closable
+                    type="error"
+                    message={errorMessage}
+                    action={
+                      lastSubmitted ? (
+                        <Button size="small" onClick={() => submit(lastSubmitted)}>
+                          Thử lại
+                        </Button>
+                      ) : undefined
+                    }
+                    onClose={() => mutation.reset()}
+                  />
+                )}
+                {messages.length === 1 && (
+                  <Space wrap size={[8, 8]}>
+                    {suggestedQuestions.map((question) => (
+                      <Button key={question} size="small" onClick={() => submit(question)}>
+                        {question}
+                      </Button>
+                    ))}
+                  </Space>
+                )}
+                <div className="ai-widget__input-row">
+                  <TextArea
+                    autoSize={{ minRows: 1, maxRows: 4 }}
+                    maxLength={2_000}
+                    placeholder="Kể mình nghe nhu cầu của bạn…"
+                    value={input}
+                    disabled={mutation.isPending}
+                    aria-label="Tin nhắn cho trợ lý AI"
+                    onChange={(event) => setInput(event.target.value)}
+                    onPressEnter={(event) => {
+                      if (!event.shiftKey) {
+                        event.preventDefault();
+                        submit(input);
+                      }
+                    }}
+                  />
+                  <Button
+                    type="primary"
+                    icon={<SendOutlined />}
+                    loading={mutation.isPending}
+                    disabled={!input.trim()}
+                    aria-label="Gửi tin nhắn"
+                    onClick={() => submit(input)}
+                  />
+                </div>
+                <Text type="secondary" className="ai-widget__notice">
+                  Phòng và giá được kiểm tra theo ngày ở. Bạn xác nhận đặt phòng ở bước tiếp theo.
+                </Text>
+              </div>
             </div>
           </div>
         )}
