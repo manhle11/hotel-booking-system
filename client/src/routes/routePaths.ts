@@ -24,5 +24,6 @@ export const ROUTE_PATHS = {
   reviews: '/management/reviews',
   hotelMap: '/hotel-map',
   roomMap: '/front-desk/room-map',
+  roomAssignments: '/front-desk/room-assignments',
   floorPlans: '/management/floor-plans',
 } as const;

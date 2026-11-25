@@ -75,7 +75,10 @@ export function DashboardLayout() {
         ]
       : []),
     ...(canViewTodayArrivals
-      ? [{ key: ROUTE_PATHS.roomMap, icon: <ApartmentOutlined />, label: 'Sơ đồ phòng' }]
+      ? [
+          { key: ROUTE_PATHS.roomMap, icon: <ApartmentOutlined />, label: 'Sơ đồ phòng' },
+          { key: ROUTE_PATHS.roomAssignments, icon: <ScheduleOutlined />, label: 'Lịch gán phòng' },
+        ]
       : []),
     ...(hasRouteRole(roles, ROUTE_ROLES.reception)
       ? [

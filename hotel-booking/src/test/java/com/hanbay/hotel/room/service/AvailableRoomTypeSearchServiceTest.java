@@ -122,6 +122,44 @@ class AvailableRoomTypeSearchServiceTest {
     }
 
     @Test
+    void includesSoldOutRoomTypesWithPricingWhenRequested() {
+        RoomType suite = roomType("SUITE", "Suite", 4);
+        when(roomTypeRepository.findAllByStatusOrderByNameAsc(RoomTypeStatus.ACTIVE))
+                .thenReturn(List.of(suite));
+        when(roomAvailabilityCalculator.countAvailableRooms(List.of(suite.getId()), CHECK_IN, CHECK_OUT))
+                .thenReturn(Map.of());
+        when(pricingService.calculateRoomPrice(suite, CHECK_IN, CHECK_OUT))
+                .thenReturn(new RoomPricingResult(List.of(night(CHECK_IN, 2_000_000)), 2_000_000, 0, 2_000_000));
+
+        var response = service.search(CHECK_IN, CHECK_OUT, 2, 0, suite.getId(), 0, 6, null, null, null, true);
+
+        assertEquals(1, response.totalElements());
+        assertEquals("SUITE", response.content().get(0).code());
+        assertEquals(0, response.content().get(0).availableRooms());
+        assertEquals(2_000_000, response.content().get(0).roomTotal());
+    }
+
+    @Test
+    void includesSoldOutRoomTypesInPaginationAndPricesOnlyCurrentPage() {
+        RoomType unavailable = roomType("ROOM-0", "A - Hết phòng", 4);
+        RoomType available = roomType("ROOM-1", "B - Deluxe", 4);
+        when(roomTypeRepository.findAllByStatusOrderByNameAsc(RoomTypeStatus.ACTIVE))
+                .thenReturn(List.of(unavailable, available));
+        when(roomAvailabilityCalculator.countAvailableRooms(
+                        List.of(unavailable.getId(), available.getId()), CHECK_IN, CHECK_OUT))
+                .thenReturn(Map.of(unavailable.getId(), 0L, available.getId(), 2L));
+
+        var response = service.search(CHECK_IN, CHECK_OUT, 2, 0, null, 0, 1, null, null, null, true);
+
+        assertEquals(2, response.totalElements());
+        assertEquals(2, response.totalPages());
+        assertEquals("ROOM-0", response.content().get(0).code());
+        assertEquals(0, response.content().get(0).availableRooms());
+        verify(pricingService).calculateRoomPrice(unavailable, CHECK_IN, CHECK_OUT);
+        verify(pricingService, never()).calculateRoomPrice(available, CHECK_IN, CHECK_OUT);
+    }
+
+    @Test
     void rejectsPastCheckInDate() {
         assertThrows(
                 RoomValidationException.class,

@@ -87,12 +87,16 @@ public class BookingServiceImpl implements BookingService {
     private final BookingAccessTokenService bookingAccessTokenService;
     private final com.hanbay.hotel.booking.service.BookingSettlementLedger settlementLedger;
     private final com.hanbay.hotel.booking.service.BookingChangeLifecycle changeLifecycle;
+    private final com.hanbay.hotel.assignment.InventoryWriteGuard inventoryGuard;
 
     @Override
     public CreatePendingBookingResponse createPendingBooking(CreatePendingBookingRequest request) {
         for (int attempt = 1; attempt <= MAX_BOOKING_CODE_RETRY; attempt++) {
             try {
-                return transactionTemplate.execute(status -> createPendingBookingInTransaction(request));
+                return transactionTemplate.execute(status -> {
+                    inventoryGuard.enlist();
+                    return createPendingBookingInTransaction(request);
+                });
             } catch (DataIntegrityViolationException ex) {
                 if (!isBookingCodeConflict(ex)) {
                     throw ex;
@@ -110,6 +114,7 @@ public class BookingServiceImpl implements BookingService {
     public CreatePendingBookingResponse updatePendingBooking(
             UUID bookingId, CreatePendingBookingRequest request, String bookingAccessToken) {
         return transactionTemplate.execute(status -> {
+            inventoryGuard.enlist();
             validateStayDates(request.checkInDate(), request.checkOutDate());
             Booking booking = bookingRepository
                     .findByIdForUpdate(bookingId)

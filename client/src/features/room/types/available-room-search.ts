@@ -46,6 +46,7 @@ export interface AvailableRoomTypeSearchParams {
   viewType?: RoomViewType;
   hasBalcony?: boolean;
   highFloor?: boolean;
+  includeSoldOut?: boolean;
   page: number;
   size: number;
 }

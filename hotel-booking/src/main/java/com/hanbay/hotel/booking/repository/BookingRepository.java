@@ -190,6 +190,23 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("checkOut") LocalDate checkOut,
             @Param("statuses") Collection<BookingStatus> statuses);
 
+    @Query(
+            value =
+                    """
+            SELECT COUNT(*) FROM room_allocations a WHERE a.room_id = :roomId AND a.active
+            AND (a.booking_id IS NULL OR a.booking_id <> :excludedBookingId)
+            AND daterange(a.check_in, a.check_out, '[)') && daterange(CAST(:checkIn AS date), CAST(:checkOut AS date), '[)')
+            """,
+            nativeQuery = true)
+    long countPlannedRoomConflicts(
+            @Param("roomId") UUID roomId,
+            @Param("excludedBookingId") UUID excludedBookingId,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut);
+
+    @Query(value = "SELECT room_id FROM room_allocations WHERE booking_id = :bookingId AND active", nativeQuery = true)
+    Optional<UUID> findActivePlannedRoomId(@Param("bookingId") UUID bookingId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
             """

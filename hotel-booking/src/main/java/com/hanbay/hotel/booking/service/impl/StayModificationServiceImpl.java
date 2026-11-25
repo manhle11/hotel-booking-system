@@ -175,8 +175,15 @@ public class StayModificationServiceImpl implements StayModificationService {
         if (assignedRoom != null) {
             roomRepository.findByIdForUpdate(assignedRoom.getId()).orElseThrow();
             if (bookingRepository.countAssignedRoomConflicts(
-                            assignedRoom.getId(), bookingId, oldDate, request.newCheckOutDate(), ACTIVE_STATUSES)
-                    > 0) {
+                                    assignedRoom.getId(),
+                                    bookingId,
+                                    oldDate,
+                                    request.newCheckOutDate(),
+                                    ACTIVE_STATUSES)
+                            > 0
+                    || bookingRepository.countPlannedRoomConflicts(
+                                    assignedRoom.getId(), bookingId, oldDate, request.newCheckOutDate())
+                            > 0) {
                 throw StayModificationException.conflict(
                         "ROOM_NOT_AVAILABLE_FOR_EXTENSION", "Phòng hiện tại không trống cho toàn bộ thời gian gia hạn");
             }

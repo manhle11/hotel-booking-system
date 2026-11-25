@@ -97,8 +97,8 @@ public class RoomTypeController {
     @GetMapping("/available")
     @Operation(
             summary = "Tìm loại phòng còn trống",
-            description =
-                    "Trả về các loại phòng đang hoạt động, " + "đủ sức chứa và còn tồn kho trong khoảng ngày đã chọn",
+            description = "Trả về các loại phòng đang hoạt động, đủ sức chứa trong khoảng ngày đã chọn. "
+                    + "Dùng includeSoldOut=true để bao gồm cả hạng phòng đã hết chỗ.",
             security = {})
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -135,9 +135,22 @@ public class RoomTypeController {
                     int size,
             @RequestParam(required = false) RoomViewType viewType,
             @RequestParam(required = false) Boolean hasBalcony,
-            @RequestParam(required = false) Boolean highFloor) {
+            @RequestParam(required = false) Boolean highFloor,
+            @Parameter(description = "Bao gồm hạng phòng hết chỗ, với availableRooms bằng 0")
+                    @RequestParam(defaultValue = "false")
+                    boolean includeSoldOut) {
 
         return ResponseEntity.ok(ApiResponse.success(availableRoomTypeSearchService.search(
-                checkIn, checkOut, adults, children, roomTypeId, page, size, viewType, hasBalcony, highFloor)));
+                checkIn,
+                checkOut,
+                adults,
+                children,
+                roomTypeId,
+                page,
+                size,
+                viewType,
+                hasBalcony,
+                highFloor,
+                includeSoldOut)));
     }
 }

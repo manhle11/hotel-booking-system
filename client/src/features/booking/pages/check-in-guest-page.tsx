@@ -27,6 +27,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { HotelFloorMap } from '../../room-map/hotel-floor-map';
 import { invalidateRoomMaps, useStaffMap } from '../../room-map/api';
 import { refreshArrivalsAfterCheckIn } from '../../front-desk/api/front-desk-query';
+import { getSuggestedRoom } from '../../room-assignment/api';
 
 import {
   checkInGuest,
@@ -120,6 +121,31 @@ export function CheckInGuestPage() {
     refetchOnWindowFocus: 'always',
     refetchOnReconnect: 'always',
   });
+  const plannedRoom = useQuery({
+    queryKey: ['suggested-room', searchedBookingCode],
+    queryFn: () => getSuggestedRoom(searchedBookingCode),
+    enabled: !!searchedBookingCode && !!bookingQuery.data?.canCheckIn,
+    retry: false,
+    refetchInterval: 15_000,
+  });
+  useEffect(() => {
+    const suggested = plannedRoom.data;
+    if (
+      !visibleResult &&
+      bookingQuery.data?.canCheckIn &&
+      suggested?.ready &&
+      !selectedRoomId &&
+      roomsQuery.data?.some((room) => room.roomId === suggested.roomId)
+    )
+      form.setFieldValue('roomId', suggested.roomId);
+  }, [
+    plannedRoom.data,
+    selectedRoomId,
+    roomsQuery.data,
+    form,
+    visibleResult,
+    bookingQuery.data?.canCheckIn,
+  ]);
   const eligible = new Set((roomsQuery.data ?? []).map((room) => room.roomId));
   const eligibleMapFloors = (mapQuery.data?.floors ?? []).flatMap((floor) => {
     const eligibleRooms = floor.rooms.filter((room) => !!room.roomId && eligible.has(room.roomId));
@@ -445,6 +471,20 @@ export function CheckInGuestPage() {
                     Chọn ô chưa giữ phòng. Bấm xác nhận check-in để gán phòng và nhận khách.
                   </Typography.Paragraph>
                 </>
+              )}
+
+              {plannedRoom.data && (
+                <Alert
+                  type={plannedRoom.data.ready ? 'info' : 'warning'}
+                  showIcon
+                  title={`Phòng đã gán: ${plannedRoom.data.roomNumber}`}
+                  description={
+                    plannedRoom.data.ready
+                      ? 'Hệ thống đã điền sẵn phòng dự kiến. Lịch và trạng thái phòng được kiểm tra lại khi xác nhận nhận khách.'
+                      : 'Phòng đã gán chưa sẵn sàng. Hoàn tất xử lý phòng hoặc nhờ quản lý duyệt đổi phòng trong Lịch gán phòng.'
+                  }
+                  style={{ marginBottom: 16 }}
+                />
               )}
 
               {roomsQuery.isError && (

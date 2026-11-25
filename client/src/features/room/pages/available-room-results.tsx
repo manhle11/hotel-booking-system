@@ -53,11 +53,11 @@ export function AvailableRoomResults({
   const [checkIn, checkOut] = currentValues.stayDates;
 
   return (
-    <section className="room-section" aria-label="Hạng phòng còn trống">
+    <section className="room-section" aria-label="Hạng phòng phù hợp">
       <div className="section-heading">
         <div>
           <Text className="eyebrow">Phòng nghỉ</Text>
-          <Title level={2}>Hạng phòng còn trống</Title>
+          <Title level={2}>Hạng phòng phù hợp</Title>
         </div>
         <Text type="secondary">
           {formatDisplayDate(checkIn)} - {formatDisplayDate(checkOut)} · {nights} đêm ·{' '}
@@ -96,7 +96,7 @@ function renderRoomResults({
       <Empty
         className="room-empty-state"
         image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description="Chọn tiêu chí và bấm tìm kiếm để xem hạng phòng còn trống."
+        description="Chọn tiêu chí và bấm tìm kiếm để xem hạng phòng phù hợp."
       />
     );
   }
@@ -105,7 +105,7 @@ function renderRoomResults({
     return (
       <Empty
         className="room-empty-state"
-        description="Không tìm thấy hạng phòng còn trống phù hợp với ngày lưu trú và số khách đã chọn."
+        description="Không tìm thấy hạng phòng phù hợp với ngày lưu trú và số khách đã chọn."
       />
     );
   }
@@ -173,6 +173,7 @@ function renderPriceAdjustmentDetails(adjustments: PriceAdjustmentView[]) {
 }
 
 function AvailableRoomCard({ room, onBookRoom }: AvailableRoomCardProps) {
+  const soldOut = room.availableRooms <= 0;
   const totalNights = room.totalNights;
   const priceAdjustments = getPriceAdjustments(room);
   const nightlyBreakdown = room.nightlyPrices
@@ -199,6 +200,7 @@ function AvailableRoomCard({ room, onBookRoom }: AvailableRoomCardProps) {
           icon={<ArrowRightOutlined />}
           key="book"
           type="primary"
+          disabled={soldOut}
           onClick={() => onBookRoom(room.id)}
         >
           Chọn phòng
@@ -215,7 +217,9 @@ function AvailableRoomCard({ room, onBookRoom }: AvailableRoomCardProps) {
             </Title>
             <Text type="secondary">{room.description ?? 'Đang cập nhật mô tả.'}</Text>
           </div>
-          <Tag color="blue">Còn {room.availableRooms} phòng</Tag>
+          <Tag color={soldOut ? 'red' : 'blue'}>
+            {soldOut ? 'Hết phòng' : `Còn ${room.availableRooms} phòng`}
+          </Tag>
         </Space>
         <Space wrap>
           <Tag icon={<TeamOutlined />}>
