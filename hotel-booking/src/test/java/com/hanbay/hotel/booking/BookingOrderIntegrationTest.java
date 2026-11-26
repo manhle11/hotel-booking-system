@@ -8,6 +8,7 @@ import com.hanbay.hotel.booking.domain.*;
 import com.hanbay.hotel.booking.dto.request.*;
 import com.hanbay.hotel.booking.dto.response.BookingOrderResponse;
 import com.hanbay.hotel.booking.exception.*;
+import com.hanbay.hotel.booking.policy.UnifiedBookingPolicy;
 import com.hanbay.hotel.booking.repository.BookingOrderRepository;
 import com.hanbay.hotel.booking.repository.BookingRepository;
 import com.hanbay.hotel.booking.service.*;
@@ -82,6 +83,9 @@ class BookingOrderIntegrationTest {
 
     @Autowired
     BookingOrderService service;
+
+    @Autowired
+    ArrivalHandlingService arrivalHandling;
 
     @Autowired
     BookingChangeService changes;
@@ -190,6 +194,22 @@ class BookingOrderIntegrationTest {
                 assertThat(booking.getOrderRoomNumber()).isPositive();
             });
         });
+    }
+
+    @Test
+    void pendingOrderCanLoadEveryRoomPolicyBeforeAcceptingTermsAndCreatingPayment() {
+        var order = create(deluxe, suite);
+        for (var room : order.rooms()) {
+            var summary = arrivalHandling.customerPolicy(room.bookingCode(), TOKEN);
+            assertThat(summary.version()).isEqualTo(UnifiedBookingPolicy.VERSION);
+            assertThat(summary.firstNightAmount()).isEqualTo(1000L);
+            assertThat(summary.acceptedAt()).isNull();
+            assertThat(summary.legacy()).isFalse();
+            assertThat(summary.fees()).isEmpty();
+        }
+        assertThat(service.createPayment(order.orderId(), TOKEN, UnifiedBookingPolicy.VERSION)
+                        .payment())
+                .isNotNull();
     }
 
     @Test

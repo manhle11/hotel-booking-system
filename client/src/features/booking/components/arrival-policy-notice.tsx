@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Descriptions, Space, Typography } from 'antd';
+import { Alert, Button, Descriptions, Space, Typography } from 'antd';
 import { useEffect } from 'react';
 import { getBookingPolicy } from '../api/booking-policy-api';
 import { formatHotelDateTime } from '../../../utils/hotel-time';
@@ -30,6 +30,11 @@ export function ArrivalPolicyNotice({
         type="error"
         title="Chưa tải được chính sách và căn cứ phí"
         description={query.error.message}
+        action={
+          <Button loading={query.isFetching} onClick={() => void query.refetch()}>
+            Thử tải lại
+          </Button>
+        }
       />
     );
   if (!query.data) return <Alert type="info" title="Đang tải chính sách và căn cứ phí…" />;
