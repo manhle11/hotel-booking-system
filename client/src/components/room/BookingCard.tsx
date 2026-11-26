@@ -1,4 +1,5 @@
-import { Button, Card, DatePicker, Divider, Flex, InputNumber, Space, Typography } from 'antd';
+import { ArrowRightOutlined, CalendarOutlined } from '@ant-design/icons';
+import { Button, DatePicker, InputNumber, Typography } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -43,61 +44,99 @@ export function BookingCard({ roomType }: { roomType: RoomTypeDetail }) {
   };
 
   return (
-    <Card title="Đặt loại phòng này" className="booking-card">
-      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {formatCurrency(roomType.basePrice)}{' '}
-          <Typography.Text type="secondary">/ đêm</Typography.Text>
-        </Typography.Title>
+    <section
+      id="room-booking"
+      className="booking-card"
+      aria-labelledby="room-booking-title"
+      tabIndex={-1}
+    >
+      <header className="booking-card__header">
+        <h2 id="room-booking-title">
+          <CalendarOutlined aria-hidden /> Đặt phòng
+        </h2>
+        <div className="booking-card__price">
+          <span>Giá cơ bản</span>
+          <div>
+            <strong>{formatCurrency(roomType.basePrice)}</strong> <span>/ đêm</span>
+          </div>
+        </div>
+      </header>
+      <div className="booking-card__body">
+        <label className="booking-card__label" htmlFor="room-check-in">
+          Ngày lưu trú
+        </label>
         <DatePicker.RangePicker
-          style={{ width: '100%' }}
+          id={{ start: 'room-check-in', end: 'room-check-out' }}
+          size="large"
+          className="booking-card__control"
           format="DD/MM/YYYY"
-          placeholder={['Ngày nhận phòng', 'Ngày trả phòng']}
+          placeholder={['Nhận phòng', 'Trả phòng']}
           disabledDate={disabledArrivalDate}
           onChange={setDates}
         />
-        <StayPolicyNote />
-        <Flex gap="middle">
-          <Space orientation="vertical">
-            <Typography.Text>Người lớn</Typography.Text>
+        <div className="booking-card__guests">
+          <div>
+            <label className="booking-card__label" htmlFor="room-adults">
+              Người lớn
+            </label>
             <InputNumber
+              id="room-adults"
+              size="large"
+              className="booking-card__control"
               min={1}
               max={roomType.capacityAdults}
               value={adults}
               onChange={(value) => setAdults(value ?? 1)}
             />
-          </Space>
-          <Space orientation="vertical">
-            <Typography.Text>Trẻ em</Typography.Text>
+          </div>
+          <div>
+            <label className="booking-card__label" htmlFor="room-children">
+              Trẻ em
+            </label>
             <InputNumber
+              id="room-children"
+              size="large"
+              className="booking-card__control"
               min={0}
               max={roomType.capacityChildren}
               value={children}
               onChange={(value) => setChildren(value ?? 0)}
             />
-          </Space>
-        </Flex>
+          </div>
+        </div>
         {!validGuests && (
           <Typography.Text type="danger">
             Tổng số khách không được vượt quá {roomType.maxGuests} người.
           </Typography.Text>
         )}
-        <Divider />
-        <StayPriceSummary
-          data={stayPriceQuery.data}
-          error={stayPriceQuery.error}
-          isLoading={stayPriceQuery.isLoading}
-          validationMessage={stayPriceSelection.validationMessage}
-          hasSelection={Boolean(stayPriceRequest)}
-          onRetry={() => void stayPriceQuery.refetch()}
-        />
-        <Button type="primary" size="large" block disabled={!canContinue} onClick={continueBooking}>
+        <div className="booking-card__summary" aria-live="polite">
+          <StayPriceSummary
+            data={stayPriceQuery.data}
+            error={stayPriceQuery.error}
+            isLoading={stayPriceQuery.isLoading}
+            validationMessage={stayPriceSelection.validationMessage}
+            hasSelection={Boolean(stayPriceRequest)}
+            onRetry={() => void stayPriceQuery.refetch()}
+          />
+        </div>
+        <Button
+          type="primary"
+          size="large"
+          block
+          disabled={!canContinue}
+          onClick={continueBooking}
+          icon={<ArrowRightOutlined />}
+          iconPlacement="end"
+        >
           Tiếp tục đặt phòng
         </Button>
-        <Typography.Text type="secondary">
-          Phòng cụ thể sẽ được lễ tân sắp xếp khi nhận phòng.
-        </Typography.Text>
-      </Space>
-    </Card>
+        <div className="booking-card__notes">
+          <StayPolicyNote />
+          <Typography.Text type="secondary">
+            Phòng cụ thể sẽ được lễ tân sắp xếp khi nhận phòng.
+          </Typography.Text>
+        </div>
+      </div>
+    </section>
   );
 }
