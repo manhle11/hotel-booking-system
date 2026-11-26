@@ -1,5 +1,6 @@
 ﻿import { ArrowLeftOutlined } from '@ant-design/icons';
-import { Button, Col, Flex, Result, Row, Space, Typography } from 'antd';
+import { CalendarOutlined } from '@ant-design/icons';
+import { Button, Flex, Result, Space, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
@@ -62,25 +63,28 @@ export function RoomDetailPage() {
               Quay lại danh sách loại phòng
             </Button>
           </Link>
-          <div>
-            <Typography.Title>{roomType.name}</Typography.Title>
-            <Link to="/hotel-map">
-              <Button>Xem sơ đồ khách sạn</Button>
-            </Link>
-            <RoomReviewSummary roomTypeId={roomType.id} />
-            <Typography.Paragraph type="secondary" className="room-detail-lead">
-              {roomType.shortDescription || roomType.description}
-            </Typography.Paragraph>
+          <div className="room-detail-intro">
+            <div>
+              <Typography.Title>{roomType.name}</Typography.Title>
+              <RoomReviewSummary roomTypeId={roomType.id} />
+              <Typography.Paragraph type="secondary" className="room-detail-lead">
+                {roomType.shortDescription || roomType.description}
+              </Typography.Paragraph>
+            </div>
+            <Button type="primary" size="large" href="#room-booking" icon={<CalendarOutlined />}>
+              Chọn ngày đặt phòng
+            </Button>
           </div>
           <RoomGallery images={roomType.images} roomName={roomType.name} />
-          <Row gutter={[{ xs: 16, md: 32 }, 32]} align="top">
-            <Col xs={24} lg={16}>
+          <div className="room-detail-content">
+            <BookingCard key={roomType.id} roomType={roomType} />
+            <div className="room-detail-info">
               <RoomInfo roomType={roomType} />
-            </Col>
-            <Col xs={24} lg={8}>
-              <BookingCard roomType={roomType} />
-            </Col>
-          </Row>
+              <Link to="/hotel-map" className="room-detail-map-link">
+                Xem sơ đồ khách sạn
+              </Link>
+            </div>
+          </div>
           <RoomReviewsSection roomTypeId={roomType.id} />
         </Space>
       </main>
