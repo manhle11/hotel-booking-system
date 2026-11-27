@@ -1,5 +1,14 @@
-import { Button, Card, Col, DatePicker, Form, Grid, Row, Select, theme, Typography } from 'antd';
+import { Button, DatePicker, Form, Select, theme, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
+import {
+  ArrowRightOutlined,
+  CoffeeOutlined,
+  FireOutlined,
+  RestOutlined,
+  ShopOutlined,
+  SunOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 import { MainFooter } from '../../../components/layout/MainFooter';
@@ -11,12 +20,42 @@ import './home-page.css';
 const { Paragraph, Text, Title } = Typography;
 
 const amenities = [
-  { icon: '⌂', name: 'Nhà hàng Hanami', description: 'Ẩm thực Việt Nam và quốc tế' },
-  { icon: '♨', name: 'Quán cà phê Momo', description: 'Cà phê thơm ngon bên bờ biển' },
-  { icon: '◇', name: 'Sky Bar & Tapas', description: 'Cocktail và tầm nhìn trên cao' },
-  { icon: '❀', name: 'Anona Spa', description: 'Thư giãn cơ thể và tâm trí' },
-  { icon: '≋', name: 'Hồ bơi vô cực', description: 'Ngắm biển Mỹ Khê bất tận' },
-  { icon: '↔', name: 'Phòng gym hiện đại', description: 'Không gian tập luyện cân bằng' },
+  {
+    icon: SunOutlined,
+    name: 'Hồ bơi vô cực',
+    description: 'Ngắm biển Mỹ Khê bất tận',
+    photo: 'photo-1540541338287-41700207dee6',
+  },
+  {
+    icon: ShopOutlined,
+    name: 'Nhà hàng Hanami',
+    description: 'Ẩm thực Việt Nam và quốc tế',
+    photo: 'photo-1414235077428-338989a2e8c0',
+  },
+  {
+    icon: CoffeeOutlined,
+    name: 'Quán cà phê Momo',
+    description: 'Thưởng thức cà phê bên bờ biển',
+    photo: 'photo-1501339847302-ac426a4a7cbb',
+  },
+  {
+    icon: FireOutlined,
+    name: 'Sky Bar & Tapas',
+    description: 'Món ăn nhẹ và tầm nhìn trên cao',
+    photo: 'photo-1767878032664-cd1d61f0e076',
+  },
+  {
+    icon: RestOutlined,
+    name: 'Anona Spa',
+    description: 'Thư giãn cơ thể và tâm trí',
+    photo: 'photo-1540555700478-4be289fbecef',
+  },
+  {
+    icon: ThunderboltOutlined,
+    name: 'Phòng gym hiện đại',
+    description: 'Không gian tập luyện cân bằng',
+    photo: 'photo-1534438327276-14e5300c3a48',
+  },
 ];
 
 interface SearchFormValues {
@@ -28,7 +67,6 @@ interface SearchFormValues {
 
 export function HomePage() {
   const { token } = theme.useToken();
-  const screens = Grid.useBreakpoint();
   const navigate = useNavigate();
   const [searchForm] = Form.useForm<SearchFormValues>();
   const today = dayjs().startOf('day');
@@ -45,7 +83,6 @@ export function HomePage() {
     navigate(`/rooms/search?${params.toString()}`);
   };
 
-  const sectionSpacing = screens.md ? 96 : 64;
   const numberOptions = (start: number, end: number, suffix: string) =>
     Array.from({ length: end - start + 1 }, (_, index) => {
       const value = start + index;
@@ -130,49 +167,70 @@ export function HomePage() {
           </Form>
         </section>
 
-        <section
-          className="home-intro home-container"
-          style={{ paddingBlock: sectionSpacing, textAlign: 'center' }}
-        >
-          <SectionHeading
-            kicker="MỘT NƠI ĐỂ DỪNG LẠI, MỘT NƠI ĐỂ BẮT ĐẦU"
-            title="Chào mừng bạn đến với HANBAY"
-          />
-          <Paragraph style={{ maxWidth: 760, color: token.colorTextSecondary, lineHeight: 1.9 }}>
-            Tọa lạc bên bãi biển Mỹ Khê, HANBAY mang đến không gian nghỉ dưỡng nhẹ nhàng giữa nhịp
-            sống Đà Nẵng. Mỗi căn phòng được chăm chút để đón ánh sáng, gió biển và tạo nên cảm giác
-            thân thuộc trong suốt hành trình của bạn.
-          </Paragraph>
-          <Button type="primary" href="#rooms">
-            Khám phá hạng phòng
-          </Button>
+        <section className="home-intro home-container" aria-labelledby="home-welcome-title">
+          <div className="home-intro__copy">
+            <header className="home-intro__heading">
+              <span className="home-kicker">MỸ KHÊ · ĐÀ NẴNG</span>
+              <h2 id="home-welcome-title">
+                Chào mừng bạn đến với <span className="home-intro__brand">HANBAY</span>
+              </h2>
+            </header>
+            <Paragraph>
+              Tọa lạc bên bãi biển Mỹ Khê, HANBAY mang đến không gian nghỉ dưỡng nhẹ nhàng giữa nhịp
+              sống Đà Nẵng. Mỗi căn phòng được chăm chút để đón ánh sáng và gió biển, tạo cảm giác
+              thân thuộc suốt kỳ nghỉ.
+            </Paragraph>
+            <Button
+              type="primary"
+              size="large"
+              href="#rooms"
+              icon={<ArrowRightOutlined />}
+              iconPlacement="end"
+            >
+              Khám phá hạng phòng
+            </Button>
+          </div>
+          <div className="home-intro__photo">
+            <img
+              src="https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1100&q=85"
+              alt="Ảnh minh họa phòng nghỉ với nội thất tông gỗ và ánh sáng ấm"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
         </section>
 
         <RoomTypeCatalog />
 
-        <section id="amenities" className="home-container" style={{ paddingBlock: sectionSpacing }}>
-          <SectionHeading
-            kicker="TIỆN NGHI KHÁCH SẠN"
-            title="Mọi trải nghiệm bạn cần trong một kỳ nghỉ"
-            description="Những tiện ích được kết nối cân bằng giữa nghỉ ngơi, ẩm thực và khám phá."
-          />
-          <div className="amenities-grid">
-            {amenities.map((amenity) => (
-              <article className="amenity-item" key={amenity.name}>
-                <Button shape="circle" size="large" aria-hidden tabIndex={-1}>
-                  {amenity.icon}
-                </Button>
-                <Text strong>{amenity.name}</Text>
-                <Text type="secondary">{amenity.description}</Text>
-              </article>
-            ))}
+        <section id="amenities" className="home-amenities" aria-labelledby="home-amenities-title">
+          <div className="home-container">
+            <header className="home-amenities__heading">
+              <h2 id="home-amenities-title">Tiện nghi khách sạn</h2>
+            </header>
+            <div className="amenities-grid">
+              {amenities.map(({ icon: Icon, name, description, photo }) => (
+                <article className="amenity-item" key={name}>
+                  <img
+                    className="amenity-item__photo"
+                    src={`https://images.unsplash.com/${photo}?auto=format&fit=crop&w=760&q=82`}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <span className="amenity-item__icon" aria-hidden="true">
+                    <Icon />
+                  </span>
+                  <div>
+                    <h3>{name}</h3>
+                    <p>{description}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section
-          className="experience-section"
-          style={{ paddingBlock: sectionSpacing, background: token.colorBgContainer }}
-        >
+        <section className="experience-section" aria-label="Ẩm thực và thư giãn">
           <div className="home-container experience-list">
             <ExperienceCard
               kicker="ẨM THỰC"
@@ -213,28 +271,6 @@ export function HomePage() {
   );
 }
 
-interface SectionHeadingProps {
-  kicker: string;
-  title: string;
-  description?: string;
-}
-
-function SectionHeading({ kicker, title, description }: SectionHeadingProps) {
-  const { token } = theme.useToken();
-
-  return (
-    <header className="home-section-heading" style={{ marginBottom: token.marginXL }}>
-      <Text className="home-kicker" style={{ color: token.colorPrimary }}>
-        {kicker}
-      </Text>
-      <Title level={2} style={{ margin: `${token.marginXS}px 0` }}>
-        {title}
-      </Title>
-      {description && <Paragraph type="secondary">{description}</Paragraph>}
-    </header>
-  );
-}
-
 interface ExperienceCardProps {
   kicker: string;
   title: string;
@@ -246,34 +282,25 @@ interface ExperienceCardProps {
 }
 
 function ExperienceCard(props: ExperienceCardProps) {
-  const { token } = theme.useToken();
-  const copy = (
-    <Col
-      key="copy"
-      xs={24}
-      md={12}
-      className="experience-copy"
-      style={{ padding: token.paddingXL }}
-    >
-      <Text className="home-kicker" style={{ color: token.colorPrimary }}>
-        {props.kicker}
-      </Text>
-      <Title level={2}>{props.title}</Title>
-      <Paragraph type="secondary" style={{ lineHeight: 1.8 }}>
-        {props.description}
-      </Paragraph>
-      <Button href="#contact">{props.action}</Button>
-    </Col>
-  );
-  const image = (
-    <Col key="image" xs={24} md={12}>
-      <img className="experience-image" src={props.image} alt={props.imageAlt} loading="lazy" />
-    </Col>
-  );
-
   return (
-    <Card styles={{ body: { padding: 0, overflow: 'hidden' } }}>
-      <Row>{props.reverse ? [image, copy] : [copy, image]}</Row>
-    </Card>
+    <article
+      className={props.reverse ? 'experience-card experience-card--reverse' : 'experience-card'}
+    >
+      <div className="experience-copy">
+        <span className="home-kicker">{props.kicker}</span>
+        <h2>{props.title}</h2>
+        <p>{props.description}</p>
+        <Button href="#contact" icon={<ArrowRightOutlined />} iconPlacement="end">
+          {props.action}
+        </Button>
+      </div>
+      <img
+        className="experience-image"
+        src={props.image}
+        alt={props.imageAlt}
+        loading="lazy"
+        decoding="async"
+      />
+    </article>
   );
 }
