@@ -60,6 +60,13 @@ class ArrivalHandlingSecurityIntegrationTest {
     JpaMetamodelMappingContext jpa;
 
     @Test
+    void anonymousCheckoutCanReadPolicyWithBookingAccessToken() throws Exception {
+        mvc.perform(get(BASE + "/booking-policy").header("X-Booking-Access-Token", "checkout-token"))
+                .andExpect(status().isOk());
+        verify(service).customerPolicy("BK-TEST", "checkout-token");
+    }
+
+    @Test
     void anonymousCannotInspectOrResolveStaffCases() throws Exception {
         mvc.perform(get(BASE + "/arrival-handling")).andExpect(status().isUnauthorized());
         mvc.perform(post(BASE + "/no-show")

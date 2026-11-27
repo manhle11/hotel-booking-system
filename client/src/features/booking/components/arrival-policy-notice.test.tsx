@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '../../../lib/axios';
 import { ArrivalPolicyNotice } from './arrival-policy-notice';
@@ -59,6 +59,24 @@ describe('booking-specific accepted policy', () => {
     const ready = mount();
     await screen.findByText('Chưa tải được chính sách và căn cứ phí');
     expect(ready).not.toHaveBeenCalledWith(true);
+  });
+  it('lets the customer reload a failed policy and enables checkout only after recovery', async () => {
+    vi.mocked(apiClient.get)
+      .mockRejectedValueOnce(new Error('Đã xảy ra lỗi không mong muốn'))
+      .mockResolvedValueOnce({ data: { data: policy } });
+    const ready = mount();
+    await screen.findByText('Chưa tải được chính sách và căn cứ phí');
+    expect(ready).not.toHaveBeenCalledWith(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thử tải lại' }));
+
+    await screen.findByText('Căn cứ P — giá phòng đêm đầu gốc');
+    await waitFor(() => expect(ready).toHaveBeenLastCalledWith(true));
+    expect(screen.queryByText('Chưa tải được chính sách và căn cứ phí')).toBeNull();
+    expect(apiClient.get).toHaveBeenCalledTimes(2);
+    expect(apiClient.get).toHaveBeenLastCalledWith('/bookings/BK-TEST/booking-policy', {
+      headers: { 'X-Booking-Access-Token': 'secret' },
+    });
   });
   it('does not present the new fee schedule as accepted by a legacy booking', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({
